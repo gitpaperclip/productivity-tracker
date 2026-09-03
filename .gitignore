@@ -2,3 +2,8 @@ node_modules/
 data/stats.json
 data/settings.json
 *.log
+
+bun.lock
+renderer/_b64.txt
+renderer/_body.txt
+renderer/renderer.txt
