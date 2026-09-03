@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>FocusFlow</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <h1>FocusFlow</h1>
+          <p class="tag">Active-window time · classify · remind</p>
+        </div>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="dash">Today</button>
+        <button class="tab" data-tab="settings">Settings</button>
+      </nav>
+    </header>
+
+    <div id="banner" class="banner hidden" role="status">
+      <strong>Refocus</strong>
+      <span id="banner-text"></span>
+      <button id="banner-dismiss" type="button">Dismiss</button>
+    </div>
+
+    <section id="view-dash" class="view">
+      <article class="card now">
+        <div class="now-kicker">
+          <span>Now viewing</span>
+          <span id="source-pill" class="pill demo">demo</span>
+        </div>
+        <h2 id="now-app">Waiting for a window…</h2>
+        <p id="now-title" class="muted">The tracker polls every 1.5s</p>
+        <div class="now-meta">
+          <span id="now-cat" class="cat other">other</span>
+          <span id="now-elapsed" class="elapsed">0:00 on this window</span>
+        </div>
+      </article>
+
+      <div class="grid">
+        <article class="card totals">
+          <h3>Today</h3>
+          <div class="bars">
+            <div>
+              <div class="bar-label"><span>Productive</span><span id="prod-val">0:00</span></div>
+              <div class="track"><div id="prod-bar" class="fill prod"></div></div>
+            </div>
+            <div>
+              <div class="bar-label"><span>Unproductive</span><span id="unprod-val">0:00</span></div>
+              <div class="track"><div id="unprod-bar" class="fill unprod"></div></div>
+            </div>
+            <div>
+              <div class="bar-label"><span>Other</span><span id="other-val">0:00</span></div>
+              <div class="track"><div id="other-bar" class="fill other"></div></div>
+            </div>
+          </div>
+          <p class="streak muted">Unproductive streak: <strong id="streak">0:00</strong> · threshold <span id="thresh-label">10:00</span></p>
+        </article>
+
+        <article class="card apps">
+          <h3>Top apps</h3>
+          <ul id="app-list" class="app-list">
+            <li class="empty">No time logged yet — keep the window open.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="view-settings" class="view hidden">
+      <article class="card">
+        <h3>Tracker</h3>
+        <label class="row">
+          <span>Demo / simulator mode</span>
+          <input type="checkbox" id="demo-toggle" />
+        </label>
+        <p class="hint">Cycles realistic windows so FocusFlow is fully demoable without Accessibility permissions (and on a headless VM).</p>
+        <label class="row">
+          <span>Reminder threshold (minutes)</span>
+          <input type="number" id="threshold-min" min="0.1" step="0.5" value="10" />
+        </label>
+        <label class="row">
+          <span>Or seconds (demo)</span>
+          <input type="number" id="threshold-sec" min="5" step="5" value="600" />
+        </label>
+        <p class="hint">Default is 10 minutes. Set 30 seconds to see a reminder in demo mode without waiting. Env override: <code>FOCUSFLOW_THRESHOLD_SEC=30</code>.</p>
+        <p class="path muted">Data: <code id="data-path">./data</code></p>
+      </article>
+      <article class="card">
+        <h3>Classification rules</h3>
+        <p class="hint">Case-insensitive substring match on process name + window title + URL. Unproductive wins if both match.</p>
+        <div class="rules-cols">
+          <div>
+            <h4 class="prod">Productive</h4>
+            <ul id="rules-prod" class="rules"></ul>
+          </div>
+          <div>
+            <h4 class="unprod">Unproductive</h4>
+            <ul id="rules-unprod" class="rules"></ul>
+          </div>
+        </div>
+      </article>
+    </section>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
