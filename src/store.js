@@ -1,4 +1,4 @@
-'use strict';
+use strict';
 
 const fs = require('fs');
 const path = require('path');
@@ -34,18 +34,29 @@ function createStore(dataDir) {
   let settings = Object.assign(
     {
       thresholdSec: defaultThresholdSec(),
-      demoMode: defaultDemoMode(),
+      demoMode: false,
       reminderCooldownSec: 90,
       pollMs: 1500
     },
     loadJson(settingsPath) || {}
   );
 
-  // Env always wins for a given session (demo / CI)
   if (process.env.FOCUSFLOW_THRESHOLD_SEC) {
     settings.thresholdSec = Number(process.env.FOCUSFLOW_THRESHOLD_SEC);
   }
   if (process.env.FOCUSFLOW_DEMO === '1' || process.env.FOCUSFLOW_DEMO === 'true') {
+    settings.demoMode = true;
+  } else if (process.env.FOCUSFLOW_DEMO === '0' || process.env.FOCUSFLOW_DEMO === 'false') {
+    settings.demoMode = false;
+  }
+
+  // Headless Linux only — never auto-demo on Windows/macOS
+  if (
+    process.platform === 'linux' &&
+    !process.env.DISPLAY &&
+    process.env.FOCUSFLOW_FORCE_REAL !== '1' &&
+    process.env.FOCUSFLOW_DEMO == null
+  ) {
     settings.demoMode = true;
   }
 
@@ -92,7 +103,6 @@ function createStore(dataDir) {
     } else if (category === 'productive') {
       state.unproductiveStreak = 0;
     }
-    // "other" does not reset the unproductive streak and does not grow it
 
     persistStats();
     return state;
@@ -159,13 +169,6 @@ function defaultThresholdSec() {
     return Number(process.env.FOCUSFLOW_THRESHOLD_SEC);
   }
   return 10 * 60;
-}
-
-function defaultDemoMode() {
-  if (process.env.FOCUSFLOW_FORCE_REAL === '1') return false;
-  if (process.env.FOCUSFLOW_DEMO === '0' || process.env.FOCUSFLOW_DEMO === 'false') return false;
-  if (process.env.FOCUSFLOW_DEMO === '1' || process.env.FOCUSFLOW_DEMO === 'true') return true;
-  return true;
 }
 
 function loadJson(p) {

@@ -8,7 +8,6 @@ const { loadRules } = require('./classifier');
 const { createStore } = require('./store');
 const { createTracker } = require('./tracker');
 
-// Headless / CI-friendly Chromium flags
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-dev-shm-usage');
@@ -21,9 +20,7 @@ let rules = null;
 function dataDir() {
   try {
     if (app.isPackaged) return app.getPath('userData');
-  } catch (_) {
-    /* unpackaged */
-  }
+  } catch (_) {}
   const local = path.join(__dirname, '..', 'data');
   fs.mkdirSync(local, { recursive: true });
   return local;
@@ -31,13 +28,14 @@ function dataDir() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 980,
-    height: 720,
-    minWidth: 760,
-    minHeight: 560,
+    width: 1040,
+    height: 760,
+    minWidth: 800,
+    minHeight: 600,
     title: 'FocusFlow',
-    backgroundColor: '#12110e',
+    backgroundColor: '#0b0d12',
     autoHideMenuBar: true,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -47,6 +45,7 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -77,15 +76,12 @@ function startServices() {
   rules = loadRules();
   store = createStore(dataDir());
 
-  // Auto-demo on Linux without a real desktop session unless user opted out
-  const settings = store.getSettings();
-  if (
-    !settings.demoMode &&
-    process.platform === 'linux' &&
-    process.env.FOCUSFLOW_FORCE_REAL !== '1' &&
-    (process.env.FOCUSFLOW_AUTO_DEMO === '1' || process.env.XDG_SESSION_TYPE === 'tty')
-  ) {
-    store.updateSettings({ demoMode: true });
+  // Force real tracking on Windows/macOS unless user opted into demo
+  if ((process.platform === 'win32' || process.platform === 'darwin') && process.env.FOCUSFLOW_DEMO == null) {
+    const s = store.getSettings();
+    if (s.demoMode) {
+      store.updateSettings({ demoMode: false });
+    }
   }
 
   tracker = createTracker({
@@ -114,19 +110,15 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-ipcMain.handle('state:get', async () => {
-  return {
-    now: null,
-    stats: store ? store.snapshot() : null
-  };
-});
+ipcMain.handle('state:get', async () => ({
+  now: null,
+  stats: store ? store.snapshot() : null,
+  platform: process.platform
+}));
 
-ipcMain.handle('rules:get', async () => {
-  return rules;
-});
+ipcMain.handle('rules:get', async () => rules);
 
 ipcMain.handle('settings:update', async (_e, partial) => {
   if (!store) return {};
-  const next = store.updateSettings(partial || {});
-  return next;
+  return store.updateSettings(partial || {});
 });

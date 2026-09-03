@@ -8,104 +8,142 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app">
-    <header class="top">
-      <div class="brand">
-        <span class="mark" aria-hidden="true"></span>
+  <div class="shell">
+    <aside class="rail">
+      <div class="logo">
+        <span class="logo-mark"></span>
         <div>
-          <h1>FocusFlow</h1>
-          <p class="tag">Active-window time · classify · remind</p>
+          <div class="logo-name">FocusFlow</div>
+          <div class="logo-sub">Productivity</div>
         </div>
       </div>
-      <nav class="tabs" role="tablist">
-        <button class="tab active" data-tab="dash">Today</button>
-        <button class="tab" data-tab="settings">Settings</button>
+      <nav class="nav">
+        <button class="nav-btn active" data-tab="dash" type="button">
+          <span class="nav-ico">◉</span> Today
+        </button>
+        <button class="nav-btn" data-tab="settings" type="button">
+          <span class="nav-ico">⚙</span> Settings
+        </button>
       </nav>
-    </header>
-
-    <div id="banner" class="banner hidden" role="status">
-      <strong>Refocus</strong>
-      <span id="banner-text"></span>
-      <button id="banner-dismiss" type="button">Dismiss</button>
-    </div>
-
-    <section id="view-dash" class="view">
-      <article class="card now">
-        <div class="now-kicker">
-          <span>Now viewing</span>
-          <span id="source-pill" class="pill demo">demo</span>
-        </div>
-        <h2 id="now-app">Waiting for a window…</h2>
-        <p id="now-title" class="muted">The tracker polls every 1.5s</p>
-        <div class="now-meta">
-          <span id="now-cat" class="cat other">other</span>
-          <span id="now-elapsed" class="elapsed">0:00 on this window</span>
-        </div>
-      </article>
-
-      <div class="grid">
-        <article class="card totals">
-          <h3>Today</h3>
-          <div class="bars">
-            <div>
-              <div class="bar-label"><span>Productive</span><span id="prod-val">0:00</span></div>
-              <div class="track"><div id="prod-bar" class="fill prod"></div></div>
-            </div>
-            <div>
-              <div class="bar-label"><span>Unproductive</span><span id="unprod-val">0:00</span></div>
-              <div class="track"><div id="unprod-bar" class="fill unprod"></div></div>
-            </div>
-            <div>
-              <div class="bar-label"><span>Other</span><span id="other-val">0:00</span></div>
-              <div class="track"><div id="other-bar" class="fill other"></div></div>
-            </div>
-          </div>
-          <p class="streak muted">Unproductive streak: <strong id="streak">0:00</strong> · threshold <span id="thresh-label">10:00</span></p>
-        </article>
-
-        <article class="card apps">
-          <h3>Top apps</h3>
-          <ul id="app-list" class="app-list">
-            <li class="empty">No time logged yet — keep the window open.</li>
-          </ul>
-        </article>
+      <div class="rail-foot">
+        <div id="source-pill" class="status-pill idle">Idle</div>
+        <div id="platform-label" class="muted tiny">—</div>
       </div>
-    </section>
+    </aside>
 
-    <section id="view-settings" class="view hidden">
-      <article class="card">
-        <h3>Tracker</h3>
-        <label class="row">
-          <span>Demo / simulator mode</span>
-          <input type="checkbox" id="demo-toggle" />
-        </label>
-        <p class="hint">Cycles realistic windows so FocusFlow is fully demoable without Accessibility permissions (and on a headless VM).</p>
-        <label class="row">
-          <span>Reminder threshold (minutes)</span>
-          <input type="number" id="threshold-min" min="0.1" step="0.5" value="10" />
-        </label>
-        <label class="row">
-          <span>Or seconds (demo)</span>
-          <input type="number" id="threshold-sec" min="5" step="5" value="600" />
-        </label>
-        <p class="hint">Default is 10 minutes. Set 30 seconds to see a reminder in demo mode without waiting. Env override: <code>FOCUSFLOW_THRESHOLD_SEC=30</code>.</p>
-        <p class="path muted">Data: <code id="data-path">./data</code></p>
-      </article>
-      <article class="card">
-        <h3>Classification rules</h3>
-        <p class="hint">Case-insensitive substring match on process name + window title + URL. Unproductive wins if both match.</p>
-        <div class="rules-cols">
-          <div>
-            <h4 class="prod">Productive</h4>
-            <ul id="rules-prod" class="rules"></ul>
-          </div>
-          <div>
-            <h4 class="unprod">Unproductive</h4>
-            <ul id="rules-unprod" class="rules"></ul>
-          </div>
+    <main class="main">
+      <div id="banner" class="banner hidden" role="status">
+        <div>
+          <div class="banner-kicker">Refocus</div>
+          <div id="banner-text"></div>
         </div>
-      </article>
-    </section>
+        <button id="banner-dismiss" type="button">Dismiss</button>
+      </div>
+
+      <section id="view-dash" class="view">
+        <header class="page-head">
+          <div>
+            <h1>Today</h1>
+            <p class="muted" id="date-label">Live window tracking</p>
+          </div>
+        </header>
+
+        <article class="hero card">
+          <div class="hero-top">
+            <span class="kicker">Now viewing</span>
+            <span id="now-cat" class="chip other">other</span>
+          </div>
+          <h2 id="now-app">Waiting for a window…</h2>
+          <p id="now-title" class="muted title-line">Grant focus to any app to start</p>
+          <div class="hero-meta">
+            <div class="meta-block">
+              <span class="meta-label">On this window</span>
+              <span id="now-elapsed" class="meta-value">0:00</span>
+            </div>
+            <div class="meta-block">
+              <span class="meta-label">Unproductive streak</span>
+              <span id="streak" class="meta-value">0:00</span>
+            </div>
+            <div class="meta-block">
+              <span class="meta-label">Reminder at</span>
+              <span id="thresh-label" class="meta-value">10:00</span>
+            </div>
+          </div>
+          <p id="track-hint" class="hint hidden"></p>
+        </article>
+
+        <div class="grid-2">
+          <article class="card">
+            <h3>Breakdown</h3>
+            <div class="bars">
+              <div class="bar-row">
+                <div class="bar-label"><span>Productive</span><span id="prod-val">0:00</span></div>
+                <div class="track"><div id="prod-bar" class="fill prod"></div></div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label"><span>Unproductive</span><span id="unprod-val">0:00</span></div>
+                <div class="track"><div id="unprod-bar" class="fill unprod"></div></div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label"><span>Other</span><span id="other-val">0:00</span></div>
+                <div class="track"><div id="other-bar" class="fill other"></div></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Top apps</h3>
+            <ul id="app-list" class="app-list">
+              <li class="empty">No time logged yet</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view hidden">
+        <header class="page-head">
+          <div>
+            <h1>Settings</h1>
+            <p class="muted">Tracking, reminders, and rules</p>
+          </div>
+        </header>
+
+        <article class="card">
+          <h3>Tracker</h3>
+          <label class="switch-row">
+            <div>
+              <div class="switch-title">Demo / simulator mode</div>
+              <div class="hint">Off by default on Windows. Uses real foreground window via active-win.</div>
+            </div>
+            <input type="checkbox" id="demo-toggle" />
+          </label>
+          <label class="field">
+            <span>Reminder threshold (minutes)</span>
+            <input type="number" id="threshold-min" min="0.1" step="0.5" value="10" />
+          </label>
+          <label class="field">
+            <span>Or seconds (for quick demos)</span>
+            <input type="number" id="threshold-sec" min="5" step="5" value="600" />
+          </label>
+          <p class="hint">Data folder: <code id="data-path">./data</code></p>
+        </article>
+
+        <article class="card">
+          <h3>Classification rules</h3>
+          <p class="hint">Case-insensitive match on process + title + URL. Unproductive wins on overlap.</p>
+          <div class="rules-cols">
+            <div>
+              <h4 class="prod">Productive</h4>
+              <ul id="rules-prod" class="rules"></ul>
+            </div>
+            <div>
+              <h4 class="unprod">Unproductive</h4>
+              <ul id="rules-unprod" class="rules"></ul>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
   </div>
   <script src="renderer.js"></script>
 </body>

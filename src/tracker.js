@@ -6,6 +6,7 @@ const { classify, appLabel } = require('./classifier');
 function createRealBackend() {
   let impl = null;
   let failed = false;
+  let lastError = null;
 
   async function load() {
     if (impl || failed) return impl;
@@ -14,7 +15,8 @@ function createRealBackend() {
       impl = mod.default || mod;
       return impl;
     } catch (err) {
-      console.warn('[tracker] active-win unavailable:', err.message);
+      lastError = err.message || String(err);
+      console.warn('[tracker] active-win unavailable:', lastError);
       failed = true;
       return null;
     }
@@ -22,13 +24,18 @@ function createRealBackend() {
 
   async function getActiveWindow() {
     const fn = await load();
-    if (!fn) return null;
+    if (!fn) return { window: null, error: lastError || 'active-win not loaded' };
     try {
-      const win = await fn({ accessibilityPermission: false, screenRecordingPermission: false });
-      return win || null;
+      const win = await fn({
+        accessibilityPermission: false,
+        screenRecordingPermission: false
+      });
+      if (!win) return { window: null, error: null };
+      return { window: win, error: null };
     } catch (err) {
-      console.warn('[tracker] getActiveWindow failed:', err.message);
-      return null;
+      lastError = err.message || String(err);
+      console.warn('[tracker] getActiveWindow failed:', lastError);
+      return { window: null, error: lastError };
     }
   }
 
@@ -42,54 +49,69 @@ function createTracker({ store, rules, onTick, onReminder }) {
   let lastTick = Date.now();
   let current = {
     window: null,
-    app: null,
+    app: '—',
     title: 'Waiting…',
     category: 'other',
     since: Date.now(),
     source: 'idle'
   };
 
-  async function sampleWindow() {
-    const settings = store.getSettings();
-    if (settings.demoMode) {
-      return { win: demo.getActiveWindow(), source: 'demo' };
-    }
-    const win = await real.getActiveWindow();
-    if (win) return { win, source: 'real' };
-    return { win: demo.getActiveWindow(), source: 'fallback-demo' };
-  }
-
   async function poll() {
     const now = Date.now();
     const elapsed = Math.min(5, Math.max(0, (now - lastTick) / 1000));
     lastTick = now;
 
-    if (current.app) {
-      store.addSeconds(current.app, current.category, elapsed);
-      if (store.shouldRemind() && current.category === 'unproductive') {
-        store.markReminder();
-        if (onReminder) {
-          onReminder({
-            streak: store.snapshot().unproductiveStreak,
-            threshold: store.getSettings().thresholdSec,
-            app: current.app,
-            title: current.title
-          });
-        }
+    const settings = store.getSettings();
+    let win = null;
+    let source = 'demo';
+    let trackingError = null;
+
+    if (settings.demoMode) {
+      win = demo.getActiveWindow();
+      source = 'demo';
+    } else {
+      const result = await real.getActiveWindow();
+      win = result.window;
+      trackingError = result.error;
+      if (win) {
+        source = 'real';
+      } else {
+        source = 'idle';
       }
     }
 
-    const { win, source } = await sampleWindow();
-    const category = classify(win, rules);
-    const app = appLabel(win);
-    const title = (win && win.title) || '';
-    const same = current.app === app && current.title === title && current.category === category;
+    const category = win ? classify(win, rules) : 'other';
+    const app = win ? appLabel(win) : (trackingError ? 'Tracking unavailable' : 'No active window');
+    const title = (win && win.title) || (trackingError
+      ? trackingError
+      : (settings.demoMode ? '' : 'Switch apps to start tracking'));
+
+    const same =
+      current.app === app &&
+      current.title === title &&
+      current.category === category;
 
     if (!same) {
       current = { window: win, app, title, category, since: now, source };
     } else {
       current.window = win;
       current.source = source;
+    }
+
+    if (win) {
+      store.addSeconds(app, category, elapsed);
+    }
+
+    if (win && store.shouldRemind() && category === 'unproductive') {
+      store.markReminder();
+      if (onReminder) {
+        onReminder({
+          streak: store.snapshot().unproductiveStreak,
+          threshold: settings.thresholdSec,
+          app,
+          title
+        });
+      }
     }
 
     if (onTick) {
@@ -100,7 +122,8 @@ function createTracker({ store, rules, onTick, onReminder }) {
           category,
           source,
           url: (win && win.url) || '',
-          elapsedSec: Math.round((now - current.since) / 1000)
+          elapsedSec: Math.round((now - current.since) / 1000),
+          trackingError
         },
         stats: store.snapshot()
       });

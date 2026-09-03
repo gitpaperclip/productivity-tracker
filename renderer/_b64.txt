@@ -1,0 +1,135 @@
+'use strict';
+
+const $ = (id) => document.getElementById(id);
+
+const els = {
+  banner: $('banner'),
+  bannerText: $('banner-text'),
+  bannerDismiss: $('banner-dismiss'),
+  viewDash: $('view-dash'),
+  viewSettings: $('view-settings'),
+  nowApp: $('now-app'),
+  nowTitle: $('now-title'),
+  nowCat: $('now-cat'),
+  nowElapsed: $('now-elapsed'),
+  sourcePill: $('source-pill'),
+  trackHint: $('track-hint'),
+  streak: $('streak'),
+  threshLabel: $('thresh-label'),
+  dateLabel: $('date-label'),
+  prodVal: $('prod-val'),
+  unprodVal: $('unprod-val'),
+  otherVal: $('other-val'),
+  prodBar: $('prod-bar'),
+  unprodBar: $('unprod-bar'),
+  otherBar: $('other-bar'),
+  appList: $('app-list'),
+  demoToggle: $('demo-toggle'),
+  thresholdMin: $('threshold-min'),
+  thresholdSec: $('threshold-sec'),
+  dataPath: $('data-path'),
+  rulesProd: $('rules-prod'),
+  rulesUnprod: $('rules-unprod'),
+  platformLabel: $('platform-label')
+};
+
+const api = window.focusflow;
+let syncingSettings = false;
+
+function formatTime(totalSec) {
+  const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function setChip(el, category) {
+  const cat = category || 'other';
+  el.className = 'chip ' + cat;
+  el.textContent = cat;
+}
+
+function setSourcePill(source) {
+  const pill = els.sourcePill;
+  pill.classList.remove('real', 'demo', 'idle', 'fallback-demo');
+  if (source === 'real') {
+    pill.classList.add('real');
+    pill.textContent = 'Live tracking';
+  } else if (source === 'demo') {
+    pill.classList.add('demo');
+    pill.textContent = 'Demo mode';
+  } else {
+    pill.classList.add('idle');
+    pill.textContent = 'Waiting';
+  }
+}
+
+function platformName(p) {
+  if (p === 'win32') return 'Windows';
+  if (p === 'darwin') return 'macOS';
+  if (p === 'linux') return 'Linux';
+  return p || '—';
+}
+
+function showBanner(text) {
+  els.bannerText.textContent = text || 'Time to refocus.';
+  els.banner.classList.remove('hidden');
+}
+
+function hideBanner() {
+  els.banner.classList.add('hidden');
+}
+
+function switchTab(tab) {
+  const isDash = tab === 'dash';
+  els.viewDash.classList.toggle('hidden', !isDash);
+  els.viewSettings.classList.toggle('hidden', isDash);
+  document.querySelectorAll('.nav-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+}
+
+function renderBars(byCategory) {
+  const prod = Number(byCategory && byCategory.productive) || 0;
+  const unprod = Number(byCategory && byCategory.unproductive) || 0;
+  const other = Number(byCategory && byCategory.other) || 0;
+  const total = Math.max(1, prod + unprod + other);
+  els.prodVal.textContent = formatTime(prod);
+  els.unprodVal.textContent = formatTime(unprod);
+  els.otherVal.textContent = formatTime(other);
+  els.prodBar.style.width = ((prod / total) * 100) + '%';
+  els.unprodBar.style.width = ((unprod / total) * 100) + '%';
+  els.otherBar.style.width = ((other / total) * 100) + '%';
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderAppList(topApps) {
+  const apps = Array.isArray(topApps) ? topApps : [];
+  if (!apps.length) {
+    els.appList.innerHTML = '<li class="empty">No time logged yet</li>';
+    return;
+  }
+  els.appList.innerHTML = apps
+    .map((app) => {
+      const name = escapeHtml(app.name || 'Unknown');
+      const cat = escapeHtml(app.category || 'other');
+      const secs = formatTime(app.seconds);
+      return '<li><span>' + name + '</span><span class="chip ' + cat + '">' + cat + '</span><span class="secs">' + secs + '</span></li>';
+    })
+    .join('');
+}
+
+function renderRules(rules) {
+  const prod = (rules && rules.productive) || [];
+  const unprod = (rules && rules.unproductive) || [];
+  els.rulesProd.innerHTML = prod.map((r) => '<li>' + escapeHtml(r) + '</li>').join('') || '<li class="empty">None</li>';
+  els.rulesUnprod.innerHTML = unprod.map((r) => '<li>' + escapeHtml(r) + '</li>').join('') || '<li class="empty">None</li>';
+}
+
