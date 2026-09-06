@@ -152,6 +152,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
       current.source = source;
     }
 
+    // NEVER count ignored toward totals or streaks
     if (win && !ignored) {
       store.addSeconds(app, category, elapsed);
     }
@@ -160,7 +161,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
       store.markReminder();
       if (onReminder) {
         onReminder({
-          streak: store.snapshot().unproductiveStreak,
+          streak: store.snapshot(iHolder.ignore || []).unproductiveStreak,
           threshold: settings.thresholdSec,
           app,
           title
@@ -180,13 +181,13 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
           elapsedSec: Math.round((now - current.since) / 1000),
           trackingError
         },
-        stats: store.snapshot()
+        stats: store.snapshot(iHolder.ignore || [])
       });
     }
   }
 
   function start() {
-    if (timer) return;
+    if (timer) return; // idempotent
     lastTick = Date.now();
     poll();
     const ms = store.getSettings().pollMs || 1500;

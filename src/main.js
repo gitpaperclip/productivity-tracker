@@ -8,6 +8,7 @@ const {
   loadRulesFrom,
   saveRules,
   loadIgnoreFrom,
+  saveIgnore,
   DEFAULT_RULES_PATH,
   DEFAULT_IGNORE_PATH
 } = require('./classifier');
@@ -20,7 +21,6 @@ app.commandLine.appendSwitch('disable-dev-shm-usage');
 
 let mainWindow = null;
 let tracker = null;
-let lastPayload = null;
 let store = null;
 /** Mutable holders so tracker picks up hot-reloaded rules/ignore. */
 const rulesHolder = { rules: null };
@@ -29,6 +29,9 @@ let rulesFilePath = null;
 let rulesIsCustom = false;
 let ignoreFilePath = null;
 let ignoreIsCustom = false;
+/** Last tracker tick — so state:get can return `now`. */
+let lastPayload = { now: null, stats: null };
+let servicesStarted = false;
 
 function dataDir() {
   try {
@@ -113,7 +116,8 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    startServices();
+    // Start tracker after window is visible
+    ensureTrackerStarted();
   });
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -141,8 +145,10 @@ function fireReminder(payload) {
   }
 }
 
+/** Idempotent: load rules/ignore/store once. Tracker starts separately after show. */
 function startServices() {
-  if (tracker) return;
+  if (servicesStarted) return;
+  servicesStarted = true;
   loadAppRules();
   loadAppIgnore();
   store = createStore(dataDir());
@@ -154,7 +160,14 @@ function startServices() {
       store.updateSettings({ demoMode: false });
     }
   }
+}
 
+function ensureTrackerStarted() {
+  if (tracker) {
+    tracker.start(); // idempotent inside tracker
+    return;
+  }
+  if (!store) startServices();
   tracker = createTracker({
     store,
     rulesHolder,
@@ -171,6 +184,7 @@ function startServices() {
 }
 
 app.whenReady().then(() => {
+  startServices();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -183,8 +197,8 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('state:get', async () => ({
-  now: lastPayload ? lastPayload.now : null,
-  stats: store ? store.snapshot() : null,
+  now: lastPayload.now || null,
+  stats: store ? store.snapshot(ignoreHolder.ignore || []) : lastPayload.stats,
   platform: process.platform
 }));
 
@@ -212,6 +226,28 @@ ipcMain.handle('rules:reset', async () => {
 });
 
 ipcMain.handle('ignore:get', async () => ignorePayload());
+
+ipcMain.handle('ignore:set', async (_e, next) => {
+  const dest = userIgnorePath();
+  const list = Array.isArray(next) ? next : (next && next.ignore) || [];
+  ignoreHolder.ignore = saveIgnore(dest, list);
+  ignoreFilePath = dest;
+  ignoreIsCustom = true;
+  return ignorePayload();
+});
+
+ipcMain.handle('ignore:reset', async () => {
+  const dest = userIgnorePath();
+  try {
+    if (fs.existsSync(dest)) fs.unlinkSync(dest);
+  } catch (err) {
+    console.warn('[main] could not remove custom ignore', err.message);
+  }
+  ignoreHolder.ignore = loadIgnoreFrom(DEFAULT_IGNORE_PATH);
+  ignoreFilePath = DEFAULT_IGNORE_PATH;
+  ignoreIsCustom = false;
+  return ignorePayload();
+});
 
 ipcMain.handle('settings:update', async (_e, partial) => {
   if (!store) return {};

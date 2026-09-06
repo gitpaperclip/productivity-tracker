@@ -10,12 +10,21 @@
     "systemsettings",
     "lockapp",
     "dwm",
+    "progman",
     "taskmgr",
     "securityhealthsystray",
     "nvidia share",
     "windows shell experience",
-    "progman",
+    "cross device experience host",
+    "widgets",
+    "phoneexperiencehost",
+    "taskbar",
     "calculator",
-    "calc"
+    "calc",
+    "focusflow",
+    "runtimebroker",
+    "sihost",
+    "ctfmon",
+    "conhost"
   ]
 }

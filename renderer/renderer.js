@@ -24,6 +24,9 @@ function esc(s) {
 
 const api = window.focusflow;
 let applying = false;
+/** Cached rules/ignore for one-click reclassify. */
+let cachedRules = { productive: [], unproductive: [] };
+let cachedIgnore = [];
 
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -112,20 +115,76 @@ function renderStats(stats) {
     return;
   }
   list.innerHTML = apps
-    .map(
-      (a) =>
-        '<li><span>' +
-        esc(a.name) +
-        '</span><span class="chip ' +
+    .map((a) => {
+      const name = esc(a.name);
+      const raw = encodeURIComponent(a.name);
+      return (
+        '<li class="app-row">' +
+        '<span class="app-name" title="' +
+        name +
+        '">' +
+        name +
+        '</span>' +
+        '<span class="chip ' +
         a.category +
         '">' +
         a.category +
-        '</span><span class="secs">' +
+        '</span>' +
+        '<span class="secs">' +
         fmt(a.seconds) +
-        '</span></li>'
-    )
+        '</span>' +
+        '<span class="reclass" data-app="' +
+        raw +
+        '">' +
+        '<button type="button" class="btn-mini prod" data-action="productive" title="Mark productive">P</button>' +
+        '<button type="button" class="btn-mini unprod" data-action="unproductive" title="Mark unproductive">U</button>' +
+        '<button type="button" class="btn-mini ignore" data-action="ignore" title="Ignore">Ign</button>' +
+        '</span>' +
+        '</li>'
+      );
+    })
     .join('');
 }
+
+$('app-list').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-action]');
+  if (!btn || !api) return;
+  const wrap = btn.closest('.reclass');
+  if (!wrap) return;
+  const appName = decodeURIComponent(wrap.getAttribute('data-app') || '');
+  if (!appName) return;
+  const action = btn.getAttribute('data-action');
+  btn.disabled = true;
+  try {
+    if (action === 'ignore') {
+      const next = cachedIgnore.slice();
+      const key = appName.trim().toLowerCase();
+      if (!next.map((x) => x.toLowerCase()).includes(key)) next.push(appName.trim());
+      const payload = await api.setIgnore(next);
+      cachedIgnore = (payload && payload.ignore) || next;
+      fillIgnoreEditor({ ignore: cachedIgnore, path: payload && payload.path, isCustom: true });
+    } else if (action === 'productive' || action === 'unproductive') {
+      const prod = (cachedRules.productive || []).slice();
+      const unprod = (cachedRules.unproductive || []).slice();
+      const key = appName.trim().toLowerCase();
+      const strip = (arr) => arr.filter((k) => k.toLowerCase() !== key);
+      let nextProd = strip(prod);
+      let nextUnprod = strip(unprod);
+      if (action === 'productive') nextProd.push(appName.trim());
+      else nextUnprod.push(appName.trim());
+      const next = await api.setRules({ productive: nextProd, unproductive: nextUnprod });
+      cachedRules = {
+        productive: (next && next.productive) || nextProd,
+        unproductive: (next && next.unproductive) || nextUnprod
+      };
+      fillRulesEditors(next);
+    }
+  } catch (err) {
+    console.warn('reclassify failed', err);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 async function pushSettings(partial) {
   if (!api) return;
@@ -158,21 +217,24 @@ function linesToList(text) {
 
 function fillRulesEditors(rules) {
   if (!rules) return;
+  cachedRules = {
+    productive: rules.productive || [],
+    unproductive: rules.unproductive || []
+  };
   $('rules-prod-edit').value = (rules.productive || []).join('\n');
   $('rules-unprod-edit').value = (rules.unproductive || []).join('\n');
   if (rules.path) $('rules-path').textContent = rules.path;
   $('rules-custom-label').textContent = rules.isCustom ? '(custom)' : '(defaults)';
 }
 
-function fillIgnoreList(payload) {
-  const list = $('ignore-list');
+function fillIgnoreEditor(payload) {
   const items = (payload && payload.ignore) || [];
-  if (!items.length) {
-    list.innerHTML = '<li class="empty">None</li>';
-  } else {
-    list.innerHTML = items.map((k) => '<li>' + esc(k) + '</li>').join('');
-  }
+  cachedIgnore = items.slice();
+  const ta = $('ignore-edit');
+  if (ta) ta.value = items.join('\n');
   if (payload && payload.path) $('ignore-path').textContent = payload.path;
+  const label = $('ignore-custom-label');
+  if (label) label.textContent = payload && payload.isCustom ? '(custom)' : '(defaults)';
 }
 
 async function loadRulesAndIgnore() {
@@ -186,7 +248,7 @@ async function loadRulesAndIgnore() {
   try {
     if (api.getIgnore) {
       const ign = await api.getIgnore();
-      fillIgnoreList(ign);
+      fillIgnoreEditor(ign);
     }
   } catch (_) {}
 }
@@ -218,12 +280,37 @@ $('rules-reset').addEventListener('click', async () => {
   }
 });
 
+$('ignore-save').addEventListener('click', async () => {
+  if (!api || !api.setIgnore) return;
+  $('ignore-status').textContent = 'Saving…';
+  try {
+    const next = await api.setIgnore(linesToList($('ignore-edit').value));
+    fillIgnoreEditor(next);
+    $('ignore-status').textContent = 'Saved — live now';
+  } catch (err) {
+    $('ignore-status').textContent = 'Save failed';
+  }
+});
+
+$('ignore-reset').addEventListener('click', async () => {
+  if (!api || !api.resetIgnore) return;
+  $('ignore-status').textContent = 'Resetting…';
+  try {
+    const next = await api.resetIgnore();
+    fillIgnoreEditor(next);
+    $('ignore-status').textContent = 'Defaults restored';
+  } catch (err) {
+    $('ignore-status').textContent = 'Reset failed';
+  }
+});
+
 async function boot() {
   if (!api) return;
   try {
     const state = await api.getState();
     if (state) {
       if (state.platform) $('platform-label').textContent = state.platform;
+      if (state.now) renderNow(state.now);
       renderStats(state.stats);
     }
   } catch (_) {}

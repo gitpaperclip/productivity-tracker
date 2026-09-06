@@ -93,6 +93,7 @@
 
           <article class="card">
             <h3>Top apps</h3>
+            <p class="hint top-apps-hint">Reclassify with one click — adds the process name to keywords or ignore.</p>
             <ul id="app-list" class="app-list">
               <li class="empty">No time logged yet</li>
             </ul>
@@ -130,7 +131,7 @@
 
         <article class="card">
           <h3>Classification keywords</h3>
-          <p class="hint">Matches process name, window title, and URL. Unproductive wins on overlap. Chrome titles like ‘YouTube’ count.</p>
+          <p class="hint">Matches process name, window title, and URL. Unproductive wins on overlap. Browsers (Chrome/Edge/Firefox/…) are classified by title/URL only — bare browser stays “other”.</p>
           <div class="rules-cols">
             <div>
               <h4 class="prod">Productive</h4>
@@ -151,9 +152,14 @@
 
         <article class="card">
           <h3>Ignored system apps</h3>
-          <p class="hint">Shown in Now viewing but not logged (no time, no streak). Shell / OS chrome noise.</p>
-          <ul id="ignore-list" class="rules ignore-list"></ul>
-          <p class="hint">File: <code id="ignore-path">src/ignore.json</code></p>
+          <p class="hint">Shown in Now viewing but not logged (no time, no streak). One process name / keyword per line.</p>
+          <textarea id="ignore-edit" class="rules-textarea" spellcheck="false" rows="10" placeholder="one process name per line"></textarea>
+          <div class="rules-actions">
+            <button type="button" id="ignore-save" class="btn primary">Save ignore list</button>
+            <button type="button" id="ignore-reset" class="btn ghost">Reset to defaults</button>
+            <span id="ignore-status" class="muted tiny"></span>
+          </div>
+          <p class="hint">File: <code id="ignore-path">src/ignore.json</code> <span id="ignore-custom-label"></span></p>
         </article>
       </section>
     </main>

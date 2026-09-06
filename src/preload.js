@@ -18,5 +18,7 @@ contextBridge.exposeInMainWorld('focusflow', {
   setRules: (rules) => ipcRenderer.invoke('rules:set', rules),
   resetRules: () => ipcRenderer.invoke('rules:reset'),
   getIgnore: () => ipcRenderer.invoke('ignore:get'),
+  setIgnore: (list) => ipcRenderer.invoke('ignore:set', list),
+  resetIgnore: () => ipcRenderer.invoke('ignore:reset'),
   updateSettings: (partial) => ipcRenderer.invoke('settings:update', partial)
 });

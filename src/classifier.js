@@ -6,6 +6,17 @@ const path = require('path');
 const DEFAULT_RULES_PATH = path.join(__dirname, 'rules.json');
 const DEFAULT_IGNORE_PATH = path.join(__dirname, 'ignore.json');
 
+/** Known browser process-name fragments — classify by title/URL, never by bare browser name. */
+const BROWSER_PROCESSES = [
+  'chrome',
+  'msedge',
+  'edge',
+  'firefox',
+  'brave',
+  'opera',
+  'chromium'
+];
+
 /**
  * Normalize keyword arrays: trimmed, lowercase, unique, non-empty.
  */
@@ -88,18 +99,50 @@ function haystack(win) {
   return `${owner} ${title} ${url} ${proc}`.toLowerCase();
 }
 
+function processNameParts(win) {
+  const owner = ((win && win.owner && win.owner.name) || '').toLowerCase();
+  const procPath = ((win && win.owner && win.owner.path) || '').toLowerCase();
+  const base = procPath.split(/[/\\]/).pop() || '';
+  const baseNoExt = base.replace(/\.exe$/i, '');
+  const label = appLabel(win).toLowerCase();
+  return { owner, base, baseNoExt, label };
+}
+
+function isBrowserProcess(win) {
+  const { owner, base, baseNoExt } = processNameParts(win);
+  const hay = `${owner} ${base} ${baseNoExt}`;
+  return BROWSER_PROCESSES.some((b) => hay.includes(b));
+}
+
 /**
- * True if process name matches an ignore keyword (system shell / chrome UI noise).
- * Match against owner.name and basename of owner.path only — not window title.
+ * True if process name / app label matches an ignore keyword (case-insensitive).
+ * Also: electron process with FocusFlow in the title → ignored (self).
+ * Match against owner.name, path basename, and app label — not arbitrary title text
+ * (except the FocusFlow self-exclusion rule).
  */
 function isIgnored(win, ignoreList) {
-  if (!win || !ignoreList || !ignoreList.length) return false;
-  const owner = ((win.owner && win.owner.name) || '').toLowerCase();
-  const procPath = ((win.owner && win.owner.path) || '').toLowerCase();
-  const base = procPath.split(/[/\\]/).pop() || '';
-  const nameHay = `${owner} ${base}`;
+  if (!win) return false;
+
+  const title = (win.title || '').toLowerCase();
+  const { owner, base, baseNoExt, label } = processNameParts(win);
+  const nameHay = `${owner} ${base} ${baseNoExt} ${label}`;
+
+  // Self: Electron shell running this app
+  if (/electron/i.test(nameHay) && /focusflow/i.test(title)) {
+    return true;
+  }
+  // Self: packaged / named FocusFlow process
+  if (/\bfocusflow\b/i.test(owner) || /\bfocusflow\b/i.test(baseNoExt) || /\bfocusflow\b/i.test(label)) {
+    return true;
+  }
+
+  if (!ignoreList || !ignoreList.length) return false;
   for (const keyword of ignoreList) {
-    if (keyword && nameHay.includes(keyword)) return true;
+    if (!keyword) continue;
+    const k = String(keyword).toLowerCase();
+    if (owner.includes(k) || base.includes(k) || baseNoExt.includes(k) || label.includes(k)) {
+      return true;
+    }
   }
   return false;
 }
@@ -107,7 +150,7 @@ function isIgnored(win, ignoreList) {
 /**
  * Unproductive wins on overlap (e.g. Chrome title "YouTube" or youtube.com URL).
  * Match is case-insensitive substring on process name + window title + url + path.
- * Do not put bare browser names in productive — page title/URL drives classification.
+ * Known browsers without keyword hits → other (do not classify by bare browser name).
  */
 function classify(win, rules) {
   const hay = haystack(win);
@@ -123,12 +166,25 @@ function classify(win, rules) {
       return 'productive';
     }
   }
+  // Bare browser with no title/url keyword → other
+  if (isBrowserProcess(win)) return 'other';
   return 'other';
 }
 
 function appLabel(win) {
   if (!win) return 'Unknown';
   return (win.owner && win.owner.name) || win.title || 'Unknown';
+}
+
+/** Case-insensitive: does app name match any ignore keyword? */
+function appMatchesIgnore(appName, ignoreList) {
+  if (!appName || !ignoreList || !ignoreList.length) return false;
+  const name = String(appName).toLowerCase();
+  for (const keyword of ignoreList) {
+    if (keyword && name.includes(String(keyword).toLowerCase())) return true;
+  }
+  if (/\bfocusflow\b/i.test(name)) return true;
+  return false;
 }
 
 module.exports = {
@@ -145,6 +201,9 @@ module.exports = {
   isIgnored,
   appLabel,
   haystack,
+  appMatchesIgnore,
+  isBrowserProcess,
+  BROWSER_PROCESSES,
   DEFAULT_RULES_PATH,
   DEFAULT_IGNORE_PATH
 };

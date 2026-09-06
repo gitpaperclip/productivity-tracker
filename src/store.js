@@ -88,6 +88,8 @@ function createStore(dataDir) {
     rollIfNeeded();
     const sec = Math.max(0, Number(seconds) || 0);
     if (sec === 0) return state;
+    // Never persist ignored category into totals
+    if (category === 'ignored') return state;
 
     if (!state.byApp[app]) {
       state.byApp[app] = { seconds: 0, category };
@@ -121,15 +123,36 @@ function createStore(dataDir) {
     return true;
   }
 
-  function snapshot() {
+  /**
+   * @param {string[]|null} ignoreList optional — filter ignored process names out of topApps
+   *   and recompute byCategory display totals excluding those apps. History kept on disk.
+   */
+  function snapshot(ignoreList) {
     rollIfNeeded();
-    const topApps = Object.entries(state.byApp)
-      .map(([name, info]) => ({ name, seconds: info.seconds, category: info.category }))
-      .sort((a, b) => b.seconds - a.seconds)
-      .slice(0, 8);
+    const { appMatchesIgnore } = require('./classifier');
+    const ignore = ignoreList || [];
+
+    const entries = Object.entries(state.byApp).map(([name, info]) => ({
+      name,
+      seconds: info.seconds,
+      category: info.category
+    }));
+
+    const visible = ignore.length
+      ? entries.filter((e) => !appMatchesIgnore(e.name, ignore) && e.category !== 'ignored')
+      : entries.filter((e) => e.category !== 'ignored');
+
+    const byCategory = { productive: 0, unproductive: 0, other: 0 };
+    for (const e of visible) {
+      const cat = e.category === 'productive' || e.category === 'unproductive' ? e.category : 'other';
+      byCategory[cat] = (byCategory[cat] || 0) + e.seconds;
+    }
+
+    const topApps = visible.sort((a, b) => b.seconds - a.seconds).slice(0, 8);
+
     return {
       date: state.date,
-      byCategory: { ...state.byCategory },
+      byCategory,
       topApps,
       unproductiveStreak: state.unproductiveStreak,
       lastReminderAt: state.lastReminderAt,
