@@ -6,3 +6,5 @@ data/ignore.json
 data/history/
 *.log
 *.focusflow
+dist/
+*.exe

@@ -11,7 +11,7 @@ Desktop productivity tracker for Windows. Watches the foreground window, classif
 - Analytics: Day · Week · Month · Apps (top apps P / U / Ign)
 - Roundup: daily wrap + goal payoff (headline, goal bar, highlights, story)
 - Focus Tags: productive / unproductive keywords + ignore list
-- Settings: default + FocusBoost reminder timing, daily productivity goal (for Roundup), portable `.focusflow` backup
+- Settings: default + FocusBoost reminder timing, FocusBoost schedule + Pause, daily productivity goal (for Roundup), portable `.focusflow` backup
 - Fully local — no cloud sync, no account
 
 ## Windows: install and start
@@ -20,7 +20,21 @@ Desktop productivity tracker for Windows. Watches the foreground window, classif
 2. Run npm start
 
 Needs Node.js 18+ on Windows (bundled PowerShell / user32 backend).
+**Supported:** normal Windows 10 and Windows 11 (x64) — Home / Pro / Education / consumer installs. **Not a target:** locked-down enterprise images (AppLocker/WDAC, heavily constrained PowerShell, Windows 10 S mode, Smart App Control blocking unsigned apps). Those may open the UI but break tracking or installs; we are not optimizing for them.
 Optional demo: npm start -- --demo. Smoke: npm test.
+
+## Build a Windows `.exe` (packaging)
+
+Daily use stays the same: `npm start` (dev). Packaging is optional and does not change that workflow.
+
+On a Windows machine with Node 18+:
+
+1. `npm install` (pulls `electron-builder`)
+2. `npm run dist` — NSIS installer + portable `.exe` under `dist/`
+3. `npm run pack` — unpacked `dist/win-unpacked` for a quick smoke run (no installer)
+4. `npm run dist:portable` — portable only
+
+Artifact names look like `FocusFlow-1.0.0-win-x64.exe` (installer / portable). Builds are **unsigned**, so Windows SmartScreen may warn on first open — that is expected until a code-signing cert is added. Packaged data lives in Electron `userData` (not `./data/`); see **Data location**.
 
 ## First open
 
@@ -99,7 +113,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Privacy mode (strip/hash window titles)
 - ~~**Pause / disable tracking**~~ **done (v1)**: Home Pause/Resume + Settings toggle; status pill “Paused”; freezes Last focused; no logging/reminders while paused
 - Tray presence + FocusBoost in tray
-- `.exe` packaging + first-run onboarding (primary browser → seed Focus Tags)
+- ~~`.exe` packaging~~ **scaffolded** (`npm run dist` / `pack` via electron-builder; unsigned SmartScreen note in README) + first-run onboarding **TBD** (primary browser → seed Focus Tags)
   - Intro copy: classification gets better as you tag more apps (P/U/I + Focus Tags) — update tags as you go; no need to rewrite past time
   - **FocusBoost schedule** (onboarding): pick daily Boost hours during first-run; same control lives in Settings (onboarding seeds it). Tracking stays 24/7 — schedule only arms/disarms FocusBoost.
   - **Roundup notification time** (post-launch): during onboarding, pick a daily time (e.g. 5pm) for a Roundup toast; notification includes a button/action that opens the Roundup tab. Same control lives in Settings (onboarding just seeds it).

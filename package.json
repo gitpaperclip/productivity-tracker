@@ -8,11 +8,55 @@
   "scripts": {
     "start": "node scripts/start.js",
     "start:electron": "electron . --no-sandbox --disable-gpu",
-    "start:demo": "FOCUSFLOW_DEMO=1 FOCUSFLOW_THRESHOLD_SEC=30 node scripts/start.js",
-    "test": "node scripts/smoke.js"
+    "start:demo": "node scripts/start.js --demo",
+    "test": "node scripts/smoke.js",
+    "test:windows-backend": "node scripts/test-windows-backend.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
   },
   "dependencies": {
     "active-win": "^8.1.1",
     "electron": "^28.3.3"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.gitpaperclip.focusflow",
+    "productName": "FocusFlow",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
