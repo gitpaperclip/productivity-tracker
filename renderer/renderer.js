@@ -111,24 +111,8 @@ function updateSourcePill(now) {
   };
   pill.textContent = labels[source] || source;
   pill.className = 'status-pill ' + source;
-  const hint = $('track-hint');
-  if (!hint) return;
-  if (now.ignored) {
-    hint.textContent = 'System / shell / FocusFlow — shown in status but not logged.';
-    hint.classList.remove('hidden');
-  } else if (now.trackingError && source !== 'demo') {
-    hint.textContent = 'Live window unavailable. ' + now.trackingError;
-    hint.classList.remove('hidden');
-  } else if (source === 'real') {
-    hint.textContent = 'Live foreground tracking is on.';
-    hint.classList.remove('hidden');
-  } else if (source === 'demo') {
-    hint.textContent = 'Demo simulator is on.';
-    hint.classList.remove('hidden');
-  } else {
-    hint.classList.add('hidden');
-  }
 }
+
 
 function isBrowserApp(app) {
   const a = String(app || '').toLowerCase();

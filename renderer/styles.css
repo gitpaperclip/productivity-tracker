@@ -62,18 +62,22 @@ html, body { margin: 0; height: 100%; }
 body {
   font-family: var(--font);
   font-weight: 400;
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(129,140,248,0.18), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(56,189,248,0.12), transparent 50%),
-    var(--bg);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 90% 70% at 15% 0%, rgba(129,140,248,0.14), transparent 55%),
+    radial-gradient(ellipse 80% 60% at 90% 10%, rgba(56,189,248,0.08), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(129,140,248,0.06), transparent 55%);
+  background-attachment: fixed;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  min-height: 100%;
 }
 
 .shell {
   display: grid;
   grid-template-columns: 220px 1fr;
-  min-height: 100%;
+  min-height: 100vh;
+  background: transparent;
 }
 
 .rail {
@@ -187,7 +191,7 @@ body {
 }
 
 .card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%), var(--panel);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 20px 22px;
