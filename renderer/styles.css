@@ -1701,6 +1701,17 @@ body[data-boost="on"]::after {
   margin: -4px 0 0;
   line-height: 1.4;
 }
+.settings-block-reminders {
+  position: relative;
+  padding-top: 20px;
+}
+.settings-block-reminders .settings-token {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  margin: 0;
+  text-align: right;
+}
 .settings-token code {
   font-size: 11px;
   margin-right: 6px;
