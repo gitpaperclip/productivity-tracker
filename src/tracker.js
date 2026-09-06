@@ -1,3 +1,4 @@
+'use strict';
 
 const { createDemoBackend } = require('./demo-windows');
 const { classify, appLabel } = require('./classifier');

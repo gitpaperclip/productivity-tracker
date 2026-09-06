@@ -1,3 +1,5 @@
+'use strict';
+
 function fmt(s){s=Math.max(0,Math.floor(+s||0));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;return h?h+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0'):m+':'+String(x).padStart(2,'0')}
 function $(id){return document.getElementById(id)}
 const api=window.focusflow;let applying=false;
