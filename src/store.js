@@ -1,3 +1,4 @@
+'use strict';
 
 const fs = require('fs');
 const path = require('path');
@@ -49,7 +50,7 @@ function createStore(dataDir) {
     settings.demoMode = false;
   }
 
-  // Headless Linux only — never auto-demo on Windows/macOS
+  // Headless Linux only â€” never auto-demo on Windows/macOS
   if (
     process.platform === 'linux' &&
     !process.env.DISPLAY &&
