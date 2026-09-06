@@ -71,19 +71,49 @@ const FOCUSBOOST_SEC = 3 * 60;
 const reduceMotion =
   typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** Session-only Analytics segment (day | week | month). */
+let analyticsSegment = 'day';
+
+const ANALYTICS_SUBTITLES = {
+  day: 'Today’s hours',
+  week: 'Last 7 days',
+  month: 'This month'
+};
+
+function setAnalyticsSegment(segment) {
+  if (segment !== 'day' && segment !== 'week' && segment !== 'month') segment = 'day';
+  analyticsSegment = segment;
+  document.querySelectorAll('.segment-btn').forEach((b) => {
+    const on = b.getAttribute('data-segment') === segment;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.analytics-panel').forEach((panel) => {
+    const id = panel.getAttribute('data-panel') || panel.id.replace(/^panel-/, '');
+    panel.classList.toggle('hidden', id !== segment);
+  });
+  const sub = $('analytics-subtitle');
+  if (sub) sub.textContent = ANALYTICS_SUBTITLES[segment] || ANALYTICS_SUBTITLES.day;
+}
+
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     const tab = btn.getAttribute('data-tab');
     $('view-home').classList.toggle('hidden', tab !== 'home');
-    const dayView = $('view-day');
-    if (dayView) dayView.classList.toggle('hidden', tab !== 'day');
-    const weekView = $('view-week');
-    if (weekView) weekView.classList.toggle('hidden', tab !== 'week');
+    const analyticsView = $('view-analytics');
+    if (analyticsView) analyticsView.classList.toggle('hidden', tab !== 'analytics');
     $('view-apps').classList.toggle('hidden', tab !== 'apps');
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
+    if (tab === 'analytics') setAnalyticsSegment(analyticsSegment);
     if (tab === 'settings') loadRulesAndIgnore();
+  });
+});
+
+document.querySelectorAll('.segment-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    setAnalyticsSegment(btn.getAttribute('data-segment') || 'day');
   });
 });
 
@@ -413,8 +443,10 @@ function renderWeek(stats) {
   if (!chart) return;
   const week = Array.isArray(stats && stats.week) ? stats.week : [];
 
-  const sub = $('week-subtitle');
-  if (sub) sub.textContent = 'Last 7 days';
+  if (analyticsSegment === 'week') {
+    const sub = $('analytics-subtitle');
+    if (sub) sub.textContent = ANALYTICS_SUBTITLES.week;
+  }
 
   const setMetrics = (bestVal, bestSub, totalVal, totalSub, shareVal, shareSub) => {
     const bv = $('week-best-value');
@@ -630,9 +662,12 @@ function renderDay(stats) {
   }
   if (max < 1) max = 1;
 
-  const dateEl = $('day-date-label');
-  if (dateEl) {
-    dateEl.textContent = stats && stats.date ? stats.date : 'Today’s hourly breakdown';
+  if (analyticsSegment === 'day') {
+    const sub = $('analytics-subtitle');
+    if (sub) {
+      sub.textContent =
+        stats && stats.date ? 'Today’s hours · ' + stats.date : ANALYTICS_SUBTITLES.day;
+    }
   }
 
   chart.innerHTML = hours

@@ -22,11 +22,8 @@
         <button class="nav-btn active" data-tab="home" type="button">
           <span class="nav-ico">◉</span> Home
         </button>
-        <button class="nav-btn" data-tab="day" type="button">
-          <span class="nav-ico">▦</span> Day
-        </button>
-        <button class="nav-btn" data-tab="week" type="button">
-          <span class="nav-ico">▤</span> Week
+        <button class="nav-btn" data-tab="analytics" type="button">
+          <span class="nav-ico">▦</span> Analytics
         </button>
         <button class="nav-btn" data-tab="apps" type="button">
           <span class="nav-ico">▣</span> Apps
@@ -119,77 +116,85 @@
       </section>
 
 
-      <!-- DAY: hourly breakdown -->
-      <section id="view-day" class="view hidden">
+      <!-- ANALYTICS: Day · Week · Month -->
+      <section id="view-analytics" class="view hidden">
         <header class="page-head">
           <div>
-            <h1>Day</h1>
-            <p class="muted" id="day-date-label">Today’s hourly breakdown</p>
+            <h1>Analytics</h1>
+            <p class="muted" id="analytics-subtitle">Today’s hours</p>
           </div>
         </header>
 
-        <article class="card day-chart-card">
-          <div class="day-legend" aria-hidden="true">
-            <span><span class="swatch prod"></span> Productive</span>
-            <span><span class="swatch unprod"></span> Unproductive</span>
-            <span><span class="swatch other"></span> Other</span>
-          </div>
-          <div id="day-chart" class="day-chart" role="img" aria-label="Hourly time breakdown"></div>
-        </article>
-
-        <div class="day-metric-grid">
-          <article class="card day-metric">
-            <div class="lf-kicker">Peak productivity</div>
-            <div id="day-peak-value" class="day-metric-value">—</div>
-            <div id="day-peak-sub" class="day-metric-sub muted">No productive time yet</div>
-          </article>
-          <article class="card day-metric">
-            <div class="lf-kicker">Total tracked</div>
-            <div id="day-total" class="day-metric-value">0 min</div>
-            <div id="day-total-sub" class="day-metric-sub muted">All categories today</div>
-          </article>
-          <article class="card day-metric">
-            <div class="lf-kicker">Focus share</div>
-            <div id="day-focus-share" class="day-metric-value">—</div>
-            <div id="day-focus-sub" class="day-metric-sub muted">Of productive + unproductive</div>
-          </article>
+        <div class="segment-control" role="tablist" aria-label="Analytics range">
+          <button type="button" class="segment-btn active" data-segment="day" role="tab" aria-selected="true">Day</button>
+          <button type="button" class="segment-btn" data-segment="week" role="tab" aria-selected="false">Week</button>
+          <button type="button" class="segment-btn" data-segment="month" role="tab" aria-selected="false">Month</button>
         </div>
-      </section>
 
-
-      <!-- WEEK: last 7 days -->
-      <section id="view-week" class="view hidden">
-        <header class="page-head">
-          <div>
-            <h1>Week</h1>
-            <p class="muted" id="week-subtitle">Last 7 days</p>
-          </div>
-        </header>
-
-        <article class="card day-chart-card">
-          <div class="day-legend" aria-hidden="true">
-            <span><span class="swatch prod"></span> Productive</span>
-            <span><span class="swatch unprod"></span> Unproductive</span>
-            <span><span class="swatch other"></span> Other</span>
-          </div>
-          <div id="week-chart" class="day-chart week-chart" role="img" aria-label="Weekly time breakdown"></div>
-        </article>
-
-        <div class="day-metric-grid">
-          <article class="card day-metric">
-            <div class="lf-kicker">Best day</div>
-            <div id="week-best-value" class="day-metric-value">—</div>
-            <div id="week-best-sub" class="day-metric-sub muted">No productive time yet</div>
+        <div id="panel-day" class="analytics-panel" data-panel="day">
+          <article class="card day-chart-card">
+            <div class="day-legend" aria-hidden="true">
+              <span><span class="swatch prod"></span> Productive</span>
+              <span><span class="swatch unprod"></span> Unproductive</span>
+              <span><span class="swatch other"></span> Other</span>
+            </div>
+            <div id="day-chart" class="day-chart" role="img" aria-label="Hourly time breakdown"></div>
           </article>
-          <article class="card day-metric">
-            <div class="lf-kicker">Week total tracked</div>
-            <div id="week-total" class="day-metric-value">0 min</div>
-            <div id="week-total-sub" class="day-metric-sub muted">All categories · last 7 days</div>
+
+          <div class="day-metric-grid">
+            <article class="card day-metric">
+              <div class="lf-kicker">Peak productivity</div>
+              <div id="day-peak-value" class="day-metric-value">—</div>
+              <div id="day-peak-sub" class="day-metric-sub muted">No productive time yet</div>
+            </article>
+            <article class="card day-metric">
+              <div class="lf-kicker">Total tracked</div>
+              <div id="day-total" class="day-metric-value">0 min</div>
+              <div id="day-total-sub" class="day-metric-sub muted">All categories today</div>
+            </article>
+            <article class="card day-metric">
+              <div class="lf-kicker">Focus share</div>
+              <div id="day-focus-share" class="day-metric-value">—</div>
+              <div id="day-focus-sub" class="day-metric-sub muted">Of productive + unproductive</div>
+            </article>
+          </div>
+        </div>
+
+        <div id="panel-week" class="analytics-panel hidden" data-panel="week">
+          <article class="card day-chart-card">
+            <div class="day-legend" aria-hidden="true">
+              <span><span class="swatch prod"></span> Productive</span>
+              <span><span class="swatch unprod"></span> Unproductive</span>
+              <span><span class="swatch other"></span> Other</span>
+            </div>
+            <div id="week-chart" class="day-chart week-chart" role="img" aria-label="Weekly time breakdown"></div>
           </article>
-          <article class="card day-metric">
-            <div class="lf-kicker">Focus share</div>
-            <div id="week-focus-share" class="day-metric-value">—</div>
-            <div id="week-focus-sub" class="day-metric-sub muted">Of productive + unproductive</div>
+
+          <div class="day-metric-grid">
+            <article class="card day-metric">
+              <div class="lf-kicker">Best day</div>
+              <div id="week-best-value" class="day-metric-value">—</div>
+              <div id="week-best-sub" class="day-metric-sub muted">No productive time yet</div>
+            </article>
+            <article class="card day-metric">
+              <div class="lf-kicker">Week total tracked</div>
+              <div id="week-total" class="day-metric-value">0 min</div>
+              <div id="week-total-sub" class="day-metric-sub muted">All categories · last 7 days</div>
+            </article>
+            <article class="card day-metric">
+              <div class="lf-kicker">Focus share</div>
+              <div id="week-focus-share" class="day-metric-value">—</div>
+              <div id="week-focus-sub" class="day-metric-sub muted">Of productive + unproductive</div>
+            </article>
+          </div>
+        </div>
+
+        <div id="panel-month" class="analytics-panel hidden" data-panel="month">
+          <article class="card month-empty-card">
+            <div class="month-empty">
+              <div class="month-empty-title">Month view coming soon</div>
+              <p class="muted month-empty-note">History builds over time as you track — up to 90 days are kept. Check back once more days are on file.</p>
+            </div>
           </article>
         </div>
       </section>

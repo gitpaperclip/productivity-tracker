@@ -365,14 +365,79 @@ h4.unprod { color: var(--unprod); }
 }
 
 
-/* —— Day: hourly stacked bars —— */
-#view-day {
+/* —— Analytics: Day · Week · Month —— */
+#view-analytics {
   display: flex;
   flex-direction: column;
   gap: 18px;
   max-width: min(960px, 100%);
   width: 100%;
   margin: 0 auto;
+}
+
+.segment-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  align-self: flex-start;
+  margin-bottom: 2px;
+}
+.segment-btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--muted);
+  background: transparent;
+  padding: 7px 16px;
+  border-radius: 999px;
+  line-height: 1.2;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+.segment-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.04);
+}
+.segment-btn.active {
+  color: var(--text);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong), 0 4px 14px rgba(0,0,0,0.25);
+}
+.analytics-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.month-empty-card {
+  min-height: clamp(200px, 32vh, 320px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.month-empty {
+  max-width: 420px;
+  padding: 12px 8px;
+}
+.month-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.month-empty-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
 }
 .day-chart-card {
   display: flex;
@@ -492,15 +557,7 @@ h4.unprod { color: var(--unprod); }
   .day-stack { transition: none; }
 }
 
-/* —— Week: 7-day stacked bars —— */
-#view-week {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: min(960px, 100%);
-  width: 100%;
-  margin: 0 auto;
-}
+/* —— Week chart (inside Analytics) —— */
 .week-chart {
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: clamp(8px, 1.2vw, 16px);
