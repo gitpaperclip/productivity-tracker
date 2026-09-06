@@ -7,11 +7,11 @@ Desktop productivity tracker for Windows. Watches the foreground window, classif
 ## What you get
 
 - Last focused bar: last real app (never FocusFlow itself)
-- Home: mood, pie, daily productive goal (own card), FocusBoost (~3 min reminder)
-- Analytics: Day · Week · Month
+- Home: mood, pie, FocusBoost (~3 min reminder), Last focused P/U/I
 - Analytics: Day · Week · Month · Apps (top apps P / U / Ign)
+- Roundup: daily wrap + goal payoff (in progress)
 - Focus Tags: productive / unproductive keywords + ignore list
-- Settings: reminder threshold, demo mode, daily goal hours, portable .focusflow backup
+- Settings: default + FocusBoost reminder timing, daily productivity goal (for Roundup), portable `.focusflow` backup
 - Fully local — no cloud sync, no account
 
 ## Windows: install and start
@@ -56,12 +56,24 @@ Import merges by default. Clear today / Clear all history are permanent and ask 
 
 Home toggle sets ~3 min unproductive reminder. CSS-only FOCUS BOOST flash (skipped if prefers-reduced-motion), then data-boost=on armed state. Off restores the previous threshold.
 
-## Performance (8-16 GB PCs)
+## Performance & memory (Electron)
 
-- Local-only, lightweight Electron UI (CSS pie/mood; no chart libraries, WebGL, or large assets)
+**Is it fine for normal / power PCs?** Yes. A small Electron app like this typically sits in the ~100–300 MB RAM range (Chromium + Node). On 8–16 GB machines that is a rounding error next to Chrome/Discord/games; on “power” PCs it is a non-issue. We are not loading chart libraries, WebGL, or big media.
+
+**Already light**
+- Local-only UI: CSS pie/mood; no chart libraries, WebGL, or large assets
 - History on disk capped to about 90 days; week chart reads 7 day summaries on demand (not a full-year RAM cache)
-- Stats persist on activity (addSeconds); poll ~1.5s; Windows probe stays single-flight
+- Stats persist on activity (`addSeconds`); poll ~1.5s; Windows probe stays single-flight
 - No per-tick log growth beyond small overwrite files
+
+**Shelved Electron memory work** (do later if Task Manager ever looks fat — not blocking v1)
+- Throttle / pause renderer work when the window is minimized or hidden
+- Prefer a single BrowserWindow; avoid extra hidden windows
+- Optional “tray-only” mode after packaging (no full UI until opened)
+- `backgroundThrottling`, lower timer rates when unfocused
+- Optional `--disable-gpu` / software rendering escape hatch for weird GPU driver RAM spikes
+- Audit live listeners + DOM churn on Analytics redraws
+- Measure with Task Manager / `process.getProcessMemoryInfo()` before micro-optimizing
 
 ## Mac / Linux
 
@@ -73,14 +85,14 @@ Tracking backends TBD. UI and store run; live capture may use active-win or demo
 North star: private · honest · alive. Local Windows companion with a daily loop (goal → Boost nudges → Roundup), not another guilt dashboard.
 
 ### Near-term feel
-- **Nudges / FocusBoost analytics** (wanted): Analytics segment for reminder history — each toast logged (app, streak, time); counts; average time-to-refocus after a nudge when measurable. Could be “Nudges” pill next to Apps. Not a separate Settings tab unless it grows.
+- **Nudges / FocusBoost analytics** (wanted): Analytics view for reminder history — each toast logged (app, streak, time); counts; average time-to-refocus after a nudge when measurable. UI: its own solo segment pill (same style as Apps), pinned on the **right** of the Analytics toolbar (Day·Week·Month left cluster · Apps · FocusBoost/Nudges on the right). Not a separate sidebar tab unless it grows.
 - ~~Side nav smooth expand/collapse animation~~ **done** (CSS width/opacity; respects reduced-motion; mobile rail unchanged)
 - ~~Stronger FocusBoost "hit the UI" press feedback~~ **done** (button punch + edge kick on arm; soft settle on disarm)
 - Roundup tab (after Analytics): fun daily wrap — did you hit the goal? focus vibe?
 - Classification smarts: browser yellow "browser" tag, sharper title keywords
 
 ### Product loop
-- Home daily goal chip (shipped; polish as needed)
+- Daily productivity goal: Settings-only (feeds Roundup; off Home)
 - Gentle health insights (short coach notes, no lectures)
 - Privacy mode (strip/hash window titles)
 - **Pause / disable tracking** — not built yet (only demo mode + ignore list). Need a clear Pause that stops logging without quitting the app; show Pausing in status / tray
@@ -97,6 +109,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 ### Shelved polish
 - Themes: Sand, Coral, Night, Starlight
 - Nav caret polish
+- Electron memory mitigations (see Performance & memory) — fine for 8 GB+ / power PCs as-is; revisit only if measured bloat
 
 ### Longer-term: Focus modes (context-aware productivity)
 Named modes that swap what "productive" means for the task you're in — e.g. Resume writing, Coding, Homework, Deep reading.
