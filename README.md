@@ -107,6 +107,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - ~~Roundup tab (after Analytics)~~ **done (v1)**: headline, goal bar, highlights, story
 - Classification smarts: browser yellow "browser" tag, sharper title keywords
 - **Focus Tags quick add + search** (wanted): on Focus Tags, search/add a keyword with P / U / Ign; show if that tag already exists (and which list). Ship before Focus profiles.
+- **Crash / error log file** (wanted): on uncaught main/renderer errors or crash, write a local log under userData (or ./data in dev) so debug is not screenshot-only. Fully local — no upload.
 
 ### Product loop
 - Daily productivity goal: Settings-only (feeds Roundup; off Home)
@@ -141,7 +142,7 @@ Formerly "Focus modes" — named **Focus profiles** that swap what "productive" 
 - Example: Coding profile — Stack Overflow / docs productive; Netflix still isn't
 - **Lives on the Focus Tags page**: manage profiles there (create/edit/remove, see which tags belong to the active profile)
 - **Home hotswitch**: quick switcher for the active Focus profile (later also tray)
-- **Export / import** Focus profiles (portable; fits `.focusflow` or a small profile pack) — after switch + Tags UI work
+- **Export / import** Focus profiles as **zip packs** the app loads into productive / unproductive / ignore tag lists (explicit lists in the pack — not magic auto-sort of arbitrary files). After switch + Tags UI work.
 - Adaptive angle (later): suggest profile from recent apps, or warn when current apps fight the active profile
 - **Downtime** profile/mode: pause unproductive scoring / reminders (and optionally skip logging U apps) without full app quit — pairs with tray
 - Keep fully local
