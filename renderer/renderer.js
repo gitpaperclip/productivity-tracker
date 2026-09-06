@@ -1052,7 +1052,6 @@ async function boot() {
   try {
     const state = await api.getState();
     if (state) {
-      if (state.platform) $('platform-label').textContent = state.platform;
       updateSourcePill(state.now);
       renderLastFocused(state.lastFocused, state.now);
       renderStats(state.stats);
