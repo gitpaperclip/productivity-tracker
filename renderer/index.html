@@ -42,7 +42,7 @@
         <button type="button" id="notif-btn" class="notif-toggle" data-muted="off" title="Notifications on" aria-label="Toggle notifications" aria-pressed="false">
           <svg class="notif-ico notif-ico-on" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
           <svg class="notif-ico notif-ico-off" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7"/><path d="M10 19a2 2 0 0 0 4 0"/><path d="M4 4l16 16"/></svg>
-          <span class="notif-label">Alerts</span>
+          <span class="notif-label">ALERTS ON</span>
         </button>
         <div class="rail-status-row">
           <button type="button" id="pause-btn" class="pause-power" data-paused="off" title="Pause tracking" aria-label="Pause tracking" aria-pressed="false">
@@ -433,40 +433,44 @@
 
         <article class="card">
           <h3>Tracker</h3>
-          <!-- Toggles first -->
-          <div class="switch-row pause-settings-row">
-            <div>
-              <div class="switch-title">Pause tracking</div>
-              <div class="hint">Stops logging time and reminders. App stays open.</div>
+          <!-- Toggles first: Pause → session history → focusboost schedule (last) -->
+          <div class="settings-toggles">
+            <div class="switch-row pause-settings-row">
+              <div>
+                <div class="switch-title">Pause tracking</div>
+                <div class="hint">Stops logging time and reminders. App stays open.</div>
+              </div>
+              <button type="button" id="pause-settings-btn" class="pause-power" data-paused="off" title="Pause tracking" aria-label="Pause tracking" aria-pressed="false">
+                <svg class="pause-power-ico" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M7.5 6.2a7 7 0 1 0 9 0"/></svg>
+              </button>
             </div>
-            <button type="button" id="pause-settings-btn" class="pause-power" data-paused="off" title="Pause tracking" aria-label="Pause tracking" aria-pressed="false">
-              <svg class="pause-power-ico" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M7.5 6.2a7 7 0 1 0 9 0"/></svg>
-            </button>
-          </div>
-          <label class="switch-row" id="fb-schedule-row">
-            <div>
-              <div class="switch-title">focusboost Schedule</div>
-              <div class="hint">Enable a focusboost schedule. Focusboost will automatically enable and disable based on this window.</div>
-            </div>
-            <input type="checkbox" id="fb-schedule-toggle" />
-          </label>
-          <div class="settings-row-2 fb-schedule-times" id="fb-schedule-times">
-            <label class="field">
-              <span>Starts</span>
-              <input type="time" id="fb-schedule-start" value="09:00" />
+            <label class="switch-row" id="session-history-row">
+              <div>
+                <div class="switch-title">Keep session history</div>
+                <div class="hint">Off keeps only the most recent session.</div>
+              </div>
+              <input type="checkbox" id="session-history-toggle" checked />
             </label>
-            <label class="field">
-              <span>Ends</span>
-              <input type="time" id="fb-schedule-end" value="17:00" />
-            </label>
-          </div>
-          <label class="switch-row" id="session-history-row">
-            <div>
-              <div class="switch-title">Keep session history</div>
-              <div class="hint">Off keeps only the most recent session.</div>
+            <div class="fb-schedule-block">
+              <label class="switch-row" id="fb-schedule-row">
+                <div>
+                  <div class="switch-title">focusboost Schedule</div>
+                  <div class="hint">Enable a focusboost schedule. focusboost will automatically enable and disable based on this window.</div>
+                </div>
+                <input type="checkbox" id="fb-schedule-toggle" />
+              </label>
+              <div class="settings-row-2 fb-schedule-times" id="fb-schedule-times">
+                <label class="field">
+                  <span>Starts</span>
+                  <input type="time" id="fb-schedule-start" value="09:00" />
+                </label>
+                <label class="field">
+                  <span>Ends</span>
+                  <input type="time" id="fb-schedule-end" value="17:00" />
+                </label>
+              </div>
             </div>
-            <input type="checkbox" id="session-history-toggle" checked />
-          </label>
+          </div>
 
           <!-- Timing fields -->
           <div class="settings-block">

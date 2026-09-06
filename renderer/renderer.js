@@ -1039,9 +1039,9 @@ function syncNotifUi(settings) {
   const on = settings && settings.notificationsEnabled !== false;
   btn.setAttribute('data-muted', on ? 'off' : 'on');
   btn.setAttribute('aria-pressed', on ? 'false' : 'true');
-  btn.title = on ? 'Notifications on' : 'Notifications off (DND)';
+  btn.title = on ? 'ALERTS ON' : 'DND';
   const lab = btn.querySelector('.notif-label');
-  if (lab) lab.textContent = on ? 'Alerts' : 'DND';
+  if (lab) lab.textContent = on ? 'ALERTS ON' : 'DND';
 }
 
 function syncPauseUi(settings) {

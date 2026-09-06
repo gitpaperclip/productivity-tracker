@@ -192,22 +192,28 @@ body {
 }
 .nav-btn.active .nav-ico { opacity: 1; }
 
-.rail-foot { margin-top: auto; padding: 8px; display: grid; gap: 8px; }
+.rail-foot { margin-top: auto; padding: 8px; display: grid; gap: 8px; justify-items: stretch; }
+.rail-foot > .notif-toggle { justify-self: end; }
 .notif-toggle {
   appearance: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 12px;
+  width: auto;
+  max-width: 100%;
+  margin-left: auto;
+  padding: 8px 12px;
+  border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(255,255,255,0.03);
   color: var(--text);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 .notif-toggle:hover {
@@ -2031,10 +2037,30 @@ body[data-boost="on"]::after {
   .settings-row-2 { grid-template-columns: 1fr; }
 }
 
+.settings-toggles {
+  display: flex;
+  flex-direction: column;
+}
+.settings-toggles > .switch-row:last-child,
+.settings-toggles > .fb-schedule-block:last-child .switch-row {
+  /* border handled by schedule block / following Timing section */
+}
+.fb-schedule-block {
+  padding-bottom: 4px;
+}
+#fb-schedule-row {
+  border-bottom: 0;
+  padding-bottom: 6px;
+  align-items: flex-start;
+}
+#fb-schedule-row .hint {
+  max-width: 34rem;
+  line-height: 1.4;
+}
 #fb-schedule-times {
-  margin: -2px 0 0;
-  padding: 0 0 14px;
-  border-bottom: 1px solid var(--line);
+  margin: 0;
+  padding: 0 0 12px;
+  border-bottom: 0;
 }
 #fb-schedule-times.is-disabled {
   opacity: 0.45;
@@ -2042,8 +2068,15 @@ body[data-boost="on"]::after {
 }
 #fb-schedule-times .field {
   border-bottom: 0;
-  padding-top: 8px;
+  padding-top: 4px;
   padding-bottom: 0;
+}
+/* Single divider into Timing — avoid switch-row + settings-block double line */
+.settings-toggles + .settings-block {
+  margin-top: 10px;
+}
+#session-history-row {
+  /* keep separator under Pause / history */
 }
 
 .pause-settings-row .pause-power {
@@ -2331,7 +2364,7 @@ body[data-boost="on"]::after {
 }
 .session-timer-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   margin: 0 0 1rem;
@@ -2339,11 +2372,21 @@ body[data-boost="on"]::after {
 }
 .session-mode-control {
   display: inline-flex;
+  align-items: center;
   margin: 0;
 }
 .session-timer-top .session-custom-row {
   margin: 0;
   flex: 0 0 auto;
+  align-self: center;
+  display: flex;
+  align-items: center;
+}
+.session-timer-top .session-custom-input {
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 0.55rem;
+  line-height: 1;
 }
 .session-alarm-row {
   display: flex;
