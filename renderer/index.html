@@ -309,6 +309,20 @@
           </div>
         </header>
 
+        <article class="card tags-card tags-quick-card">
+          <div class="lf-kicker tag-kicker">Quick add</div>
+          <p class="hint tags-hint">Search existing tags or add a keyword. Moves it if it’s already on another list.</p>
+          <div class="tags-quick-row">
+            <input type="text" id="tags-quick-input" class="tags-quick-input" placeholder="Type a keyword…" spellcheck="false" autocomplete="off" />
+            <div class="tags-quick-btns" role="group" aria-label="Add keyword to list">
+              <button type="button" id="tags-quick-prod" class="btn tags-quick-btn prod">Productive</button>
+              <button type="button" id="tags-quick-unprod" class="btn tags-quick-btn unprod">Unproductive</button>
+              <button type="button" id="tags-quick-ignore" class="btn tags-quick-btn ignore">Ignore</button>
+            </div>
+          </div>
+          <p id="tags-quick-status" class="muted tiny tags-quick-status">Type a keyword to see which list it is in.</p>
+        </article>
+
         <article class="card tags-card">
           <div class="lf-kicker tag-kicker prod">Productive</div>
           <p class="hint tags-hint">One keyword per line: editors, docs, work sites.</p>

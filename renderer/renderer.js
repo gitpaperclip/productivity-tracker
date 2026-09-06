@@ -1005,25 +1005,6 @@ function syncFocusBoostScheduleUi(settings) {
   if (end) end.disabled = !enabled;
 }
 
-function playBoostFlash() {
-  if (reduceMotion) return;
-  let overlay = $('boost-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'boost-overlay';
-    overlay.className = 'boost-overlay';
-    overlay.setAttribute('aria-hidden', 'true');
-    overlay.innerHTML =
-      '<div class="boost-flash"><span class="boost-scan"></span><span class="boost-text">FOCUS BOOST</span><span class="boost-hex"></span></div>';
-    document.body.appendChild(overlay);
-  }
-  overlay.classList.remove('play');
-  // reflow
-  void overlay.offsetWidth;
-  overlay.classList.add('play');
-  window.setTimeout(() => overlay.classList.remove('play'), 900);
-}
-
 function playBoostKick() {
   if (reduceMotion) return;
   let kick = $('boost-kick');
@@ -1873,6 +1854,176 @@ if ($('ignore-reset')) {
     }
   });
 }
+
+
+/* —— Focus Tags quick add / search —— */
+function mergeKeywordLists(a, b) {
+  const out = [];
+  const seen = new Set();
+  for (const x of [...(a || []), ...(b || [])]) {
+    const t = String(x || '').trim();
+    if (!t) continue;
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  return out;
+}
+
+function currentTagListsMerged() {
+  const prodTa = linesToList(($('rules-prod-edit') && $('rules-prod-edit').value) || '');
+  const unprodTa = linesToList(($('rules-unprod-edit') && $('rules-unprod-edit').value) || '');
+  const ignTa = linesToList(($('ignore-edit') && $('ignore-edit').value) || '');
+  return {
+    productive: mergeKeywordLists(prodTa, cachedRules.productive),
+    unproductive: mergeKeywordLists(unprodTa, cachedRules.unproductive),
+    ignore: mergeKeywordLists(ignTa, cachedIgnore)
+  };
+}
+
+function listsContainingKeyword(keyword) {
+  const key = String(keyword || '').trim().toLowerCase();
+  if (!key) return [];
+  const lists = currentTagListsMerged();
+  const found = [];
+  if (lists.productive.some((x) => x.toLowerCase() === key)) found.push('Productive');
+  if (lists.unproductive.some((x) => x.toLowerCase() === key)) found.push('Unproductive');
+  if (lists.ignore.some((x) => x.toLowerCase() === key)) found.push('Ignore');
+  return found;
+}
+
+function updateTagsQuickStatus() {
+  const status = $('tags-quick-status');
+  const input = $('tags-quick-input');
+  if (!status || !input) return;
+  const kw = String(input.value || '').trim();
+  if (!kw) {
+    status.textContent = 'Type a keyword to see which list it is in.';
+    return;
+  }
+  const found = listsContainingKeyword(kw);
+  if (!found.length) {
+    status.textContent = '“' + kw + '” is not in any list.';
+    return;
+  }
+  status.textContent = '“' + kw + '” is in: ' + found.join(', ') + '.';
+}
+
+function stripKeywordCI(arr, keyword) {
+  const key = String(keyword || '').trim().toLowerCase();
+  return (arr || []).filter((x) => String(x).toLowerCase() !== key);
+}
+
+async function tagsQuickAdd(target) {
+  const status = $('tags-quick-status');
+  const input = $('tags-quick-input');
+  if (!input) return;
+  const kw = String(input.value || '').trim();
+  if (!kw) {
+    if (status) status.textContent = 'Enter a keyword first.';
+    return;
+  }
+  if (!api) {
+    if (status) status.textContent = 'API unavailable.';
+    return;
+  }
+
+  // Source of truth for edits: live textareas (unsaved edits included)
+  let prod = linesToList(($('rules-prod-edit') && $('rules-prod-edit').value) || '');
+  let unprod = linesToList(($('rules-unprod-edit') && $('rules-unprod-edit').value) || '');
+  let ignore = linesToList(($('ignore-edit') && $('ignore-edit').value) || '');
+
+  const key = kw.toLowerCase();
+  const inProd = prod.some((x) => x.toLowerCase() === key);
+  const inUnprod = unprod.some((x) => x.toLowerCase() === key);
+  const inIgnore = ignore.some((x) => x.toLowerCase() === key);
+
+  if (target === 'productive' && inProd) {
+    if (status) status.textContent = 'Already in Productive.';
+    return;
+  }
+  if (target === 'unproductive' && inUnprod) {
+    if (status) status.textContent = 'Already in Unproductive.';
+    return;
+  }
+  if (target === 'ignore' && inIgnore) {
+    if (status) status.textContent = 'Already in Ignore.';
+    return;
+  }
+
+  const movedFrom = [];
+  if (target !== 'productive' && inProd) movedFrom.push('Productive');
+  if (target !== 'unproductive' && inUnprod) movedFrom.push('Unproductive');
+  if (target !== 'ignore' && inIgnore) movedFrom.push('Ignore');
+
+  prod = stripKeywordCI(prod, kw);
+  unprod = stripKeywordCI(unprod, kw);
+  ignore = stripKeywordCI(ignore, kw);
+  if (target === 'productive') prod.push(kw);
+  else if (target === 'unproductive') unprod.push(kw);
+  else ignore.push(kw);
+
+  if (status) status.textContent = 'Saving…';
+  try {
+    const rulesChanged =
+      target === 'productive' ||
+      target === 'unproductive' ||
+      inProd ||
+      inUnprod;
+    const ignoreChanged = target === 'ignore' || inIgnore;
+
+    if (rulesChanged && api.setRules) {
+      const next = await api.setRules({ productive: prod, unproductive: unprod });
+      fillRulesEditors(next || { productive: prod, unproductive: unprod, isCustom: true });
+    } else {
+      if ($('rules-prod-edit')) $('rules-prod-edit').value = prod.join('\n');
+      if ($('rules-unprod-edit')) $('rules-unprod-edit').value = unprod.join('\n');
+      cachedRules = { productive: prod.slice(), unproductive: unprod.slice() };
+    }
+
+    if (ignoreChanged && api.setIgnore) {
+      const payload = await api.setIgnore(ignore);
+      fillIgnoreEditor(payload || { ignore, isCustom: true });
+    } else {
+      if ($('ignore-edit')) $('ignore-edit').value = ignore.join('\n');
+      cachedIgnore = ignore.slice();
+    }
+
+    const label =
+      target === 'productive' ? 'Productive' : target === 'unproductive' ? 'Unproductive' : 'Ignore';
+    if (status) {
+      status.textContent = movedFrom.length
+        ? 'Moved “' + kw + '” → ' + label + ' (from ' + movedFrom.join(', ') + ').'
+        : 'Added “' + kw + '” to ' + label + '.';
+    }
+  } catch (err) {
+    if (status) status.textContent = 'Save failed.';
+    console.warn('tags quick-add failed', err);
+  }
+}
+
+(function wireTagsQuickAdd() {
+  const input = $('tags-quick-input');
+  if (!input) return;
+  input.addEventListener('input', updateTagsQuickStatus);
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      tagsQuickAdd('productive');
+    }
+  });
+  if ($('tags-quick-prod')) {
+    $('tags-quick-prod').addEventListener('click', () => tagsQuickAdd('productive'));
+  }
+  if ($('tags-quick-unprod')) {
+    $('tags-quick-unprod').addEventListener('click', () => tagsQuickAdd('unproductive'));
+  }
+  if ($('tags-quick-ignore')) {
+    $('tags-quick-ignore').addEventListener('click', () => tagsQuickAdd('ignore'));
+  }
+  updateTagsQuickStatus();
+})();
 
 if ($('data-export')) {
   $('data-export').addEventListener('click', async () => {

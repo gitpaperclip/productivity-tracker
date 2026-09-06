@@ -68,7 +68,7 @@ Import merges by default. Clear today / Clear all history are permanent and ask 
 
 ## FocusBoost
 
-Home toggle sets ~3 min unproductive reminder. CSS-only FOCUS BOOST flash (skipped if prefers-reduced-motion), then data-boost=on armed state. Off restores the previous threshold.
+Home toggle sets ~3 min unproductive reminder. Button punch + edge kick on arm (skipped if prefers-reduced-motion), then data-boost=on armed state. Off restores the previous threshold. No full-screen FOCUS BOOST overlay.
 
 **Schedule (v1):** Settings → Auto FocusBoost with start/end (local time). Tracking stays 24/7; only Boost arms/disarms on the window. Manual Home toggle still works mid-window (schedule re-applies on the next enter/leave). Overnight windows supported.
 
@@ -106,7 +106,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - ~~Stronger FocusBoost "hit the UI" press feedback~~ **done** (button punch + edge kick on arm; soft settle on disarm)
 - ~~Roundup tab (after Analytics)~~ **done (v1)**: headline, goal bar, highlights, story
 - Classification smarts: browser yellow "browser" tag, sharper title keywords
-- **Focus Tags quick add + search** (wanted): on Focus Tags, search/add a keyword with P / U / Ign; show if that tag already exists (and which list). Ship before Focus profiles.
+- ~~**Focus Tags quick add + search**~~ **done**: Focus Tags card — type keyword, live which-list status, Productive / Unproductive / Ignore (moves across lists; Enter → Productive)
 - **Crash / error log file** (wanted): on uncaught main/renderer errors or crash, write a local log under userData (or ./data in dev) so debug is not screenshot-only. Fully local — no upload.
 
 ### Product loop
@@ -146,6 +146,14 @@ Formerly "Focus modes" — named **Focus profiles** that swap what "productive" 
 - Adaptive angle (later): suggest profile from recent apps, or warn when current apps fight the active profile
 - **Downtime** profile/mode: pause unproductive scoring / reminders (and optionally skip logging U apps) without full app quit — pairs with tray
 - Keep fully local
+
+
+### Away notes (parked — do not implement yet)
+- **Focus session modes**: Pomodoro 25m, Deep work 90m, custom — tighter tracking while a session is active
+- **Notification toggle** above sidebar power + status
+- **Settings**: iOS-style switches instead of checkboxes
+- **Onboarding**: Quick start + Custom configuration
+- **Rename later**: "what the focus" (lowest priority, ship last)
 
 ### Explicit non-goals (for now)
 - Cloud sync / accounts
