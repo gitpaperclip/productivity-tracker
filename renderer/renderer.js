@@ -160,7 +160,24 @@ if (navToggle) {
   });
 }
 
-$('banner-dismiss').addEventListener('click', () => $('banner').classList.add('hidden'));
+let bannerHideTimer = null;
+function hideBanner() {
+  const b = $('banner');
+  if (b) b.classList.add('hidden');
+  if (bannerHideTimer) {
+    clearTimeout(bannerHideTimer);
+    bannerHideTimer = null;
+  }
+}
+function showBanner(text) {
+  const b = $('banner');
+  if (!b) return;
+  if ($('banner-text')) $('banner-text').textContent = text || 'Time to refocus.';
+  b.classList.remove('hidden');
+  if (bannerHideTimer) clearTimeout(bannerHideTimer);
+  bannerHideTimer = setTimeout(hideBanner, 15000);
+}
+$('banner-dismiss').addEventListener('click', hideBanner);
 
 function updateSourcePill(now) {
   if (!now) return;
@@ -749,6 +766,13 @@ function applySettingsInputs(settings) {
   if ($('focusboost-sec') && document.activeElement !== $('focusboost-sec')) {
     $('focusboost-sec').value = fbSec;
   }
+  if ($('reminder-message') && document.activeElement !== $('reminder-message')) {
+    $('reminder-message').value = settings.reminderMessage || "You've been on {app} for a while... maybe it's time to get back?";
+  }
+  if ($('focusboost-message') && document.activeElement !== $('focusboost-message')) {
+    $('focusboost-message').value =
+      settings.focusBoostReminderMessage || "Hey! focusboost is enabled. Maybe it's time to refocus?";
+  }
   let goalSec = Number(settings.dailyGoalSec);
   if (!Number.isFinite(goalSec) || goalSec <= 0) goalSec = 7200;
   const hoursVal = Math.round((goalSec / 3600) * 100) / 100;
@@ -1108,6 +1132,23 @@ if ($('focusboost-sec')) {
     syncFocusBoostUi(next || Object.assign({}, settings, partial));
   });
 }
+if ($('reminder-message')) {
+  const saveReminderMsg = () => {
+    const text = String($('reminder-message').value || '').trim() || "You've been on {app} for a while... maybe it's time to get back?";
+    pushSettings({ reminderMessage: text });
+  };
+  $('reminder-message').addEventListener('change', saveReminderMsg);
+  $('reminder-message').addEventListener('blur', saveReminderMsg);
+}
+if ($('focusboost-message')) {
+  const saveBoostMsg = () => {
+    const text =
+      String($('focusboost-message').value || '').trim() || "Hey! focusboost is enabled. Maybe it's time to refocus?";
+    pushSettings({ focusBoostReminderMessage: text });
+  };
+  $('focusboost-message').addEventListener('change', saveBoostMsg);
+  $('focusboost-message').addEventListener('blur', saveBoostMsg);
+}
 
 function clampGoalHours(h) {
   if (!Number.isFinite(h) || h <= 0) return null;
@@ -1466,8 +1507,7 @@ async function boot() {
     renderStats(payload.stats);
   });
   api.onReminder((payload) => {
-    $('banner').classList.remove('hidden');
-    $('banner-text').textContent = payload.body || 'Time to refocus.';
+    showBanner(payload.body || 'Time to refocus.');
   });
 }
 

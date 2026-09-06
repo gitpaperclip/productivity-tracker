@@ -319,6 +319,15 @@
           </label>
           <p class="hint">When you arm focusboost on Home, the reminder threshold switches to this wait (default 180s / 3 min). Use 15–30s to demo the reminder.</p>
           <label class="field">
+            <span>Standard reminder text</span>
+            <textarea id="reminder-message" class="rules-textarea" rows="2" spellcheck="true" placeholder="You've been on {app} for a while..."></textarea>
+          </label>
+          <label class="field">
+            <span>FocusBoost reminder text</span>
+            <textarea id="focusboost-message" class="rules-textarea" rows="2" spellcheck="true" placeholder="Hey! focusboost is enabled..."></textarea>
+          </label>
+          <p class="hint">Optional tokens: <code>{app}</code>, <code>{streak}</code>. FocusBoost text is used while focusboost is armed.</p>
+          <label class="field">
             <span>Daily productive goal (hours)</span>
             <input type="number" id="daily-goal-hours" min="0.25" max="16" step="0.25" value="2" />
           </label>

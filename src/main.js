@@ -139,12 +139,32 @@ function createWindow() {
   });
 }
 
+function formatReminderBody(template, payload) {
+  const app = payload && payload.app ? String(payload.app) : 'an app';
+  const streakSec = Math.round(Number(payload && payload.streak) || 0);
+  const minutes = Math.max(1, Math.round(streakSec / 60));
+  const streak =
+    streakSec > 0 && streakSec < 60 ? streakSec + 's' : minutes + ' min';
+  return String(template || '')
+    .replace(/\{app\}/gi, app)
+    .replace(/\{streak\}/gi, streak)
+    .trim();
+}
+
 function fireReminder(payload) {
-  const minutes = Math.max(1, Math.round((payload.streak || 0) / 60));
-  const body =
-    payload.threshold && payload.threshold < 60
-      ? `Unproductive for ${Math.round(payload.streak)}s on ${payload.app}. Time to refocus.`
-      : `You've been unproductive for about ${minutes} min on ${payload.app}. Time to refocus.`;
+  const settings = (store && store.getSettings && store.getSettings()) || {};
+  const boostOn = !!settings.focusBoost;
+  const boostTemplate =
+    settings.focusBoostReminderMessage ||
+    "Hey! focusboost is enabled. Maybe it's time to refocus?";
+  const standardTemplate =
+    settings.reminderMessage ||
+    "You've been on {app} for a while... maybe it's time to get back?";
+  const template = boostOn ? boostTemplate : standardTemplate;
+  let body = formatReminderBody(template, payload);
+  if (!body) {
+    body = formatReminderBody(standardTemplate, payload);
+  }
 
   const iconPath = path.join(__dirname, '..', 'renderer', 'assets', 'logo-mark.png');
 
