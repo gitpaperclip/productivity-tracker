@@ -45,7 +45,7 @@ Artifact names look like `FocusFlow-1.0.0-win-x64.exe` (installer / portable). B
 
 ## Classification
 
-Keywords match process name, window title, and URL. Unproductive wins on overlap. Bare browsers stay other. Edit under Focus Tags or use P/U/I on Analytics → Apps / Last focused.
+Keywords match process name, window title, and URL. Unproductive wins on overlap. For browsers, tags match **window title / URL keywords**, not the browser app name — a bare browser stays `other` in data and shows a yellow **browser** chip in the UI (Last focused + Apps list) until a keyword hits. Edit under Focus Tags or use P/U/I on Analytics → Apps / Last focused.
 
 ## Ignore list
 
@@ -84,7 +84,7 @@ Portable **tag lists only** — productive, unproductive, and ignore keywords. S
 
 **Available now:** Settings → Data → **Export profile pack** / **Import profile pack** writes or replaces the active rules + ignore lists (classifier picks them up immediately). Import does **not** touch day history or app settings.
 
-**Later (not built yet):** up to ~5 named Focus profiles and a Home hotswitch — this pack format is the infrastructure for that.
+**Later (not built yet):** up to ~5 named Focus profiles and a Home hotswitch — see **To-dos**; this pack format is the infrastructure for that.
 
 ## FocusBoost
 
@@ -116,43 +116,42 @@ Home toggle sets ~3 min unproductive reminder. Button punch + edge kick on arm (
 Tracking backends TBD. UI and store run; live capture may use active-win or demo depending on environment.
 
 
+## To-dos (next)
+
+Actionable pending work (parked or not started). Shipped notes live under **Roadmap history** below.
+
+- **Named Focus profiles + Home hotswitch** (<=5 profiles; switch active P/U/Ign lists; `.focusflow-profile` pack format already exists — build multi-profile UI + Home switcher, not just export/import of the current lists)
+- **Crash / error local log**: on uncaught main/renderer errors or crash, write a local log under userData (or `./data` in dev) so debug is not screenshot-only. Fully local — no upload.
+- **Tray + Downtime** (shelved until tray): tray presence + FocusBoost in tray; tray menu (Pause, Boost, open Roundup/Home, pick Focus profile); **Downtime mode** (do not treat / do not log unproductive apps for evenings/breaks); tray icon state (active / downtime / paused)
+- **Nudges / FocusBoost analytics**: Analytics solo segment pill (right of toolbar) for reminder history — each toast logged (app, streak, time); counts; average time-to-refocus when measurable
+- **First-run onboarding** (TBD): primary browser -> seed Focus Tags; intro copy that tags improve classification over time; seed FocusBoost schedule + (post-launch) Roundup notification time
+- **Disk usage display** with privacy/Data
+- **Gentle health insights** (short coach notes, no lectures)
+- **Privacy mode** (strip/hash window titles)
+- **Themes**: Sand, Coral, Night, Starlight; nav caret polish
+- **Focus share goal** (later): Settings target % focused vs unfocused; Roundup hit/miss alongside productive-hours goal
+- **Electron memory mitigations** (see Performance & memory) — fine for 8 GB+ as-is; revisit only if measured bloat
+- **Away notes** (parked — do not implement yet):
+  - Focus session modes: Pomodoro 25m, Deep work 90m, custom
+  - Notification toggle above sidebar power + status
+  - Settings: iOS-style switches instead of checkboxes
+  - Onboarding: Quick start + Custom configuration
+  - **Rebrand to "what the focus"** — **shelved / lowest priority — ship last**. Rename would touch many custom surfaces (package ids, `.focusflow` / `.focusflow-profile` formats, appId, paths, UI strings, etc.). Keep FocusFlow + package / `.focusflow` ids stable until a dedicated rename ship; do not start rename work now.
+
+
 ## Roadmap / ideas (survive memory wipes)
 
 North star: private · honest · alive. Local Windows companion with a daily loop (goal → Boost nudges → Roundup), not another guilt dashboard.
 
-### Near-term feel
-- **Nudges / FocusBoost analytics** (wanted): Analytics view for reminder history — each toast logged (app, streak, time); counts; average time-to-refocus after a nudge when measurable. UI: its own solo segment pill (same style as Apps), pinned on the **right** of the Analytics toolbar (Day·Week·Month left cluster · Apps · FocusBoost/Nudges on the right). Not a separate sidebar tab unless it grows.
+### Roadmap history (done / shipped)
 - ~~Side nav smooth expand/collapse animation~~ **done** (CSS width/opacity; respects reduced-motion; mobile rail unchanged)
 - ~~Stronger FocusBoost "hit the UI" press feedback~~ **done** (button punch + edge kick on arm; soft settle on disarm)
 - ~~Roundup tab (after Analytics)~~ **done (v1)**: headline, goal bar, highlights, story
-- Classification smarts: browser yellow "browser" tag, sharper title keywords
 - ~~**Focus Tags quick add + search**~~ **done**: Focus Tags card — type keyword, live which-list status, Productive / Unproductive / Ignore (moves across lists; Enter → Productive)
-- **Crash / error log file** (wanted): on uncaught main/renderer errors or crash, write a local log under userData (or ./data in dev) so debug is not screenshot-only. Fully local — no upload.
-
-### Product loop
-- Daily productivity goal: Settings-only (feeds Roundup; off Home)
-- Gentle health insights (short coach notes, no lectures)
-- Privacy mode (strip/hash window titles)
-- ~~**Pause / disable tracking**~~ **done (v1)**: Home Pause/Resume + Settings toggle; status pill “Paused”; freezes Last focused; no logging/reminders while paused
-- Tray presence + FocusBoost in tray
-- ~~`.exe` packaging~~ **scaffolded** (`npm run dist` / `pack` via electron-builder; unsigned SmartScreen note in README) + first-run onboarding **TBD** (primary browser → seed Focus Tags)
-  - Intro copy: classification gets better as you tag more apps (P/U/I + Focus Tags) — update tags as you go; no need to rewrite past time
-  - **FocusBoost schedule** (onboarding): pick daily Boost hours during first-run; same control lives in Settings (onboarding seeds it). Tracking stays 24/7 — schedule only arms/disarms FocusBoost.
-  - **Roundup notification time** (post-launch): during onboarding, pick a daily time (e.g. 5pm) for a Roundup toast; notification includes a button/action that opens the Roundup tab. Same control lives in Settings (onboarding just seeds it).
-- Disk usage display with privacy/Data
-
-### Tray stage (shelved until tray)
-- Tray menu: pick **Focus profile** quickly (Coding, Resume writing, Homework, …)
-- **Downtime mode**: don’t treat (or don’t log) unproductive apps — evenings / breaks without guilt or noise; still optional light presence
-- Tray: Pause tracking, arm/disarm FocusBoost, open Roundup / Home
-- Tray icon state reflects mode (active / downtime / paused)
-
-### Shelved polish
-- Themes: Sand, Coral, Night, Starlight
-- Nav caret polish
-- Electron memory mitigations (see Performance & memory) — fine for 8 GB+ / power PCs as-is; revisit only if measured bloat
-- Roundup daily notification (post-launch): onboarding + Settings time picker; Windows toast with action → Roundup tab
-- **Focus share goal** (later): Settings target % focused vs unfocused; Roundup shows hit/miss alongside productive-hours goal (Analytics already has Focus share)
+- ~~Classification smarts: browser yellow "browser" tag, sharper title keywords~~ **done**: bare browser + `other` shows yellow **browser** chip (Last focused + Apps); Focus Tags copy clarifies title/URL keywords for browsers
+- ~~**Pause / disable tracking**~~ **done (v1)**: Home Pause/Resume + Settings toggle; status pill Paused; freezes Last focused; no logging/reminders while paused
+- ~~.exe packaging~~ **scaffolded**
+- Daily productivity goal shipped control; Focus share goal still in To-dos
 
 ### Longer-term: Focus profiles (context-aware productivity)
 Formerly "Focus modes" — named **Focus profiles** that swap what "productive" means for the task you're in (e.g. Writing, Coding, Homework, Deep reading).
@@ -162,18 +161,11 @@ Formerly "Focus modes" — named **Focus profiles** that swap what "productive" 
 - Example: Coding profile — Stack Overflow / docs productive; Netflix still isn't
 - **Lives on the Focus Tags page**: manage profiles there (create/edit/remove, see which tags belong to the active profile)
 - **Home hotswitch**: quick switcher for the active Focus profile (later also tray)
+- **Multi-profile UI is a To-do** (see above) — pack export/import for the *current* lists already ships; named profiles + Home switch are not built yet
 - **Export / import** Focus profiles as **zip packs** the app loads into productive / unproductive / ignore tag lists (explicit lists in the pack — not magic auto-sort of arbitrary files). After switch + Tags UI work.
 - Adaptive angle (later): suggest profile from recent apps, or warn when current apps fight the active profile
 - **Downtime** profile/mode: pause unproductive scoring / reminders (and optionally skip logging U apps) without full app quit — pairs with tray
 - Keep fully local
-
-
-### Away notes (parked — do not implement yet)
-- **Focus session modes**: Pomodoro 25m, Deep work 90m, custom — tighter tracking while a session is active
-- **Notification toggle** above sidebar power + status
-- **Settings**: iOS-style switches instead of checkboxes
-- **Onboarding**: Quick start + Custom configuration
-- **Rename later**: "what the focus" (lowest priority, ship last)
 
 ### Explicit non-goals (for now)
 - Cloud sync / accounts

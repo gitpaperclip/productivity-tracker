@@ -49,6 +49,8 @@
   --unprod-bg: rgba(251,113,133,0.12);
   --other: #94a3b8;
   --other-bg: rgba(148,163,184,0.12);
+  --browser: #eab308;
+  --browser-bg: rgba(234,179,8,0.14);
   --accent: #818cf8;
   --accent-2: #38bdf8;
   --shadow: 0 18px 50px rgba(0,0,0,0.35);
@@ -349,6 +351,7 @@ body.nav-collapsed .pause-power {
 .chip.productive { background: var(--prod-bg); color: var(--prod); }
 .chip.unproductive { background: var(--unprod-bg); color: var(--unprod); }
 .chip.other { background: var(--other-bg); color: var(--other); }
+.chip.browser { background: var(--browser-bg); color: var(--browser); }
 .chip.ignored { background: rgba(255,255,255,0.06); color: var(--muted); }
 
 h3 { margin: 0 0 16px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }

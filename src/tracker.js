@@ -143,6 +143,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
           : settings.demoMode
             ? ''
             : 'Switch apps to start tracking');
+    const browser = !!(win && isBrowserProcess(win));
 
     const same =
       current.app === app &&
@@ -174,6 +175,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
         app,
         title,
         category,
+        browser,
         source,
         at: now
       };
@@ -203,6 +205,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
           app,
           title,
           category,
+          browser,
           source,
           ignored,
           url: (win && win.url) || '',

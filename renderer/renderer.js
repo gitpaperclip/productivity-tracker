@@ -345,6 +345,26 @@ function isBrowserApp(app) {
   return /chrome|msedge|\bedge\b|firefox|brave|opera|chromium/.test(a);
 }
 
+/**
+ * Display label/class for category chips.
+ * Bare browser + category "other" → yellow "browser" chip (data stays "other").
+ */
+function chipDisplay(category, app, browserFlag) {
+  const cat = category || 'other';
+  const isBrowser = browserFlag === true || isBrowserApp(app);
+  if (cat === 'other' && isBrowser) {
+    return { className: 'chip browser', label: 'browser' };
+  }
+  return { className: 'chip ' + cat, label: cat };
+}
+
+function applyCategoryChip(el, category, app, browserFlag) {
+  if (!el) return;
+  const d = chipDisplay(category, app, browserFlag);
+  el.textContent = d.label;
+  el.className = d.className;
+}
+
 const KNOWN_SITE_KEYWORDS = [
   'github',
   'gitlab',
@@ -474,7 +494,8 @@ function renderLastFocused(lf, now) {
   lastFocusedCache = {
     app: use.app,
     title: use.title || '',
-    category: use.category || 'other'
+    category: use.category || 'other',
+    browser: use.browser === true || isBrowserApp(use.app)
   };
   const oKey = lfOverrideKey(lastFocusedCache);
   if (oKey && lfSessionClass[oKey]) {
@@ -483,9 +504,12 @@ function renderLastFocused(lf, now) {
   setAppTrunc(appEl, use.app);
   if (titleEl) setAppTrunc(titleEl, use.title || '');
   if (catEl) {
-    const cat = lastFocusedCache.category || 'other';
-    catEl.textContent = cat;
-    catEl.className = 'chip ' + cat;
+    applyCategoryChip(
+      catEl,
+      lastFocusedCache.category,
+      lastFocusedCache.app,
+      use.browser === true
+    );
   }
   applyLfButtonOutlines(lastFocusedCache.category);
 }
@@ -1500,6 +1524,7 @@ function renderAppList(stats) {
     .map((a) => {
       const name = esc(a.name);
       const raw = encodeURIComponent(a.name);
+      const chip = chipDisplay(a.category, a.name);
       return (
         '<li class="app-row">' +
         '<span class="app-name app-trunc" data-full="' +
@@ -1509,10 +1534,10 @@ function renderAppList(stats) {
         '">' +
         name +
         '</span>' +
-        '<span class="chip ' +
-        a.category +
+        '<span class="' +
+        chip.className +
         '">' +
-        a.category +
+        chip.label +
         '</span>' +
         '<span class="secs">' +
         fmt(a.seconds) +
@@ -2182,10 +2207,12 @@ async function quickClassifyLastFocused(category) {
     const oKey = lfOverrideKey(lastFocusedCache);
     if (oKey) lfSessionClass[oKey] = category;
     const catEl = $('lf-cat');
-    if (catEl) {
-      catEl.textContent = category;
-      catEl.className = 'chip ' + category;
-    }
+    applyCategoryChip(
+      catEl,
+      category,
+      lastFocusedCache.app,
+      lastFocusedCache.browser
+    );
     applyLfButtonOutlines(category);
   } catch (err) {
     console.warn('quick-classify failed', err);
