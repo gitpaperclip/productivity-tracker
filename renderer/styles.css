@@ -83,6 +83,8 @@ body {
   /* auto column follows .rail width so collapse can animate (grid tracks often snap) */
   grid-template-columns: auto 1fr;
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: transparent;
 }
 
@@ -99,6 +101,10 @@ body {
   min-width: 0;
   flex-shrink: 0;
   box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  align-self: start;
   transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1), padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -151,6 +157,9 @@ body {
   flex-direction: column;
   gap: 6px;
   align-items: stretch;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 .nav-btn {
   appearance: none; border: 0; cursor: pointer; text-align: left;
@@ -257,8 +266,10 @@ body.nav-collapsed .pause-power {
   margin: 0;
   width: 100%;
   box-sizing: border-box;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   overflow-x: hidden;
+  overflow-y: auto;
   min-width: 0;
 }
 
@@ -976,19 +987,37 @@ h4.unprod { color: var(--unprod); }
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
   .rail {
     width: auto;
+    height: auto;
+    position: relative;
+    top: auto;
     transition: none;
     flex-direction: row;
     align-items: center;
     gap: 16px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
-    overflow: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
-  .nav { flex-direction: row; }
-  .rail-foot { margin-top: 0; margin-left: auto; }
+  .nav {
+    flex-direction: row;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 0;
+  }
+  .rail-foot { margin-top: 0; margin-left: auto; flex-shrink: 0; }
+  .main {
+    height: auto;
+    min-height: 0;
+    overflow-y: visible;
+  }
   .nav-toggle { display: none; }
   /* Collapse class must not shrink the horizontal rail */
   body.nav-collapsed .shell { grid-template-columns: 1fr; }
@@ -2170,61 +2199,11 @@ body[data-boost="on"]::after {
 /* ——— Focus sessions ——— */
 .mono { font-variant-numeric: tabular-nums; font-family: var(--mono); }
 
-.home-session {
-  margin-top: 1.1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
-}
-.home-session-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.65rem;
-}
-.home-session-status[data-active="on"] {
-  color: var(--accent-2);
-  font-weight: 600;
-}
-.home-session-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem;
-}
-.home-session-modes { flex: 1 1 auto; }
-.home-session-custom {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.home-session-custom input {
-  width: 4.2rem;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  color: var(--text);
-  border-radius: 10px;
-  padding: 0.35rem 0.5rem;
-  font: inherit;
-}
-.home-session-countdown {
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  min-width: 4.5rem;
-  text-align: center;
-  color: var(--text);
-}
-.home-session-countdown[data-active="on"] {
-  color: var(--accent-2);
-}
-.home-session-btn { min-width: 5.5rem; }
-
 .session-timer-card {
-  text-align: center;
-  padding: 1.5rem 1.35rem 1.35rem;
+  text-align: left;
+  padding: 1.35rem 1.35rem 1.2rem;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(129,140,248,0.12), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(129,140,248,0.12), transparent 60%),
     var(--panel);
   min-width: 0;
   max-width: 100%;
@@ -2233,47 +2212,63 @@ body[data-boost="on"]::after {
 .session-timer-card[data-running="on"] {
   box-shadow: 0 0 0 1px rgba(56,189,248,0.22), var(--shadow);
 }
+.session-mode-control {
+  display: inline-flex;
+  margin: 0 0 1rem;
+}
+.session-alarm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.session-alarm-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .session-timer-kicker {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.75rem;
   margin-bottom: 0.15rem;
 }
 .session-timer-display {
-  font-family: var(--font);
+  font-family: "Inter", var(--font), system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
   font-size: clamp(3.2rem, 10vw, 5.2rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.05;
-  margin: 0.45rem 0 1rem;
+  margin: 0.25rem 0 0.35rem;
   color: var(--text);
+  text-align: left;
 }
 .session-timer-card[data-running="on"] .session-timer-display {
   color: var(--text);
 }
-.session-mode-control {
-  display: inline-flex;
-  margin: 0 auto 1rem;
-}
 .session-custom-row {
   display: flex;
-  justify-content: center;
-  margin-bottom: 0.85rem;
+  justify-content: flex-start;
+  margin: 0.35rem 0 0.15rem;
 }
 .session-custom-field {
   max-width: 10rem;
   text-align: left;
+  padding: 0;
+  border-bottom: 0;
 }
+.session-custom-field > span { margin-bottom: 6px; }
 .session-timer-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin: 0;
   min-height: 56px;
+  flex: 0 0 auto;
 }
 .session-play {
   appearance: none;
@@ -2347,14 +2342,8 @@ body[data-boost="on"]::after {
   align-items: center;
   justify-content: center;
 }
-.session-distract-hint {
-  text-align: left;
-  margin: 0.5rem 0 0;
-  font-size: 0.82rem;
-  line-height: 1.45;
-}
 .session-live-stats {
-  margin-top: 0.65rem;
+  margin-top: 0.45rem;
   text-align: left;
 }
 
@@ -2425,6 +2414,55 @@ body[data-boost="on"]::after {
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
+}
+.session-log-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  position: relative;
+}
+.session-log-row .session-log-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.session-log-delete {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: width 160ms ease, opacity 160ms ease, color 140ms ease, background 140ms ease;
+  border-radius: 0 14px 0 0;
+}
+.session-log-item:hover .session-log-delete,
+.session-log-item:focus-within .session-log-delete {
+  width: 2.4rem;
+  min-width: 2.4rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+.session-log-delete:hover {
+  color: #fecdd3;
+  background: rgba(251,113,133,0.14);
+}
+.session-log-delete svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  flex-shrink: 0;
+}
+.session-log-item[data-status="running"] .session-log-delete {
+  display: none;
 }
 .session-log-caret {
   color: var(--muted);

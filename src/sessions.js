@@ -415,6 +415,41 @@ function createSessionManager({ dataDir, getSettings }) {
     pruneToMostRecent(recent);
   }
 
+  /**
+   * Delete a completed/stopped session from the day log.
+   * Refuses to delete the currently running active session.
+   */
+  function deleteSession(id, dateKey) {
+    const sid = id != null ? String(id) : '';
+    if (!sid) return { ok: false, reason: 'missing-id' };
+    if (active && active.id === sid && active.status === 'running') {
+      return { ok: false, reason: 'active' };
+    }
+    const key =
+      (dateKey && String(dateKey)) ||
+      (() => {
+        // Search recent days if date not provided
+        for (const d of listSessionDates().slice().reverse()) {
+          const list = readDay(d);
+          if (list.some((e) => e && e.id === sid)) return d;
+        }
+        return null;
+      })();
+    if (!key) return { ok: false, reason: 'not-found' };
+    const list = readDay(key);
+    const next = list.filter((e) => !(e && e.id === sid));
+    if (next.length === list.length) return { ok: false, reason: 'not-found' };
+    if (next.length) writeDay(key, next);
+    else {
+      try {
+        if (fs.existsSync(dayPath(key))) fs.unlinkSync(dayPath(key));
+      } catch (err) {
+        console.error('[sessions] delete day file failed', err.message);
+      }
+    }
+    return { ok: true, date: key, id: sid };
+  }
+
   return {
     startSession,
     stopSession,
@@ -424,6 +459,7 @@ function createSessionManager({ dataDir, getSettings }) {
     getMostRecentSession,
     getRecentSessionDays,
     applyHistorySetting,
+    deleteSession,
     checkExpiry,
     MODE_DEFS,
     sessionsDir,

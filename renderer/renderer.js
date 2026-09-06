@@ -2194,23 +2194,27 @@ function syncSessionSettingsUi(settings) {
   }
   const customMin = Number(settings.sessionCustomMin);
   const mins = Number.isFinite(customMin) && customMin > 0 ? customMin : 45;
-  const inputs = [$('session-custom-min'), $('home-session-custom-min')];
-  for (const el of inputs) {
-    if (el && document.activeElement !== el) el.value = mins;
-  }
+  const el = $('session-custom-min');
+  if (el && document.activeElement !== el) el.value = mins;
   if (!activeSessionCache) {
     updateIdleCountdownDisplay();
   }
 }
 
-function setSelectedSessionMode(mode, opts) {
-  const silent = opts && opts.silent;
-  if (mode !== 'pomodoro' && mode !== 'deep' && mode !== 'custom') mode = 'pomodoro';
-  selectedSessionMode = mode;
+function bindSessionLogListClicks() {
   const sessionLogListEl = $('session-log-list');
-if (sessionLogListEl && !sessionLogListEl._expandBound) {
+  if (!sessionLogListEl || sessionLogListEl._expandBound) return;
   sessionLogListEl._expandBound = true;
   sessionLogListEl.addEventListener('click', (ev) => {
+    const del = ev.target.closest('.session-log-delete');
+    if (del && sessionLogListEl.contains(del)) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = del.getAttribute('data-id');
+      const dateKey = del.getAttribute('data-date') || sessionLogDay;
+      if (id) deleteFocusSession(id, dateKey);
+      return;
+    }
     const btn = ev.target.closest('.session-log-summary');
     if (!btn || !sessionLogListEl.contains(btn)) return;
     const item = btn.closest('.session-log-item');
@@ -2221,19 +2225,22 @@ if (sessionLogListEl && !sessionLogListEl._expandBound) {
   });
 }
 
-document.querySelectorAll('[data-session-mode]').forEach((btn) => {
+function setSelectedSessionMode(mode, opts) {
+  const silent = opts && opts.silent;
+  if (mode !== 'pomodoro' && mode !== 'deep' && mode !== 'custom') mode = 'pomodoro';
+  selectedSessionMode = mode;
+  bindSessionLogListClicks();
+  document.querySelectorAll('[data-session-mode]').forEach((btn) => {
     const on = btn.getAttribute('data-session-mode') === mode;
     btn.classList.toggle('active', on);
   });
   const customRow = $('session-custom-row');
   if (customRow) customRow.classList.toggle('hidden', mode !== 'custom');
-  const homeCustom = $('home-session-custom-wrap');
-  if (homeCustom) homeCustom.classList.toggle('hidden', mode !== 'custom');
   if (!activeSessionCache && !silent) updateIdleCountdownDisplay();
 }
 
 function currentCustomMin() {
-  const el = $('session-custom-min') || $('home-session-custom-min');
+  const el = $('session-custom-min');
   const n = el ? Number(el.value) : 45;
   return Number.isFinite(n) && n > 0 ? Math.min(1440, Math.max(1, Math.round(n))) : 45;
 }
@@ -2249,18 +2256,8 @@ function updateIdleCountdownDisplay() {
   const text = fmtCountdown(planned);
   const big = $('session-timer-display');
   if (big) big.textContent = text;
-  const home = $('home-session-countdown');
-  if (home) {
-    home.textContent = text;
-    home.setAttribute('data-active', 'off');
-  }
   const modeLabel = $('session-timer-mode-label');
   if (modeLabel) modeLabel.textContent = label;
-  const homeStatus = $('home-session-status');
-  if (homeStatus) {
-    homeStatus.textContent = 'Idle';
-    homeStatus.setAttribute('data-active', 'off');
-  }
 }
 
 function remainingFromSession(session) {
@@ -2274,7 +2271,6 @@ function remainingFromSession(session) {
 function syncSessionControlsRunning(running) {
   const startBtn = $('session-start-btn');
   const stopBtn = $('session-stop-btn');
-  const homeBtn = $('home-session-toggle');
   const card = $('session-timer-card');
   if (card) card.setAttribute('data-running', running ? 'on' : 'off');
   if (startBtn) {
@@ -2287,18 +2283,12 @@ function syncSessionControlsRunning(running) {
     stopBtn.classList.toggle('hidden', !running);
     stopBtn.setAttribute('aria-hidden', running ? 'false' : 'true');
   }
-  if (homeBtn) {
-    homeBtn.textContent = running ? 'Stop' : 'Start';
-    homeBtn.classList.toggle('primary', !running);
-  }
   // Disable mode switches while running
   document.querySelectorAll('[data-session-mode]').forEach((btn) => {
     btn.disabled = !!running;
   });
-  const customInputs = [$('session-custom-min'), $('home-session-custom-min')];
-  for (const el of customInputs) {
-    if (el) el.disabled = !!running;
-  }
+  const customEl = $('session-custom-min');
+  if (customEl) customEl.disabled = !!running;
   const liveStats = $('session-live-stats');
   if (liveStats) liveStats.hidden = !running;
 }
@@ -2317,18 +2307,8 @@ function renderActiveSession(session) {
   const text = fmtCountdown(rem);
   const big = $('session-timer-display');
   if (big) big.textContent = text;
-  const home = $('home-session-countdown');
-  if (home) {
-    home.textContent = text;
-    home.setAttribute('data-active', 'on');
-  }
   const modeLabel = $('session-timer-mode-label');
   if (modeLabel) modeLabel.textContent = session.modeLabel || 'Session';
-  const homeStatus = $('home-session-status');
-  if (homeStatus) {
-    homeStatus.textContent = (session.modeLabel || 'Session') + ' · ' + text;
-    homeStatus.setAttribute('data-active', 'on');
-  }
   const dist = $('session-live-distract');
   if (dist) dist.textContent = String(session.distractionCount || 0);
   startSessionUiTicker();
@@ -2354,12 +2334,6 @@ function startSessionUiTicker() {
     const text = fmtCountdown(rem);
     const big = $('session-timer-display');
     if (big) big.textContent = text;
-    const home = $('home-session-countdown');
-    if (home) home.textContent = text;
-    const homeStatus = $('home-session-status');
-    if (homeStatus) {
-      homeStatus.textContent = (activeSessionCache.modeLabel || 'Session') + ' · ' + text;
-    }
   }, 250);
 }
 
@@ -2391,6 +2365,18 @@ async function stopFocusSession() {
     refreshSessionLog();
   } catch (err) {
     console.warn('stopSession failed', err);
+  }
+}
+
+async function deleteFocusSession(id, dateKey) {
+  if (!api || !api.deleteSession || !id) return;
+  if (activeSessionCache && activeSessionCache.id === id) return;
+  try {
+    const res = await api.deleteSession(id, dateKey);
+    if (res && res.ok === false && res.reason === 'active') return;
+    refreshSessionLog(dateKey || sessionLogDay);
+  } catch (err) {
+    console.warn('deleteSession failed', err);
   }
 }
 
@@ -2473,8 +2459,25 @@ function renderSessionLogList(payload) {
         .join('');
       const title =
         esc(s.modeLabel || s.mode || 'Session') + ' · ' + unit;
+      const canDelete = s.status !== 'running' && s.id;
+      const dateAttr = esc((payload && payload.date) || sessionLogDay || '');
+      const delBtn = canDelete
+        ? '<button type="button" class="session-log-delete" data-id="' +
+          esc(String(s.id)) +
+          '" data-date="' +
+          dateAttr +
+          '" title="Delete session" aria-label="Delete session">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v6M14 11v6"/>' +
+          '</svg></button>'
+        : '';
       return (
-        '<div class="session-log-item" data-open="off">' +
+        '<div class="session-log-item" data-open="off" data-status="' +
+        esc(s.status || 'stopped') +
+        '" data-id="' +
+        esc(String(s.id || '')) +
+        '">' +
+        '<div class="session-log-row">' +
         '<button type="button" class="session-log-summary" aria-expanded="false">' +
         '<span class="session-log-summary-left">' +
         '<span class="session-log-caret" aria-hidden="true">▶</span>' +
@@ -2484,6 +2487,8 @@ function renderSessionLogList(payload) {
         '</span>' +
         statusChip(s.status) +
         '</button>' +
+        delBtn +
+        '</div>' +
         '<div class="session-log-details">' +
         '<div class="session-log-meta">' +
         esc(range) +
@@ -2549,11 +2554,6 @@ function onCustomMinChange(el) {
   if (!el) return;
   const handler = () => {
     const mins = currentCustomMin();
-    // Keep both inputs in sync
-    const a = $('session-custom-min');
-    const b = $('home-session-custom-min');
-    if (a && document.activeElement !== a) a.value = mins;
-    if (b && document.activeElement !== b) b.value = mins;
     if (!activeSessionCache) updateIdleCountdownDisplay();
     if (selectedSessionMode === 'custom') {
       pushSettings({ sessionCustomMin: mins });
@@ -2565,19 +2565,12 @@ function onCustomMinChange(el) {
   });
 }
 onCustomMinChange($('session-custom-min'));
-onCustomMinChange($('home-session-custom-min'));
 
 if ($('session-start-btn')) {
   $('session-start-btn').addEventListener('click', () => startFocusSession());
 }
 if ($('session-stop-btn')) {
   $('session-stop-btn').addEventListener('click', () => stopFocusSession());
-}
-if ($('home-session-toggle')) {
-  $('home-session-toggle').addEventListener('click', () => {
-    if (activeSessionCache) stopFocusSession();
-    else startFocusSession();
-  });
 }
 if ($('session-day-select')) {
   $('session-day-select').addEventListener('change', () => {
@@ -2593,6 +2586,7 @@ if ($('session-history-toggle')) {
   });
 }
 
+bindSessionLogListClicks();
 setSelectedSessionMode('pomodoro', { silent: true });
 updateIdleCountdownDisplay();
 

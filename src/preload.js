@@ -30,5 +30,6 @@ contextBridge.exposeInMainWorld('focusflow', {
   startSession: (opts) => ipcRenderer.invoke('session:start', opts || {}),
   stopSession: () => ipcRenderer.invoke('session:stop'),
   getActiveSession: () => ipcRenderer.invoke('session:getActive'),
-  getSessionsForDay: (dateKey) => ipcRenderer.invoke('session:getForDay', dateKey)
+  getSessionsForDay: (dateKey) => ipcRenderer.invoke('session:getForDay', dateKey),
+  deleteSession: (id, dateKey) => ipcRenderer.invoke('session:delete', { id, dateKey })
 });

@@ -530,3 +530,9 @@ ipcMain.handle('session:getForDay', async (_e, dateKey) => {
     mostRecent: sessionManager.getMostRecentSession()
   };
 });
+
+ipcMain.handle('session:delete', async (_e, payload) => {
+  if (!sessionManager) return { ok: false, reason: 'no-manager' };
+  const opts = payload || {};
+  return sessionManager.deleteSession(opts.id, opts.dateKey);
+});
