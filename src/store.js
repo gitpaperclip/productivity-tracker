@@ -117,7 +117,9 @@ function createStore(dataDir) {
       focusBoostScheduleEnd: '17:00',
       reminderMessage: "You've been on {app} for a while... maybe it's time to get back?",
       focusBoostReminderMessage: "Hey! focusboost is enabled. Maybe it's time to refocus?",
-      dailyGoalSec: 7200
+      dailyGoalSec: 7200,
+      sessionHistoryEnabled: true,
+      sessionCustomMin: 45
     },
     loadJson(settingsPath) || {}
   );

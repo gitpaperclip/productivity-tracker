@@ -26,5 +26,9 @@ contextBridge.exposeInMainWorld('focusflow', {
   exportProfilePack: (opts) => ipcRenderer.invoke('profile:export', opts || {}),
   importProfilePack: () => ipcRenderer.invoke('profile:import'),
   clearToday: () => ipcRenderer.invoke('data:clearToday'),
-  clearAllHistory: () => ipcRenderer.invoke('data:clearAll')
+  clearAllHistory: () => ipcRenderer.invoke('data:clearAll'),
+  startSession: (opts) => ipcRenderer.invoke('session:start', opts || {}),
+  stopSession: () => ipcRenderer.invoke('session:stop'),
+  getActiveSession: () => ipcRenderer.invoke('session:getActive'),
+  getSessionsForDay: (dateKey) => ipcRenderer.invoke('session:getForDay', dateKey)
 });

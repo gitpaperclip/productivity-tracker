@@ -14,6 +14,7 @@ const {
 } = require('./classifier');
 const { createStore } = require('./store');
 const { createTracker } = require('./tracker');
+const { createSessionManager } = require('./sessions');
 const {
   buildExport,
   importBackup,
@@ -38,6 +39,7 @@ if (process.platform === 'win32') {
 let mainWindow = null;
 let tracker = null;
 let store = null;
+let sessionManager = null;
 /** Mutable holders so tracker picks up hot-reloaded rules/ignore. */
 const rulesHolder = { rules: null };
 const ignoreHolder = { ignore: [] };
@@ -224,6 +226,10 @@ function startServices() {
   loadAppRules();
   loadAppIgnore();
   store = createStore(dataDir());
+  sessionManager = createSessionManager({
+    dataDir: dataDir(),
+    getSettings: () => store.getSettings()
+  });
 
   // Force real tracking on Windows/macOS unless user opted into demo
   if ((process.platform === 'win32' || process.platform === 'darwin') && process.env.FOCUSFLOW_DEMO == null) {
@@ -244,6 +250,7 @@ function ensureTrackerStarted() {
     store,
     rulesHolder,
     ignoreHolder,
+    sessionManager,
     onTick: (payload) => {
       lastPayload = payload;
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -272,6 +279,7 @@ ipcMain.handle('state:get', async () => ({
   now: lastPayload.now || null,
   lastFocused: lastPayload.lastFocused || (tracker && tracker.getLastFocused && tracker.getLastFocused()) || null,
   stats: store ? store.snapshot(ignoreHolder.ignore || []) : lastPayload.stats,
+  session: sessionManager ? sessionManager.getActiveSession() : lastPayload.session || null,
   platform: process.platform
 }));
 
@@ -324,7 +332,17 @@ ipcMain.handle('ignore:reset', async () => {
 
 ipcMain.handle('settings:update', async (_e, partial) => {
   if (!store) return {};
-  return store.updateSettings(partial || {});
+  const prev = store.getSettings();
+  const next = store.updateSettings(partial || {});
+  if (
+    sessionManager &&
+    partial &&
+    Object.prototype.hasOwnProperty.call(partial, 'sessionHistoryEnabled') &&
+    !!partial.sessionHistoryEnabled !== !!prev.sessionHistoryEnabled
+  ) {
+    sessionManager.applyHistorySetting(!!next.sessionHistoryEnabled);
+  }
+  return next;
 });
 
 ipcMain.handle('data:export', async (_e, opts) => {
@@ -476,4 +494,39 @@ ipcMain.handle('data:clearAll', async () => {
   if (!store) return { ok: false };
   store.clearAllHistory();
   return { ok: true, stats: store.snapshot(ignoreHolder.ignore || []) };
+});
+
+ipcMain.handle('session:start', async (_e, opts) => {
+  if (!sessionManager || !store) return null;
+  const options = opts || {};
+  if (options.mode === 'custom' && options.customMin != null) {
+    const mins = Number(options.customMin);
+    if (Number.isFinite(mins) && mins > 0) {
+      store.updateSettings({ sessionCustomMin: Math.min(24 * 60, Math.max(1, Math.round(mins))) });
+    }
+  }
+  return sessionManager.startSession(options);
+});
+
+ipcMain.handle('session:stop', async () => {
+  if (!sessionManager) return { ok: false };
+  return sessionManager.stopSession();
+});
+
+ipcMain.handle('session:getActive', async () => {
+  if (!sessionManager) return null;
+  return sessionManager.getActiveSession();
+});
+
+ipcMain.handle('session:getForDay', async (_e, dateKey) => {
+  if (!sessionManager) return { date: dateKey, sessions: [], historyEnabled: true };
+  const settings = store ? store.getSettings() : {};
+  const key = dateKey || undefined;
+  return {
+    date: key || require('./store').todayKey(),
+    sessions: sessionManager.getSessionsForDay(key),
+    historyEnabled: settings.sessionHistoryEnabled !== false,
+    recentDays: sessionManager.getRecentSessionDays(14),
+    mostRecent: sessionManager.getMostRecentSession()
+  };
 });

@@ -1,7 +1,7 @@
 'use strict';
 
 const { createDemoBackend } = require('./demo-windows');
-const { classify, appLabel, isIgnored } = require('./classifier');
+const { classify, appLabel, isIgnored, isBrowserProcess } = require('./classifier');
 
 function createActiveWinBackend() {
   let impl = null;
@@ -86,7 +86,7 @@ function createRealBackend() {
  * Mutable so IPC can hot-reload without restarting tracker.
  * Also accepts legacy `rules` / `ignore` plain values for smoke/tests.
  */
-function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick, onReminder }) {
+function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessionManager, onTick, onReminder }) {
   const rHolder = rulesHolder || { rules: rules };
   const iHolder = ignoreHolder || { ignore: ignore || [] };
   const real = createRealBackend();
@@ -168,6 +168,16 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
       store.addSeconds(app, category, elapsed);
     }
 
+    // Focus session: accumulate byApp + distraction edges while active
+    let sessionInfo = null;
+    if (sessionManager && typeof sessionManager.onTrackerTick === 'function') {
+      sessionInfo = sessionManager.onTrackerTick({
+        app,
+        category,
+        elapsedSec: win && !ignored && !paused ? elapsed : 0
+      });
+    }
+
     // Remember last real focused app (not ignored / not self) for Home "Last focused"
     // Freeze lastFocused while paused so the Home bar stays put
     if (win && !ignored && !paused) {
@@ -200,6 +210,10 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
     }
 
     if (onTick) {
+      const activeSession =
+        (sessionInfo && sessionInfo.active) ||
+        (sessionManager && sessionManager.getActiveSession && sessionManager.getActiveSession()) ||
+        null;
       onTick({
         now: {
           app,
@@ -213,7 +227,9 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
           trackingError
         },
         lastFocused,
-        stats: store.snapshot(iHolder.ignore || [])
+        stats: store.snapshot(iHolder.ignore || []),
+        session: activeSession,
+        sessionCompleted: (sessionInfo && sessionInfo.completed) || null
       });
     }
   }

@@ -281,10 +281,13 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     if (analyticsView) analyticsView.classList.toggle('hidden', tab !== 'analytics');
     const roundupView = $('view-roundup');
     if (roundupView) roundupView.classList.toggle('hidden', tab !== 'roundup');
+    const sessionsView = $('view-sessions');
+    if (sessionsView) sessionsView.classList.toggle('hidden', tab !== 'sessions');
     const tagsView = $('view-tags');
     if (tagsView) tagsView.classList.toggle('hidden', tab !== 'tags' && tab !== 'focus-tags');
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
     if (tab === 'analytics') setAnalyticsSegment(analyticsSegment);
+    if (tab === 'sessions') refreshSessionLog();
     if (tab === 'tags' || tab === 'focus-tags') loadRulesAndIgnore();
   });
 });
@@ -963,6 +966,7 @@ function applySettingsInputs(settings) {
   syncPauseUi(settings);
   syncFocusBoostUi(settings);
   syncFocusBoostScheduleUi(settings);
+  syncSessionSettingsUi(settings);
   applying = false;
   applyFocusBoostSchedule(settings).catch(() => {});
 }
@@ -2150,6 +2154,439 @@ if ($('data-clear-all')) {
   });
 }
 
+
+/* ——— Focus sessions (Pomodoro / Deep / Custom) ——— */
+const SESSION_MODE_PLANNED = { pomodoro: 25 * 60, deep: 90 * 60 };
+let selectedSessionMode = 'pomodoro';
+let activeSessionCache = null;
+let sessionLogDay = null; // YYYY-MM-DD
+let sessionUiTimer = null;
+
+function sessionPlannedSec(mode, customMin) {
+  if (mode === 'pomodoro') return 25 * 60;
+  if (mode === 'deep') return 90 * 60;
+  const m = Number(customMin);
+  const mins = Number.isFinite(m) && m > 0 ? Math.min(1440, Math.max(1, Math.round(m))) : 45;
+  return mins * 60;
+}
+
+function fmtCountdown(sec) {
+  sec = Math.max(0, Math.ceil(+sec || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) {
+    return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function fmtClock(ts) {
+  const d = new Date(ts);
+  if (!Number.isFinite(d.getTime())) return '—';
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function syncSessionSettingsUi(settings) {
+  const hist = $('session-history-toggle');
+  if (hist && document.activeElement !== hist) {
+    hist.checked = settings.sessionHistoryEnabled !== false;
+  }
+  const customMin = Number(settings.sessionCustomMin);
+  const mins = Number.isFinite(customMin) && customMin > 0 ? customMin : 45;
+  const inputs = [$('session-custom-min'), $('home-session-custom-min')];
+  for (const el of inputs) {
+    if (el && document.activeElement !== el) el.value = mins;
+  }
+  if (!activeSessionCache) {
+    updateIdleCountdownDisplay();
+  }
+}
+
+function setSelectedSessionMode(mode, opts) {
+  const silent = opts && opts.silent;
+  if (mode !== 'pomodoro' && mode !== 'deep' && mode !== 'custom') mode = 'pomodoro';
+  selectedSessionMode = mode;
+  document.querySelectorAll('[data-session-mode]').forEach((btn) => {
+    const on = btn.getAttribute('data-session-mode') === mode;
+    btn.classList.toggle('active', on);
+  });
+  const customRow = $('session-custom-row');
+  if (customRow) customRow.classList.toggle('hidden', mode !== 'custom');
+  const homeCustom = $('home-session-custom-wrap');
+  if (homeCustom) homeCustom.classList.toggle('hidden', mode !== 'custom');
+  if (!activeSessionCache && !silent) updateIdleCountdownDisplay();
+}
+
+function currentCustomMin() {
+  const el = $('session-custom-min') || $('home-session-custom-min');
+  const n = el ? Number(el.value) : 45;
+  return Number.isFinite(n) && n > 0 ? Math.min(1440, Math.max(1, Math.round(n))) : 45;
+}
+
+function updateIdleCountdownDisplay() {
+  const planned = sessionPlannedSec(selectedSessionMode, currentCustomMin());
+  const label =
+    selectedSessionMode === 'pomodoro'
+      ? 'Pomodoro'
+      : selectedSessionMode === 'deep'
+        ? 'Deep work'
+        : 'Custom';
+  const text = fmtCountdown(planned);
+  const big = $('session-timer-display');
+  if (big) big.textContent = text;
+  const home = $('home-session-countdown');
+  if (home) {
+    home.textContent = text;
+    home.setAttribute('data-active', 'off');
+  }
+  const modeLabel = $('session-timer-mode-label');
+  if (modeLabel) modeLabel.textContent = label;
+  const sub = $('session-timer-sub');
+  if (sub) sub.textContent = Math.round(planned / 60) + ' min planned';
+  const live = $('session-timer-live');
+  if (live) {
+    live.textContent = 'Ready';
+    live.setAttribute('data-active', 'off');
+  }
+  const homeStatus = $('home-session-status');
+  if (homeStatus) {
+    homeStatus.textContent = 'Idle';
+    homeStatus.setAttribute('data-active', 'off');
+  }
+}
+
+function remainingFromSession(session) {
+  if (!session) return 0;
+  if (typeof session.remainingSec === 'number') return session.remainingSec;
+  if (typeof session.remainingMs === 'number') return Math.ceil(session.remainingMs / 1000);
+  if (session.endsAt) return Math.max(0, Math.ceil((Number(session.endsAt) - Date.now()) / 1000));
+  return 0;
+}
+
+function syncSessionControlsRunning(running) {
+  const startBtn = $('session-start-btn');
+  const stopBtn = $('session-stop-btn');
+  const homeBtn = $('home-session-toggle');
+  const card = $('session-timer-card');
+  if (card) card.setAttribute('data-running', running ? 'on' : 'off');
+  if (startBtn) {
+    startBtn.disabled = !!running;
+    startBtn.textContent = running ? 'Running…' : 'Start session';
+  }
+  if (stopBtn) stopBtn.disabled = !running;
+  if (homeBtn) {
+    homeBtn.textContent = running ? 'Stop' : 'Start';
+    homeBtn.classList.toggle('primary', !running);
+  }
+  // Disable mode switches while running
+  document.querySelectorAll('[data-session-mode]').forEach((btn) => {
+    btn.disabled = !!running;
+  });
+  const customInputs = [$('session-custom-min'), $('home-session-custom-min')];
+  for (const el of customInputs) {
+    if (el) el.disabled = !!running;
+  }
+  const liveStats = $('session-live-stats');
+  if (liveStats) liveStats.hidden = !running;
+}
+
+function renderActiveSession(session) {
+  activeSessionCache = session && session.status === 'running' ? session : null;
+  if (!activeSessionCache) {
+    syncSessionControlsRunning(false);
+    updateIdleCountdownDisplay();
+    stopSessionUiTicker();
+    return;
+  }
+  syncSessionControlsRunning(true);
+  if (session.mode) setSelectedSessionMode(session.mode, { silent: true });
+  const rem = remainingFromSession(session);
+  const text = fmtCountdown(rem);
+  const big = $('session-timer-display');
+  if (big) big.textContent = text;
+  const home = $('home-session-countdown');
+  if (home) {
+    home.textContent = text;
+    home.setAttribute('data-active', 'on');
+  }
+  const modeLabel = $('session-timer-mode-label');
+  if (modeLabel) modeLabel.textContent = session.modeLabel || 'Session';
+  const sub = $('session-timer-sub');
+  if (sub) {
+    const planned = Number(session.plannedSec) || 0;
+    sub.textContent =
+      Math.round(planned / 60) +
+      ' min planned · ' +
+      (session.distractionCount || 0) +
+      ' distraction' +
+      (session.distractionCount === 1 ? '' : 's');
+  }
+  const live = $('session-timer-live');
+  if (live) {
+    live.textContent = 'Running';
+    live.setAttribute('data-active', 'on');
+  }
+  const homeStatus = $('home-session-status');
+  if (homeStatus) {
+    homeStatus.textContent = (session.modeLabel || 'Session') + ' · ' + text;
+    homeStatus.setAttribute('data-active', 'on');
+  }
+  const dist = $('session-live-distract');
+  if (dist) dist.textContent = String(session.distractionCount || 0);
+  startSessionUiTicker();
+}
+
+function startSessionUiTicker() {
+  if (sessionUiTimer) return;
+  sessionUiTimer = window.setInterval(() => {
+    if (!activeSessionCache) {
+      stopSessionUiTicker();
+      return;
+    }
+    // Recompute remaining from endsAt so UI stays smooth between tracker polls
+    const rem = remainingFromSession(activeSessionCache);
+    if (rem <= 0) {
+      // Tracker will finalize; refresh from API
+      api.getActiveSession().then((s) => {
+        renderActiveSession(s);
+        if (!s) refreshSessionLog();
+      }).catch(() => {});
+      return;
+    }
+    const text = fmtCountdown(rem);
+    const big = $('session-timer-display');
+    if (big) big.textContent = text;
+    const home = $('home-session-countdown');
+    if (home) home.textContent = text;
+    const homeStatus = $('home-session-status');
+    if (homeStatus) {
+      homeStatus.textContent = (activeSessionCache.modeLabel || 'Session') + ' · ' + text;
+    }
+  }, 250);
+}
+
+function stopSessionUiTicker() {
+  if (sessionUiTimer) {
+    clearInterval(sessionUiTimer);
+    sessionUiTimer = null;
+  }
+}
+
+async function startFocusSession() {
+  if (!api) return;
+  const opts = { mode: selectedSessionMode };
+  if (selectedSessionMode === 'custom') opts.customMin = currentCustomMin();
+  try {
+    const session = await api.startSession(opts);
+    renderActiveSession(session);
+    refreshSessionLog();
+  } catch (err) {
+    console.warn('startSession failed', err);
+  }
+}
+
+async function stopFocusSession() {
+  if (!api) return;
+  try {
+    await api.stopSession();
+    renderActiveSession(null);
+    refreshSessionLog();
+  } catch (err) {
+    console.warn('stopSession failed', err);
+  }
+}
+
+function statusChip(status) {
+  if (status === 'completed') return '<span class="session-status-chip completed">Completed</span>';
+  if (status === 'running') return '<span class="session-status-chip running">Running</span>';
+  return '<span class="session-status-chip stopped">Stopped early</span>';
+}
+
+function renderSessionLogList(payload) {
+  const list = $('session-log-list');
+  const note = $('session-log-note');
+  if (!list) return;
+  const historyOn = !payload || payload.historyEnabled !== false;
+  if (note) {
+    note.textContent = historyOn
+      ? 'Per day · top apps + distractions'
+      : 'History off — only the most recent session is kept';
+  }
+  const sessions = (payload && payload.sessions) || [];
+  // Include active session at top if same day
+  const items = sessions.slice().reverse();
+  if (activeSessionCache) {
+    const d = new Date(activeSessionCache.startedAt);
+    const key =
+      d.getFullYear() +
+      '-' +
+      String(d.getMonth() + 1).padStart(2, '0') +
+      '-' +
+      String(d.getDate()).padStart(2, '0');
+    if (key === (payload && payload.date)) {
+      items.unshift({
+        id: activeSessionCache.id,
+        mode: activeSessionCache.mode,
+        modeLabel: activeSessionCache.modeLabel,
+        plannedSec: activeSessionCache.plannedSec,
+        startedAt: activeSessionCache.startedAt,
+        endedAt: null,
+        elapsedSec: activeSessionCache.elapsedSec,
+        status: 'running',
+        distractionCount: activeSessionCache.distractionCount,
+        topApps: activeSessionCache.topApps || []
+      });
+    }
+  }
+  if (!items.length) {
+    list.innerHTML =
+      '<div class="empty session-log-empty">' +
+      (historyOn ? 'No sessions yet for this day' : 'No recent session yet — start one above') +
+      '</div>';
+    return;
+  }
+  list.innerHTML = items
+    .map((s) => {
+      const planned = Math.round((Number(s.plannedSec) || 0) / 60);
+      const elapsed = Number(s.elapsedSec) || 0;
+      const range =
+        fmtClock(s.startedAt) +
+        (s.endedAt ? ' – ' + fmtClock(s.endedAt) : ' – now');
+      const apps = (s.topApps || [])
+        .slice(0, 3)
+        .map(
+          (a) =>
+            '<span class="session-app-pill"><span class="app-trunc" data-full="' +
+            esc(a.name) +
+            '">' +
+            esc(a.name) +
+            '</span><span class="sec">' +
+            fmt(a.seconds) +
+            '</span></span>'
+        )
+        .join('');
+      return (
+        '<div class="session-log-item">' +
+        '<div class="session-log-top">' +
+        '<div class="session-log-title">' +
+        esc(s.modeLabel || s.mode || 'Session') +
+        ' · ' +
+        planned +
+        'm</div>' +
+        statusChip(s.status) +
+        '</div>' +
+        '<div class="session-log-meta">' +
+        esc(range) +
+        ' · elapsed ' +
+        fmt(elapsed) +
+        '</div>' +
+        (apps
+          ? '<div class="session-log-apps">' + apps + '</div>'
+          : '<div class="session-log-meta">No app time logged yet</div>') +
+        '<div class="session-log-distract">Distractions: <strong>' +
+        esc(String(s.distractionCount || 0)) +
+        '</strong></div>' +
+        '</div>'
+      );
+    })
+    .join('');
+}
+
+function fillSessionDaySelect(payload) {
+  const sel = $('session-day-select');
+  if (!sel) return;
+  const today = (payload && payload.date) || null;
+  let days = (payload && payload.recentDays) || [];
+  if (today && !days.includes(today)) days = [today].concat(days);
+  if (!days.length && today) days = [today];
+  const prev = sessionLogDay || today;
+  sel.innerHTML = days
+    .map((d) => '<option value="' + esc(d) + '">' + esc(d === today ? d + ' (today)' : d) + '</option>')
+    .join('');
+  if (prev && days.includes(prev)) sel.value = prev;
+  else if (today) sel.value = today;
+  sessionLogDay = sel.value || today;
+}
+
+async function refreshSessionLog(dateKey) {
+  if (!api || !api.getSessionsForDay) return;
+  try {
+    const key = dateKey || sessionLogDay || undefined;
+    const payload = await api.getSessionsForDay(key);
+    if (!sessionLogDay) sessionLogDay = payload.date;
+    fillSessionDaySelect(payload);
+    // If select changed day relative to request, re-fetch matching day list
+    if (sessionLogDay && payload.date !== sessionLogDay) {
+      const again = await api.getSessionsForDay(sessionLogDay);
+      renderSessionLogList(again);
+      return;
+    }
+    renderSessionLogList(payload);
+  } catch (err) {
+    console.warn('refreshSessionLog failed', err);
+  }
+}
+
+document.querySelectorAll('[data-session-mode]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (activeSessionCache) return;
+    setSelectedSessionMode(btn.getAttribute('data-session-mode') || 'pomodoro');
+  });
+});
+
+function onCustomMinChange(el) {
+  if (!el) return;
+  const handler = () => {
+    const mins = currentCustomMin();
+    // Keep both inputs in sync
+    const a = $('session-custom-min');
+    const b = $('home-session-custom-min');
+    if (a && document.activeElement !== a) a.value = mins;
+    if (b && document.activeElement !== b) b.value = mins;
+    if (!activeSessionCache) updateIdleCountdownDisplay();
+    if (selectedSessionMode === 'custom') {
+      pushSettings({ sessionCustomMin: mins });
+    }
+  };
+  el.addEventListener('change', handler);
+  el.addEventListener('input', () => {
+    if (!activeSessionCache && selectedSessionMode === 'custom') updateIdleCountdownDisplay();
+  });
+}
+onCustomMinChange($('session-custom-min'));
+onCustomMinChange($('home-session-custom-min'));
+
+if ($('session-start-btn')) {
+  $('session-start-btn').addEventListener('click', () => startFocusSession());
+}
+if ($('session-stop-btn')) {
+  $('session-stop-btn').addEventListener('click', () => stopFocusSession());
+}
+if ($('home-session-toggle')) {
+  $('home-session-toggle').addEventListener('click', () => {
+    if (activeSessionCache) stopFocusSession();
+    else startFocusSession();
+  });
+}
+if ($('session-day-select')) {
+  $('session-day-select').addEventListener('change', () => {
+    sessionLogDay = $('session-day-select').value;
+    refreshSessionLog(sessionLogDay);
+  });
+}
+if ($('session-history-toggle')) {
+  $('session-history-toggle').addEventListener('change', async () => {
+    const on = !!$('session-history-toggle').checked;
+    await pushSettings({ sessionHistoryEnabled: on });
+    refreshSessionLog();
+  });
+}
+
+setSelectedSessionMode('pomodoro', { silent: true });
+updateIdleCountdownDisplay();
+
+
 async function boot() {
   if (!api) return;
   try {
@@ -2158,13 +2595,25 @@ async function boot() {
       updateSourcePill(state.now);
       renderLastFocused(state.lastFocused, state.now);
       renderStats(state.stats);
+      if (state.session) renderActiveSession(state.session);
+      else if (api.getActiveSession) {
+        const s = await api.getActiveSession().catch(() => null);
+        renderActiveSession(s);
+      }
     }
   } catch (_) {}
   await loadRulesAndIgnore();
+  refreshSessionLog();
   api.onUpdate((payload) => {
     updateSourcePill(payload.now);
     renderLastFocused(payload.lastFocused, payload.now);
     renderStats(payload.stats);
+    if (payload.session !== undefined) {
+      renderActiveSession(payload.session);
+    }
+    if (payload.sessionCompleted) {
+      refreshSessionLog();
+    }
   });
   api.onReminder((payload) => {
     showBanner(payload.body || 'Time to refocus.');

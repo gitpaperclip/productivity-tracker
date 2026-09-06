@@ -28,6 +28,9 @@
         <button class="nav-btn" data-tab="roundup" type="button" title="Roundup">
           <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 0 1 2-2z"/><path d="M9 9h6M9 13h4"/></svg></span><span class="nav-label">Roundup</span>
         </button>
+        <button class="nav-btn" data-tab="sessions" type="button" title="Sessions">
+          <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 1.5"/></svg></span><span class="nav-label">Sessions</span>
+        </button>
         <button class="nav-btn" data-tab="tags" type="button" title="Focus Tags">
           <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 13.5 12 22l-8.5-8.5a2 2 0 0 1 0-2.8L12 2l6.7 6.7a2 2 0 0 1 0 2.8z"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Focus Tags</span>
         </button>
@@ -120,6 +123,26 @@
           <div class="home-meta muted tiny">
             Unproductive streak <strong id="streak">0:00</strong>
             · Reminder at <strong id="thresh-label">10:00</strong>
+          </div>
+
+          <div class="home-session" id="home-session">
+            <div class="home-session-head">
+              <span class="lf-kicker">Focus session</span>
+              <span id="home-session-status" class="home-session-status muted tiny">Idle</span>
+            </div>
+            <div class="home-session-row">
+              <div class="segment-control home-session-modes" role="group" aria-label="Session mode">
+                <button type="button" class="segment-btn active" data-session-mode="pomodoro">Pomodoro</button>
+                <button type="button" class="segment-btn" data-session-mode="deep">Deep</button>
+                <button type="button" class="segment-btn" data-session-mode="custom">Custom</button>
+              </div>
+              <label class="home-session-custom hidden" id="home-session-custom-wrap">
+                <input type="number" id="home-session-custom-min" min="1" max="1440" step="1" value="45" aria-label="Custom minutes" />
+                <span class="muted tiny">min</span>
+              </label>
+              <div id="home-session-countdown" class="home-session-countdown mono" aria-live="polite">25:00</div>
+              <button type="button" id="home-session-toggle" class="btn primary home-session-btn">Start</button>
+            </div>
           </div>
         </article>
       </section>
@@ -300,6 +323,68 @@
         </div>
       </section>
 
+
+      <!-- SESSIONS: big timer + per-day log -->
+      <section id="view-sessions" class="view hidden">
+        <header class="page-head">
+          <div>
+            <h1>Sessions</h1>
+            <p class="muted">Pomodoro, Deep work, or custom — timer first, log below</p>
+          </div>
+        </header>
+
+        <article class="card session-timer-card" id="session-timer-card" data-running="off">
+          <div class="session-timer-kicker">
+            <span class="lf-kicker" id="session-timer-mode-label">Pomodoro</span>
+            <span id="session-timer-live" class="session-timer-live muted tiny">Ready</span>
+          </div>
+          <div id="session-timer-display" class="session-timer-display mono" aria-live="polite">25:00</div>
+          <div class="session-timer-sub muted tiny" id="session-timer-sub">25 min planned</div>
+
+          <div class="segment-control session-mode-control" role="group" aria-label="Session mode">
+            <button type="button" class="segment-btn active" data-session-mode="pomodoro">Pomodoro · 25</button>
+            <button type="button" class="segment-btn" data-session-mode="deep">Deep · 90</button>
+            <button type="button" class="segment-btn" data-session-mode="custom">Custom</button>
+          </div>
+
+          <div class="session-custom-row hidden" id="session-custom-row">
+            <label class="field session-custom-field">
+              <span>Minutes</span>
+              <input type="number" id="session-custom-min" min="1" max="1440" step="1" value="45" />
+            </label>
+          </div>
+
+          <div class="session-timer-actions">
+            <button type="button" id="session-start-btn" class="btn primary">Start session</button>
+            <button type="button" id="session-stop-btn" class="btn ghost" disabled>Stop early</button>
+          </div>
+
+          <p class="hint session-distract-hint">
+            A <strong>distraction</strong> counts each time classification moves <em>into unproductive</em> while a session is active
+            (other/productive → unproductive). Ignore list and FocusFlow itself do not count.
+          </p>
+          <div class="session-live-stats muted tiny" id="session-live-stats" hidden>
+            Distractions this session: <strong id="session-live-distract">0</strong>
+          </div>
+        </article>
+
+        <article class="card session-log-card">
+          <div class="session-log-head">
+            <div>
+              <div class="lf-kicker">Session log</div>
+              <p class="muted tiny" id="session-log-note">Per day · top apps + distractions</p>
+            </div>
+            <label class="session-day-pick">
+              <span class="muted tiny">Day</span>
+              <select id="session-day-select" aria-label="Session day"></select>
+            </label>
+          </div>
+          <div id="session-log-list" class="session-log-list">
+            <div class="empty session-log-empty">No sessions yet today</div>
+          </div>
+        </article>
+      </section>
+
       <!-- FOCUS TAGS: keywords + ignore -->
       <section id="view-tags" class="view hidden">
         <header class="page-head">
@@ -417,6 +502,14 @@
               <input type="number" id="daily-goal-hours" min="0.25" max="16" step="0.25" value="2" />
             </label>
           </div>
+
+          <label class="switch-row" id="session-history-row">
+            <div>
+              <div class="switch-title">Keep session history</div>
+              <div class="hint">On: per-day Focus session logs (capped like day history). Off: only the most recent session is kept and shown on the Sessions tab.</div>
+            </div>
+            <input type="checkbox" id="session-history-toggle" checked />
+          </label>
 
           <div class="settings-block settings-block-reminders">
             <label class="field">
