@@ -105,9 +105,11 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     const analyticsView = $('view-analytics');
     if (analyticsView) analyticsView.classList.toggle('hidden', tab !== 'analytics');
     $('view-apps').classList.toggle('hidden', tab !== 'apps');
+    const tagsView = $('view-tags');
+    if (tagsView) tagsView.classList.toggle('hidden', tab !== 'tags' && tab !== 'focus-tags');
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
     if (tab === 'analytics') setAnalyticsSegment(analyticsSegment);
-    if (tab === 'settings') loadRulesAndIgnore();
+    if (tab === 'tags' || tab === 'focus-tags') loadRulesAndIgnore();
   });
 });
 
@@ -961,35 +963,53 @@ async function loadRulesAndIgnore() {
   } catch (_) {}
 }
 
+async function saveRulesFromEditors(statusId) {
+  if (!api || !api.setRules) return;
+  const status = $(statusId);
+  if (status) status.textContent = 'Saving…';
+  try {
+    const next = await api.setRules({
+      productive: linesToList(($('rules-prod-edit') && $('rules-prod-edit').value) || ''),
+      unproductive: linesToList(($('rules-unprod-edit') && $('rules-unprod-edit').value) || '')
+    });
+    fillRulesEditors(next);
+    if (status) status.textContent = 'Saved — live now';
+    const other = statusId === 'rules-status' ? $('rules-unprod-status') : $('rules-status');
+    if (other) other.textContent = 'Saved — live now';
+  } catch (err) {
+    if (status) status.textContent = 'Save failed';
+  }
+}
+
+async function resetRulesFromEditors(statusId) {
+  if (!api || !api.resetRules) return;
+  const status = $(statusId);
+  if (status) status.textContent = 'Resetting…';
+  try {
+    const next = await api.resetRules();
+    fillRulesEditors(next);
+    if (status) status.textContent = 'Defaults restored';
+    const other = statusId === 'rules-status' ? $('rules-unprod-status') : $('rules-status');
+    if (other) other.textContent = 'Defaults restored';
+  } catch (err) {
+    if (status) status.textContent = 'Reset failed';
+  }
+}
+
 if ($('rules-save')) {
-  $('rules-save').addEventListener('click', async () => {
-    if (!api || !api.setRules) return;
-    $('rules-status').textContent = 'Saving…';
-    try {
-      const next = await api.setRules({
-        productive: linesToList($('rules-prod-edit').value),
-        unproductive: linesToList($('rules-unprod-edit').value)
-      });
-      fillRulesEditors(next);
-      $('rules-status').textContent = 'Saved — live now';
-    } catch (err) {
-      $('rules-status').textContent = 'Save failed';
-    }
-  });
+  $('rules-save').addEventListener('click', () => saveRulesFromEditors('rules-status'));
 }
 
 if ($('rules-reset')) {
-  $('rules-reset').addEventListener('click', async () => {
-    if (!api || !api.resetRules) return;
-    $('rules-status').textContent = 'Resetting…';
-    try {
-      const next = await api.resetRules();
-      fillRulesEditors(next);
-      $('rules-status').textContent = 'Defaults restored';
-    } catch (err) {
-      $('rules-status').textContent = 'Reset failed';
-    }
-  });
+  $('rules-reset').addEventListener('click', () => resetRulesFromEditors('rules-status'));
+}
+
+if ($('rules-unprod-save')) {
+  $('rules-unprod-save').addEventListener('click', () => saveRulesFromEditors('rules-unprod-status'));
+}
+
+if ($('rules-unprod-reset')) {
+  $('rules-unprod-reset').addEventListener('click', () => resetRulesFromEditors('rules-unprod-status'));
 }
 
 if ($('ignore-save')) {

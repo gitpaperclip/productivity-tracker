@@ -7,7 +7,8 @@ Desktop productivity tracker for Windows. Watches the foreground window, classif
 - Last focused bar: last real app (never FocusFlow itself)
 - Home: mood, pie chart, 7-day mini bars, FocusBoost (~3 min reminder)
 - Apps: top apps with P / U / Ign reclassify
-- Settings: keywords, ignore list, threshold, portable .focusflow backup
+- Focus tags: productive / unproductive keywords + ignore list
+- Settings: reminder threshold, demo mode, portable .focusflow backup
 
 ## Windows: install and start
 

@@ -28,6 +28,9 @@
         <button class="nav-btn" data-tab="apps" type="button">
           <span class="nav-ico">▣</span> Apps
         </button>
+        <button class="nav-btn" data-tab="tags" type="button">
+          <span class="nav-ico">＃</span> Focus tags
+        </button>
         <button class="nav-btn" data-tab="settings" type="button">
           <span class="nav-ico">⚙</span> Settings
         </button>
@@ -217,12 +220,59 @@
         </article>
       </section>
 
+      <!-- FOCUS TAGS: keywords + ignore -->
+      <section id="view-tags" class="view hidden">
+        <header class="page-head">
+          <div>
+            <h1>Focus tags</h1>
+            <p class="muted">Keywords that classify what you’re doing</p>
+          </div>
+        </header>
+
+        <p class="tags-intro muted">Tags match process name, window title, and URL. Browsers use title keywords (bare browser stays other). Unproductive wins on overlap. Ignore shows in status but isn’t logged.</p>
+
+        <article class="card tags-card">
+          <div class="lf-kicker tag-kicker prod">Productive</div>
+          <p class="hint tags-hint">One keyword per line — editors, docs, work sites.</p>
+          <textarea id="rules-prod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="12" placeholder="one keyword per line"></textarea>
+          <div class="rules-actions">
+            <button type="button" id="rules-save" class="btn primary">Save keywords</button>
+            <button type="button" id="rules-reset" class="btn ghost">Reset to defaults</button>
+            <span id="rules-status" class="muted tiny"></span>
+          </div>
+          <p class="hint">Active file: <code id="rules-path">src/rules.json</code> <span id="rules-custom-label"></span></p>
+        </article>
+
+        <article class="card tags-card">
+          <div class="lf-kicker tag-kicker unprod">Unproductive</div>
+          <p class="hint tags-hint">One keyword per line — social, video, rabbit holes. Wins when both lists match.</p>
+          <textarea id="rules-unprod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="12" placeholder="one keyword per line"></textarea>
+          <div class="rules-actions">
+            <button type="button" id="rules-unprod-save" class="btn primary">Save keywords</button>
+            <button type="button" id="rules-unprod-reset" class="btn ghost">Reset to defaults</button>
+            <span id="rules-unprod-status" class="muted tiny"></span>
+          </div>
+        </article>
+
+        <article class="card tags-card">
+          <div class="lf-kicker tag-kicker ignore">Ignore</div>
+          <p class="hint tags-hint">Shown in tracking status but not logged (no time, no streak). One process name per line.</p>
+          <textarea id="ignore-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="10" placeholder="one process name per line"></textarea>
+          <div class="rules-actions">
+            <button type="button" id="ignore-save" class="btn primary">Save ignore list</button>
+            <button type="button" id="ignore-reset" class="btn ghost">Reset to defaults</button>
+            <span id="ignore-status" class="muted tiny"></span>
+          </div>
+          <p class="hint">File: <code id="ignore-path">src/ignore.json</code> <span id="ignore-custom-label"></span></p>
+        </article>
+      </section>
+
       <!-- SETTINGS -->
       <section id="view-settings" class="view hidden">
         <header class="page-head">
           <div>
             <h1>Settings</h1>
-            <p class="muted">Tracking, reminders, rules, and data</p>
+            <p class="muted">Tracking, reminders, and data</p>
           </div>
         </header>
 
@@ -244,39 +294,6 @@
             <input type="number" id="threshold-sec" min="5" step="5" value="600" />
           </label>
           <p class="hint">Data folder: <code id="data-path">./data</code></p>
-        </article>
-
-        <article class="card">
-          <h3>Classification keywords</h3>
-          <p class="hint">Matches process name, window title, and URL. Unproductive wins on overlap. Browsers (Chrome/Edge/Firefox/…) are classified by title/URL only — bare browser stays “other”.</p>
-          <div class="rules-cols">
-            <div>
-              <h4 class="prod">Productive</h4>
-              <textarea id="rules-prod-edit" class="rules-textarea" spellcheck="false" rows="14" placeholder="one keyword per line"></textarea>
-            </div>
-            <div>
-              <h4 class="unprod">Unproductive</h4>
-              <textarea id="rules-unprod-edit" class="rules-textarea" spellcheck="false" rows="14" placeholder="one keyword per line"></textarea>
-            </div>
-          </div>
-          <div class="rules-actions">
-            <button type="button" id="rules-save" class="btn primary">Save keywords</button>
-            <button type="button" id="rules-reset" class="btn ghost">Reset to defaults</button>
-            <span id="rules-status" class="muted tiny"></span>
-          </div>
-          <p class="hint">Active file: <code id="rules-path">src/rules.json</code> <span id="rules-custom-label"></span></p>
-        </article>
-
-        <article class="card">
-          <h3>Ignored system apps</h3>
-          <p class="hint">Shown in tracking status but not logged (no time, no streak). One process name / keyword per line.</p>
-          <textarea id="ignore-edit" class="rules-textarea" spellcheck="false" rows="10" placeholder="one process name per line"></textarea>
-          <div class="rules-actions">
-            <button type="button" id="ignore-save" class="btn primary">Save ignore list</button>
-            <button type="button" id="ignore-reset" class="btn ghost">Reset to defaults</button>
-            <span id="ignore-status" class="muted tiny"></span>
-          </div>
-          <p class="hint">File: <code id="ignore-path">src/ignore.json</code> <span id="ignore-custom-label"></span></p>
         </article>
 
         <article class="card data-card">
