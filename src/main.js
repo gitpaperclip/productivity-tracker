@@ -25,6 +25,11 @@ app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-dev-shm-usage');
 
+// Required on Windows so Electron toasts show under a real app identity (dev + packaged).
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.gitpaperclip.focusflow');
+}
+
 let mainWindow = null;
 let tracker = null;
 let store = null;
@@ -141,16 +146,45 @@ function fireReminder(payload) {
       ? `Unproductive for ${Math.round(payload.streak)}s on ${payload.app}. Time to refocus.`
       : `You've been unproductive for about ${minutes} min on ${payload.app}. Time to refocus.`;
 
+  const iconPath = path.join(__dirname, '..', 'renderer', 'assets', 'logo-mark.png');
+
+  // OS toast — the real light nudge (works even when FocusFlow is in the background).
   if (Notification.isSupported()) {
-    const n = new Notification({
-      title: 'FocusFlow — refocus',
-      body,
-      silent: false
-    });
-    n.show();
+    try {
+      const n = new Notification({
+        title: 'Time to refocus',
+        body,
+        icon: iconPath,
+        silent: false,
+        timeoutType: 'default',
+        urgency: 'normal'
+      });
+      n.on('click', () => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      });
+      n.show();
+    } catch (err) {
+      console.error('[reminder] native notification failed', err && err.message);
+    }
   }
 
   if (mainWindow && !mainWindow.isDestroyed()) {
+    // Soft taskbar flash if the window is not focused
+    if (!mainWindow.isFocused()) {
+      try {
+        mainWindow.flashFrame(true);
+        const stopFlash = () => {
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.flashFrame(false);
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.removeListener('focus', stopFlash);
+        };
+        mainWindow.once('focus', stopFlash);
+      } catch (_) {
+        /* ignore */
+      }
+    }
     mainWindow.webContents.send('reminder:fired', { ...payload, body });
   }
 }
