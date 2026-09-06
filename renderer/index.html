@@ -120,9 +120,9 @@
             </div>
           </div>
 
-          <div class="home-meta muted tiny">
-            Unproductive streak <strong id="streak">0:00</strong>
-            · Reminder at <strong id="thresh-label">10:00</strong>
+          <div class="home-meta-hidden" hidden aria-hidden="true">
+            <strong id="streak">0:00</strong>
+            <strong id="thresh-label">10:00</strong>
           </div>
 
         </article>
@@ -323,16 +323,11 @@
 
           <div class="session-alarm-row">
             <div class="session-alarm-left">
-              <div class="session-timer-kicker">
-                <span class="lf-kicker" id="session-timer-mode-label">Pomodoro</span>
+              <span class="session-mode-label-sr" id="session-timer-mode-label">Pomodoro</span>
+              <div class="session-custom-row hidden" id="session-custom-row">
+                <input type="number" id="session-custom-min" class="session-custom-input" min="1" max="1440" step="1" value="45" aria-label="Custom minutes" />
               </div>
               <div id="session-timer-display" class="session-timer-display" aria-live="polite">25:00</div>
-              <div class="session-custom-row hidden" id="session-custom-row">
-                <label class="field session-custom-field">
-                  <span>Minutes</span>
-                  <input type="number" id="session-custom-min" min="1" max="1440" step="1" value="45" />
-                </label>
-              </div>
               <div class="session-live-stats muted tiny" id="session-live-stats" hidden>
                 Distractions: <strong id="session-live-distract">0</strong>
               </div>

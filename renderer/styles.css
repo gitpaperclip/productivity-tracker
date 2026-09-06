@@ -421,7 +421,7 @@ h4.unprod { color: var(--unprod); }
 #view-home .lf-app {
   font-size: clamp(15px, 1.8vh + 0.4vw, 18px);
 }
-#view-home .home-meta {
+#view-home .home-meta-legacy {
   margin-top: 0;
   flex-shrink: 0;
 }
@@ -976,7 +976,7 @@ h4.unprod { color: var(--unprod); }
 .lf-reclass { display: inline-flex; gap: 4px; }
 
 
-.home-meta {
+.home-meta-legacy {
   margin-top: 10px;
 }
 .home-meta strong {
@@ -2251,15 +2251,38 @@ body[data-boost="on"]::after {
 .session-custom-row {
   display: flex;
   justify-content: flex-start;
-  margin: 0.35rem 0 0.15rem;
+  align-items: center;
+  margin: 0 0 0.45rem;
 }
-.session-custom-field {
-  max-width: 10rem;
-  text-align: left;
+.session-custom-input {
+  width: 4.5rem;
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.session-custom-input:focus {
+  outline: none;
+  border-color: rgba(129,140,248,0.55);
+  box-shadow: 0 0 0 3px rgba(129,140,248,0.15);
+}
+.session-mode-label-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  border-bottom: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
-.session-custom-field > span { margin-bottom: 6px; }
 .session-timer-actions {
   display: flex;
   flex-wrap: wrap;
