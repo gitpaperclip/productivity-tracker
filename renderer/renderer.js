@@ -10,6 +10,26 @@ function fmt(s) {
     : m + ':' + String(x).padStart(2, '0');
 }
 
+function fmtFriendly(s) {
+  s = Math.max(0, Math.floor(+s || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h >= 1) {
+    const hp = h === 1 ? '1 hour' : h + ' hours';
+    if (m <= 0) return hp;
+    const mp = m === 1 ? '1 minute' : m + ' minutes';
+    return hp + ' ' + mp;
+  }
+  if (m >= 1) {
+    if (sec <= 0) return m === 1 ? '1 min' : m + ' min';
+    const sp = sec === 1 ? '1 second' : sec + ' seconds';
+    return (m === 1 ? '1 min' : m + ' min') + ' ' + sp;
+  }
+  if (sec <= 0) return '0 min';
+  return sec === 1 ? '1 second' : sec + ' seconds';
+}
+
 function $(id) {
   return document.getElementById(id);
 }
@@ -57,6 +77,8 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     btn.classList.add('active');
     const tab = btn.getAttribute('data-tab');
     $('view-home').classList.toggle('hidden', tab !== 'home');
+    const dayView = $('view-day');
+    if (dayView) dayView.classList.toggle('hidden', tab !== 'day');
     $('view-apps').classList.toggle('hidden', tab !== 'apps');
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
     if (tab === 'settings') loadRulesAndIgnore();
@@ -419,18 +441,147 @@ function playBoostFlash() {
   window.setTimeout(() => overlay.classList.remove('play'), 900);
 }
 
+
+function hourLabel(h) {
+  const end = (h + 1) % 24;
+  const pad = (n) => String(n).padStart(2, '0');
+  return pad(h) + ':00–' + pad(end) + ':00';
+}
+
+function normalizeByHour(raw) {
+  const zeros = () => ({ productive: 0, unproductive: 0, other: 0 });
+  if (!Array.isArray(raw) || raw.length !== 24) {
+    return Array.from({ length: 24 }, zeros);
+  }
+  return raw.map((h) => {
+    const o = h && typeof h === 'object' ? h : {};
+    return {
+      productive: Math.max(0, Number(o.productive) || 0),
+      unproductive: Math.max(0, Number(o.unproductive) || 0),
+      other: Math.max(0, Number(o.other) || 0)
+    };
+  });
+}
+
+function renderDay(stats) {
+  const chart = $('day-chart');
+  if (!chart) return;
+  const hours = normalizeByHour(stats && stats.byHour);
+  let max = 0;
+  let total = 0;
+  let peakHour = -1;
+  let peakProd = -1;
+  for (let i = 0; i < 24; i++) {
+    const h = hours[i];
+    const sum = h.productive + h.unproductive + h.other;
+    total += sum;
+    if (sum > max) max = sum;
+    if (h.productive > peakProd) {
+      peakProd = h.productive;
+      peakHour = i;
+    }
+  }
+  if (max < 1) max = 1;
+
+  const dateEl = $('day-date-label');
+  if (dateEl) {
+    dateEl.textContent = stats && stats.date ? stats.date : 'Today’s hourly breakdown';
+  }
+
+  chart.innerHTML = hours
+    .map((h, i) => {
+      const sum = h.productive + h.unproductive + h.other;
+      const empty = sum <= 0;
+      const trackPct = empty ? 0 : Math.max(6, Math.round((sum / max) * 100));
+      const pPct = sum ? (h.productive / sum) * 100 : 0;
+      const uPct = sum ? (h.unproductive / sum) * 100 : 0;
+      const oPct = sum ? (h.other / sum) * 100 : 0;
+      const tip =
+        hourLabel(i) +
+        ' · P ' +
+        fmtFriendly(h.productive) +
+        ' · U ' +
+        fmtFriendly(h.unproductive) +
+        ' · O ' +
+        fmtFriendly(h.other) +
+        ' · Σ ' +
+        fmtFriendly(sum);
+      const tick = i % 3 === 0 ? String(i) : '';
+      const stack = empty
+        ? '<div class="day-stack empty-slot" aria-hidden="true"></div>'
+        : '<div class="day-stack">' +
+          '<div class="day-seg prod" style="height:' +
+          pPct +
+          '%"></div>' +
+          '<div class="day-seg unprod" style="height:' +
+          uPct +
+          '%"></div>' +
+          '<div class="day-seg other" style="height:' +
+          oPct +
+          '%"></div>' +
+          '</div>';
+      return (
+        '<div class="day-col' +
+        (empty ? ' empty' : '') +
+        '" title="' +
+        esc(tip) +
+        '" style="--bar-h:' +
+        trackPct +
+        '%">' +
+        stack +
+        '<span class="day-tick">' +
+        tick +
+        '</span></div>'
+      );
+    })
+    .join('');
+
+  const peakVal = $('day-peak-value');
+  const peakSub = $('day-peak-sub');
+  if (peakVal) {
+    peakVal.textContent = peakProd > 0 ? fmtFriendly(peakProd) : '—';
+  }
+  if (peakSub) {
+    peakSub.textContent = peakProd > 0 ? hourLabel(peakHour) : 'No productive time yet';
+  }
+  const totalEl = $('day-total');
+  if (totalEl) totalEl.textContent = fmtFriendly(total);
+  const totalSub = $('day-total-sub');
+  if (totalSub) totalSub.textContent = 'All categories today';
+
+  let focusShare = '—';
+  let focusSub = 'Of productive + unproductive';
+  let prodSum = 0;
+  let unpSum = 0;
+  for (let i = 0; i < 24; i++) {
+    prodSum += hours[i].productive;
+    unpSum += hours[i].unproductive;
+  }
+  const focusDenom = prodSum + unpSum;
+  if (focusDenom > 0) {
+    const pct = Math.round((prodSum / focusDenom) * 100);
+    focusShare = pct + '%';
+    focusSub = fmtFriendly(prodSum) + ' productive · ' + fmtFriendly(unpSum) + ' unproductive';
+  }
+  const shareEl = $('day-focus-share');
+  if (shareEl) shareEl.textContent = focusShare;
+  const shareSub = $('day-focus-sub');
+  if (shareSub) shareSub.textContent = focusSub;
+}
+
 function renderStats(stats) {
   if (!stats) return;
   renderMood(stats);
   renderPie(stats);
   renderWeek(stats);
+  renderDay(stats);
   $('streak').textContent = fmt(stats.unproductiveStreak || 0);
   if (stats.settings) {
     $('thresh-label').textContent = fmt(stats.settings.thresholdSec || 600);
     applySettingsInputs(stats.settings);
     if (stats.dataDir && $('data-path')) $('data-path').textContent = stats.dataDir;
   }
-  if (stats.date) $('date-label').textContent = 'Session date ' + stats.date;
+  if ($('date-label')) $('date-label').textContent = 'Live window tracking';
   renderAppList(stats);
 }
 

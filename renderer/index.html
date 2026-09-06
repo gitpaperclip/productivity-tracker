@@ -22,6 +22,9 @@
         <button class="nav-btn active" data-tab="home" type="button">
           <span class="nav-ico">◉</span> Home
         </button>
+        <button class="nav-btn" data-tab="day" type="button">
+          <span class="nav-ico">▦</span> Day
+        </button>
         <button class="nav-btn" data-tab="apps" type="button">
           <span class="nav-ico">▣</span> Apps
         </button>
@@ -112,6 +115,44 @@
           </div>
           <p id="track-hint" class="hint hidden"></p>
         </article>
+      </section>
+
+
+      <!-- DAY: hourly breakdown -->
+      <section id="view-day" class="view hidden">
+        <header class="page-head">
+          <div>
+            <h1>Day</h1>
+            <p class="muted" id="day-date-label">Today’s hourly breakdown</p>
+          </div>
+        </header>
+
+        <article class="card day-chart-card">
+          <div class="day-legend" aria-hidden="true">
+            <span><span class="swatch prod"></span> Productive</span>
+            <span><span class="swatch unprod"></span> Unproductive</span>
+            <span><span class="swatch other"></span> Other</span>
+          </div>
+          <div id="day-chart" class="day-chart" role="img" aria-label="Hourly time breakdown"></div>
+        </article>
+
+        <div class="day-metric-grid">
+          <article class="card day-metric">
+            <div class="lf-kicker">Peak productivity</div>
+            <div id="day-peak-value" class="day-metric-value">—</div>
+            <div id="day-peak-sub" class="day-metric-sub muted">No productive time yet</div>
+          </article>
+          <article class="card day-metric">
+            <div class="lf-kicker">Total tracked</div>
+            <div id="day-total" class="day-metric-value">0 min</div>
+            <div id="day-total-sub" class="day-metric-sub muted">All categories today</div>
+          </article>
+          <article class="card day-metric">
+            <div class="lf-kicker">Focus share</div>
+            <div id="day-focus-share" class="day-metric-value">—</div>
+            <div id="day-focus-sub" class="day-metric-sub muted">Of productive + unproductive</div>
+          </article>
+        </div>
       </section>
 
       <!-- APPS: top apps + reclassify -->
