@@ -2289,8 +2289,7 @@ function syncSessionControlsRunning(running) {
   });
   const customEl = $('session-custom-min');
   if (customEl) customEl.disabled = !!running;
-  const liveStats = $('session-live-stats');
-  if (liveStats) liveStats.hidden = !running;
+  // Live distractions count removed from timer card (still in session log).
 }
 
 function renderActiveSession(session) {
@@ -2309,8 +2308,6 @@ function renderActiveSession(session) {
   if (big) big.textContent = text;
   const modeLabel = $('session-timer-mode-label');
   if (modeLabel) modeLabel.textContent = session.modeLabel || 'Session';
-  const dist = $('session-live-distract');
-  if (dist) dist.textContent = String(session.distractionCount || 0);
   startSessionUiTicker();
 }
 
