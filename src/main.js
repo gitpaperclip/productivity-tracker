@@ -26,6 +26,44 @@ function dataDir() {
   return local;
 }
 
+function fireReminder(payload) {
+  const minutes = Math.max(1, Math.round((payload.streak || 0) / 60));
+  const body =
+    payload.threshold && payload.threshold < 60
+      ? `Unproductive for ${Math.round(payload.streak)}s on ${payload.app}. Time to refocus.`
+      : `You've been unproductive for about ${minutes} min on ${payload.app}. Time to refocus.`;
+
+  if (Notification.isSupported()) {
+    new Notification({ title: 'FocusFlow - refocus', body, silent: false }).show();
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('reminder:fired', Object.assign({}, payload, { body: body }));
+  }
+}
+
+function startTracker() {
+  if (tracker) return;
+  rules = loadRules();
+  store = createStore(dataDir());
+
+  if ((process.platform === 'win32' || process.platform === 'darwin') && process.env.FOCUSFLOW_DEMO == null) {
+    const s = store.getSettings();
+    if (s.demoMode) store.updateSettings({ demoMode: false });
+  }
+
+  tracker = createTracker({
+    store: store,
+    rules: rules,
+    onTick: (payload) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('tracker:update', payload);
+      }
+    },
+    onReminder: fireReminder
+  });
+  tracker.start();
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1040,
@@ -45,60 +83,16 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    startTracker();
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
-function fireReminder(payload) {
-  const minutes = Math.max(1, Math.round((payload.streak || 0) / 60));
-  const body =
-    payload.threshold && payload.threshold < 60
-      ? `Unproductive for ${Math.round(payload.streak)}s on ${payload.app}. Time to refocus.`
-      : `You've been unproductive for about ${minutes} min on ${payload.app}. Time to refocus.`;
-
-  if (Notification.isSupported()) {
-    const n = new Notification({
-      title: 'FocusFlow — refocus',
-      body,
-      silent: false
-    });
-    n.show();
-  }
-
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('reminder:fired', { ...payload, body });
-  }
-}
-
-function startServices() {
-  rules = loadRules();
-  store = createStore(dataDir());
-
-  // Force real tracking on Windows/macOS unless user opted into demo
-  if ((process.platform === 'win32' || process.platform === 'darwin') && process.env.FOCUSFLOW_DEMO == null) {
-    const s = store.getSettings();
-    if (s.demoMode) {
-      store.updateSettings({ demoMode: false });
-    }
-  }
-
-  tracker = createTracker({
-    store,
-    rules,
-    onTick: (payload) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('tracker:update', payload);
-      }
-    },
-    onReminder: fireReminder
-  });
-  tracker.start();
-}
-
 app.whenReady().then(() => {
-  startServices();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
