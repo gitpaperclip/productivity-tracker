@@ -102,7 +102,7 @@ function ignorePayload() {
 }
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const winOpts = {
     width: 1040,
     height: 760,
     minWidth: 800,
@@ -117,7 +117,11 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false
     }
-  });
+  };
+  if (process.platform === 'win32' || process.platform === 'linux') {
+    winOpts.icon = path.join(__dirname, '..', 'renderer', 'assets', 'logo-mark.png');
+  }
+  mainWindow = new BrowserWindow(winOpts);
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   mainWindow.once('ready-to-show', () => {
