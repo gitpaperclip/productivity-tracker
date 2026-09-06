@@ -519,6 +519,18 @@ code { font-family: var(--mono); color: #c7d2fe; font-size: 12px; }
 .btn-mini.unprod:hover { color: var(--unprod); border-color: rgba(251,113,133,0.4); }
 .btn-mini.ignore:hover { color: #c7d2fe; border-color: rgba(129,140,248,0.4); }
 .btn-mini:disabled { opacity: 0.5; cursor: wait; }
+.btn-mini.prod.selected {
+  color: var(--prod);
+  border-color: var(--prod);
+  background: var(--prod-bg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--prod) 35%, transparent);
+}
+.btn-mini.unprod.selected {
+  color: var(--unprod);
+  border-color: var(--unprod);
+  background: var(--unprod-bg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--unprod) 35%, transparent);
+}
 
 /* —— Collapsible sidebar —— */
 .nav-toggle {

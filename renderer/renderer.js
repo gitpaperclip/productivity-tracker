@@ -29,6 +29,22 @@ let cachedRules = { productive: [], unproductive: [] };
 let cachedIgnore = [];
 /** Last focused window for Home quick-classify (P/U). */
 let lastFocusedCache = null;
+/** Session overrides so Last focused chip/buttons don't snap back before tracker reclassifies. */
+const lfSessionClass = Object.create(null);
+
+function lfOverrideKey(entry) {
+  if (!entry || !entry.app) return '';
+  const kw = keywordForQuickClassify(entry);
+  return (kw || entry.app).toLowerCase();
+}
+
+function applyLfButtonOutlines(category) {
+  const prod = $('lf-prod');
+  const unprod = $('lf-unprod');
+  if (prod) prod.classList.toggle('selected', category === 'productive');
+  if (unprod) unprod.classList.toggle('selected', category === 'unproductive');
+}
+
 /** Threshold before FocusBoost was armed (seconds). */
 let thresholdBeforeBoost = null;
 const FOCUSBOOST_SEC = 3 * 60;
@@ -232,6 +248,7 @@ function renderLastFocused(lf, now) {
       catEl.className = 'chip other';
     }
     updateLfKeywordHint(null);
+    applyLfButtonOutlines(null);
     return;
   }
   lastFocusedCache = {
@@ -239,13 +256,18 @@ function renderLastFocused(lf, now) {
     title: use.title || '',
     category: use.category || 'other'
   };
+  const oKey = lfOverrideKey(lastFocusedCache);
+  if (oKey && lfSessionClass[oKey]) {
+    lastFocusedCache.category = lfSessionClass[oKey];
+  }
   appEl.textContent = use.app;
   if (titleEl) titleEl.textContent = use.title || '';
   if (catEl) {
-    const cat = use.category || 'other';
+    const cat = lastFocusedCache.category || 'other';
     catEl.textContent = cat;
     catEl.className = 'chip ' + cat;
   }
+  applyLfButtonOutlines(lastFocusedCache.category);
   updateLfKeywordHint(lastFocusedCache);
 }
 
@@ -783,11 +805,14 @@ async function quickClassifyLastFocused(category) {
       }
     );
     lastFocusedCache.category = category;
+    const oKey = lfOverrideKey(lastFocusedCache);
+    if (oKey) lfSessionClass[oKey] = category;
     const catEl = $('lf-cat');
     if (catEl) {
       catEl.textContent = category;
       catEl.className = 'chip ' + category;
     }
+    applyLfButtonOutlines(category);
   } catch (err) {
     console.warn('quick-classify failed', err);
   }
