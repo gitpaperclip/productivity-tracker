@@ -1055,9 +1055,29 @@ h4.unprod { color: var(--unprod); }
   font-size: 11px;
 }
 .field input, .switch-row input[type="checkbox"] { accent-color: var(--accent); }
-.field input[type="number"] {
+.field input[type="number"],
+.field input[type="time"] {
   width: 100%; max-width: 160px; background: var(--bg-elev); color: var(--text);
   border: 1px solid var(--line-strong); border-radius: 12px; padding: 10px 12px; font: inherit;
+  color-scheme: dark;
+}
+.field input[type="time"] {
+  max-width: 180px;
+  font-variant-numeric: tabular-nums;
+}
+.field input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  filter: invert(1);
+}
+.field input[type="time"]:focus {
+  outline: none;
+  border-color: rgba(129,140,248,0.55);
+  box-shadow: 0 0 0 3px rgba(129,140,248,0.15);
+}
+.field input[type="time"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .hint { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 12px 0 0; }
 .hint.hidden { display: none; }
@@ -1782,17 +1802,17 @@ body[data-boost="on"]::after {
   .settings-row-2 { grid-template-columns: 1fr; }
 }
 
-.settings-block-boost-schedule {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--line);
-}
 #fb-schedule-times.is-disabled {
   opacity: 0.45;
+  pointer-events: none;
 }
-#fb-schedule-times input[type="time"] {
-  width: 100%;
-  max-width: 160px;
+#fb-schedule-times .field {
+  border-bottom: 0;
+  padding-top: 8px;
+  padding-bottom: 0;
+}
+#fb-schedule-hint {
+  margin-top: 8px;
 }
 
 
