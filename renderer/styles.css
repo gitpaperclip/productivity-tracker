@@ -1500,8 +1500,9 @@ body[data-boost="on"]::after {
 }
 #view-tags .tags-lead {
   margin: 0;
-  max-width: 58ch;
+  max-width: none;
   line-height: 1.45;
+  white-space: nowrap;
 }
 .tags-card {
   padding: 22px 24px 24px;

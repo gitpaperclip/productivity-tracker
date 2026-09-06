@@ -279,8 +279,7 @@
         <div id="panel-apps" class="analytics-panel hidden" data-panel="apps">
           <article class="card">
             <h3>Top apps</h3>
-            <p class="hint top-apps-hint">Today’s apps — P = productive, U = unproductive, Ign = ignore.</p>
-            <ul id="app-list" class="app-list">
+                        <ul id="app-list" class="app-list">
               <li class="empty">No time logged yet</li>
             </ul>
           </article>
@@ -292,13 +291,13 @@
         <header class="page-head">
           <div>
             <h1>Focus Tags</h1>
-            <p class="muted tags-lead">Tags match process names, window title, and URL. Browsers use title keywords. Unproductive tag will win for overlapping keywords. Ignored keywords are not tracked for time.</p>
+            <p class="muted tags-lead">Tags match process names, window title, and URL. Browsers use title keywords.</p>
           </div>
         </header>
 
         <article class="card tags-card">
           <div class="lf-kicker tag-kicker prod">Productive</div>
-          <p class="hint tags-hint">One keyword per line — editors, docs, work sites.</p>
+          <p class="hint tags-hint">One keyword per line: editors, docs, work sites.</p>
           <textarea id="rules-prod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="12" placeholder="one keyword per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="rules-save" class="btn primary">Save keywords</button>
@@ -310,7 +309,7 @@
 
         <article class="card tags-card">
           <div class="lf-kicker tag-kicker unprod">Unproductive</div>
-          <p class="hint tags-hint">One keyword per line — social, video, rabbit holes. Wins when both lists match.</p>
+          <p class="hint tags-hint">One keyword per line: social, video, rabbit holes. Unproductive wins when both lists match.</p>
           <textarea id="rules-unprod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="12" placeholder="one keyword per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="rules-unprod-save" class="btn primary">Save keywords</button>
