@@ -1349,14 +1349,6 @@ function renderRoundup(stats) {
   const bar = $('roundup-goal-bar');
   if (fill) fill.style.width = pct + '%';
   if (bar) bar.setAttribute('aria-valuenow', String(pct));
-  if ($('roundup-goal-note')) {
-    $('roundup-goal-note').textContent = thin
-      ? 'Change the target in Settings.'
-      : hit
-        ? 'Nice — productive goal cleared. Tweak it anytime in Settings.'
-        : fmtGoalShort(left) + ' productive left · change target in Settings.';
-  }
-
   const apps = (stats && stats.topApps) || [];
   const topP = apps.find((a) => a.category === 'productive');
   const topU = apps.find((a) => a.category === 'unproductive');

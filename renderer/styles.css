@@ -1924,7 +1924,6 @@ body[data-boost="on"]::after {
 .roundup-goal[data-hit="no"] .roundup-goal-fill {
   background: linear-gradient(90deg, rgba(251,113,133,0.75), rgba(251,146,60,0.7));
 }
-.roundup-goal-note { margin: 0; }
 .roundup-highlights {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
