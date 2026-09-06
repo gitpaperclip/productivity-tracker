@@ -9,7 +9,7 @@ Desktop productivity tracker for Windows. Watches the foreground window, classif
 - Last focused bar: last real app (never FocusFlow itself)
 - Home: mood, pie, daily productive goal (own card), FocusBoost (~3 min reminder)
 - Analytics: Day · Week · Month
-- Apps: top apps with P / U / Ign reclassify
+- Analytics: Day · Week · Month · Apps (top apps P / U / Ign)
 - Focus Tags: productive / unproductive keywords + ignore list
 - Settings: reminder threshold, demo mode, daily goal hours, portable .focusflow backup
 - Fully local — no cloud sync, no account
@@ -24,14 +24,14 @@ Optional demo: npm start -- --demo. Smoke: npm test.
 
 ## First open
 
-1. Tabs: Home | Analytics | Apps | Focus Tags | Settings.
+1. Tabs: Home | Analytics | Focus Tags | Settings. (Apps lives under Analytics.)
 2. Switch to another app; FocusFlow logs that time.
 3. Home shows pie, mood, and Last focused (the app before you opened FocusFlow).
 4. Default reminder at 10 minutes. FocusBoost arms a ~3 minute threshold (CSS BOOST punch, then armed glow).
 
 ## Classification
 
-Keywords match process name, window title, and URL. Unproductive wins on overlap. Bare browsers stay other. Edit under Focus Tags or use P/U on Apps / Last focused.
+Keywords match process name, window title, and URL. Unproductive wins on overlap. Bare browsers stay other. Edit under Focus Tags or use P/U/I on Analytics → Apps / Last focused.
 
 ## Ignore list
 

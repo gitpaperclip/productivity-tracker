@@ -94,17 +94,20 @@ const FOCUSBOOST_SEC = 3 * 60;
 const reduceMotion =
   typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Session-only Analytics segment (day | week | month). */
+/** Session-only Analytics segment (day | week | month | apps). */
 let analyticsSegment = 'day';
 
 const ANALYTICS_SUBTITLES = {
   day: 'Today’s hours',
   week: 'Last 7 days',
-  month: 'This month'
+  month: 'This month',
+  apps: 'Today’s top apps — reclassify with one click'
 };
 
 function setAnalyticsSegment(segment) {
-  if (segment !== 'day' && segment !== 'week' && segment !== 'month') segment = 'day';
+  if (segment !== 'day' && segment !== 'week' && segment !== 'month' && segment !== 'apps') {
+    segment = 'day';
+  }
   analyticsSegment = segment;
   document.querySelectorAll('.segment-btn').forEach((b) => {
     const on = b.getAttribute('data-segment') === segment;
@@ -127,7 +130,6 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     $('view-home').classList.toggle('hidden', tab !== 'home');
     const analyticsView = $('view-analytics');
     if (analyticsView) analyticsView.classList.toggle('hidden', tab !== 'analytics');
-    $('view-apps').classList.toggle('hidden', tab !== 'apps');
     const tagsView = $('view-tags');
     if (tagsView) tagsView.classList.toggle('hidden', tab !== 'tags' && tab !== 'focus-tags');
     $('view-settings').classList.toggle('hidden', tab !== 'settings');

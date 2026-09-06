@@ -19,20 +19,17 @@
       </div>
       <button type="button" id="nav-toggle" class="nav-toggle" aria-expanded="true" title="Collapse sidebar" aria-label="Collapse sidebar"><span class="nav-caret" aria-hidden="true"></span></button>
       <nav class="nav">
-        <button class="nav-btn active" data-tab="home" type="button">
-          <span class="nav-ico">◉</span><span class="nav-label">Home</span>
+        <button class="nav-btn active" data-tab="home" type="button" title="Home">
+          <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg></span><span class="nav-label">Home</span>
         </button>
-        <button class="nav-btn" data-tab="analytics" type="button">
-          <span class="nav-ico">▦</span><span class="nav-label">Analytics</span>
+        <button class="nav-btn" data-tab="analytics" type="button" title="Analytics">
+          <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M7 16V10"/><path d="M12 16V6"/><path d="M17 16v-4"/></svg></span><span class="nav-label">Analytics</span>
         </button>
-        <button class="nav-btn" data-tab="apps" type="button">
-          <span class="nav-ico">▣</span><span class="nav-label">Apps</span>
+        <button class="nav-btn" data-tab="tags" type="button" title="Focus Tags">
+          <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 13.5 12 22l-8.5-8.5a2 2 0 0 1 0-2.8L12 2l6.7 6.7a2 2 0 0 1 0 2.8z"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Focus Tags</span>
         </button>
-        <button class="nav-btn" data-tab="tags" type="button">
-          <span class="nav-ico">＃</span><span class="nav-label">Focus Tags</span>
-        </button>
-        <button class="nav-btn" data-tab="settings" type="button">
-          <span class="nav-ico">⚙</span><span class="nav-label">Settings</span>
+        <button class="nav-btn" data-tab="settings" type="button" title="Settings">
+          <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M4.9 6.5l1.6 1.5M17.5 16l1.6 1.5M3.5 12h2.2M18.3 12h2.2M4.9 17.5l1.6-1.5M17.5 8l1.6-1.5"/></svg></span><span class="nav-label">Settings</span>
         </button>
       </nav>
       <div class="rail-foot">
@@ -146,7 +143,7 @@
       </section>
 
 
-      <!-- ANALYTICS: Day · Week · Month -->
+      <!-- ANALYTICS: Day · Week · Month · Apps -->
       <section id="view-analytics" class="view hidden">
         <header class="page-head">
           <div>
@@ -155,10 +152,11 @@
           </div>
         </header>
 
-        <div class="segment-control" role="tablist" aria-label="Analytics range">
+        <div class="segment-control" role="tablist" aria-label="Analytics views">
           <button type="button" class="segment-btn active" data-segment="day" role="tab" aria-selected="true">Day</button>
           <button type="button" class="segment-btn" data-segment="week" role="tab" aria-selected="false">Week</button>
           <button type="button" class="segment-btn" data-segment="month" role="tab" aria-selected="false">Month</button>
+          <button type="button" class="segment-btn" data-segment="apps" role="tab" aria-selected="false">Apps</button>
         </div>
 
         <div id="panel-day" class="analytics-panel" data-panel="day">
@@ -227,24 +225,16 @@
             </div>
           </article>
         </div>
-      </section>
 
-      <!-- APPS: top apps + reclassify -->
-      <section id="view-apps" class="view hidden">
-        <header class="page-head">
-          <div>
-            <h1>Apps</h1>
-            <p class="muted">Today’s top apps — reclassify with one click</p>
-          </div>
-        </header>
-
-        <article class="card">
-          <h3>Top apps</h3>
-          <p class="hint top-apps-hint">P = productive, U = unproductive, Ign = ignore (adds process name to keywords or ignore list).</p>
-          <ul id="app-list" class="app-list">
-            <li class="empty">No time logged yet</li>
-          </ul>
-        </article>
+        <div id="panel-apps" class="analytics-panel hidden" data-panel="apps">
+          <article class="card">
+            <h3>Top apps</h3>
+            <p class="hint top-apps-hint">Today’s apps — P = productive, U = unproductive, Ign = ignore.</p>
+            <ul id="app-list" class="app-list">
+              <li class="empty">No time logged yet</li>
+            </ul>
+          </article>
+        </div>
       </section>
 
       <!-- FOCUS TAGS: keywords + ignore -->
