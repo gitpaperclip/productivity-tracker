@@ -2564,7 +2564,6 @@ function renderSessionLogList(payload) {
           '<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v6M14 11v6"/>' +
           '</svg></button>'
         : '';
-      const distractN = esc(String(s.distractionCount || 0));
       return (
         '<div class="session-log-item" data-open="off" data-status="' +
         esc(s.status || 'stopped') +
@@ -2579,15 +2578,7 @@ function renderSessionLogList(payload) {
         title +
         '</span>' +
         '</span>' +
-        '<span class="session-log-summary-right">' +
         statusChip(s.status) +
-        '<span class="session-log-distract">' +
-        '<span class="session-log-distract-label">Distractions</span>' +
-        '<span class="session-log-distract-count">' +
-        distractN +
-        '</span>' +
-        '</span>' +
-        '</span>' +
         '</button>' +
         delBtn +
         '</div>' +
@@ -2600,6 +2591,9 @@ function renderSessionLogList(payload) {
         (apps
           ? '<div class="session-log-apps">' + apps + '</div>'
           : '<div class="session-log-meta">No app time logged yet</div>') +
+        '<div class="session-log-distract">Distractions: <strong>' +
+        esc(String(s.distractionCount || 0)) +
+        '</strong></div>' +
         '</div>' +
         '</div>'
       );
