@@ -99,6 +99,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Tray presence + FocusBoost in tray
 - `.exe` packaging + first-run onboarding (primary browser → seed Focus Tags)
   - Intro copy: classification gets better as you tag more apps (P/U/I + Focus Tags) — update tags as you go; no need to rewrite past time
+  - **Roundup notification time** (post-launch): during onboarding, pick a daily time (e.g. 5pm) for a Roundup toast; notification includes a button/action that opens the Roundup tab. Same control lives in Settings (onboarding just seeds it).
 - Disk usage display with privacy/Data
 
 ### Tray stage (shelved until tray)
@@ -111,6 +112,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Themes: Sand, Coral, Night, Starlight
 - Nav caret polish
 - Electron memory mitigations (see Performance & memory) — fine for 8 GB+ / power PCs as-is; revisit only if measured bloat
+- Roundup daily notification (post-launch): onboarding + Settings time picker; Windows toast with action → Roundup tab
 
 ### Longer-term: Focus modes (context-aware productivity)
 Named modes that swap what "productive" means for the task you're in — e.g. Resume writing, Coding, Homework, Deep reading.

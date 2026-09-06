@@ -145,9 +145,12 @@ function formatReminderBody(template, payload) {
   const minutes = Math.max(1, Math.round(streakSec / 60));
   const streak =
     streakSec > 0 && streakSec < 60 ? streakSec + 's' : minutes + ' min';
+  const timeSpent = streak;
   return String(template || '')
     .replace(/\{app\}/gi, app)
-    .replace(/\{streak\}/gi, streak)
+    .replace(/\{time_spent\}/gi, timeSpent)
+    // legacy alias
+    .replace(/\{streak\}/gi, timeSpent)
     .trim();
 }
 
