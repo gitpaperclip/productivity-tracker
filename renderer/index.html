@@ -98,8 +98,8 @@
             <div class="lf-kicker">Last focused</div>
             <div class="lf-row">
               <div class="lf-main">
-                <span id="lf-app" class="lf-app">Waiting for an app…</span>
-                <span id="lf-title" class="lf-title muted"></span>
+                <span id="lf-app" class="lf-app app-trunc" data-full="">Waiting for an app…</span>
+                <span id="lf-title" class="lf-title muted app-trunc" data-full=""></span>
                 <span id="lf-keyword-hint" class="lf-keyword-hint muted tiny hidden"></span>
               </div>
               <div class="lf-actions">
@@ -159,15 +159,15 @@
         <div class="roundup-highlights" id="roundup-highlights">
           <article class="card roundup-chip">
             <div class="lf-kicker">Top focus</div>
-            <div id="ru-top-focus" class="roundup-chip-value">—</div>
+            <div id="ru-top-focus" class="roundup-chip-value app-trunc" data-full="">—</div>
             <div id="ru-top-focus-sub" class="roundup-chip-sub muted tiny">No productive apps yet</div>
           </article>
           <article class="card roundup-chip">
             <div class="lf-kicker">Biggest distraction</div>
-            <div id="ru-distract" class="roundup-chip-value">—</div>
+            <div id="ru-distract" class="roundup-chip-value app-trunc" data-full="">—</div>
             <div id="ru-distract-sub" class="roundup-chip-sub muted tiny">No unproductive apps yet</div>
           </article>
-          <article class="card roundup-chip">
+<article class="card roundup-chip">
             <div class="lf-kicker">Peak hour</div>
             <div id="ru-peak" class="roundup-chip-value">—</div>
             <div id="ru-peak-sub" class="roundup-chip-sub muted tiny">Most productive hour</div>
@@ -405,6 +405,7 @@
       </section>
     </main>
   </div>
+  <div id="name-tip" class="name-tip pie-tip hidden" role="tooltip"></div>
   <script src="renderer.js"></script>
 </body>
 </html>

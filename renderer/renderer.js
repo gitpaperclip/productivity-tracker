@@ -54,6 +54,56 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+function setAppTrunc(el, text) {
+  if (!el) return;
+  const t = text == null ? '' : String(text);
+  el.textContent = t;
+  if (t && t !== '—' && t !== 'Waiting for an app…') {
+    el.setAttribute('data-full', t);
+    el.classList.add('app-trunc');
+  } else {
+    el.setAttribute('data-full', '');
+  }
+}
+
+function hideNameTip() {
+  const tip = $('name-tip');
+  if (tip) tip.classList.add('hidden');
+}
+
+function showNameTip(ev) {
+  const el = ev.target && ev.target.closest && ev.target.closest('.app-trunc');
+  const tip = $('name-tip');
+  if (!el || !tip) {
+    hideNameTip();
+    return;
+  }
+  const full = (el.getAttribute('data-full') || el.getAttribute('title') || el.textContent || '').trim();
+  if (!full || full === '—' || full === 'Waiting for an app…') {
+    hideNameTip();
+    return;
+  }
+  // Only show when truncated (or always for long strings)
+  const truncated = el.scrollWidth > el.clientWidth + 1 || full.length > 18;
+  if (!truncated) {
+    hideNameTip();
+    return;
+  }
+  tip.innerHTML =
+    '<div class="nt-label">Full name</div><div class="nt-full">' + esc(full) + '</div>';
+  tip.classList.remove('hidden');
+  const pad = 12;
+  const tw = tip.offsetWidth || 200;
+  const th = tip.offsetHeight || 60;
+  let left = ev.clientX + 14;
+  let top = ev.clientY + 14;
+  if (left + tw > window.innerWidth - pad) left = ev.clientX - tw - 12;
+  if (top + th > window.innerHeight - pad) top = ev.clientY - th - 10;
+  tip.style.left = Math.max(pad, left) + 'px';
+  tip.style.top = Math.max(pad, top) + 'px';
+}
+
+
 const api = window.focusflow;
 let applying = false;
 /** Cached rules/ignore for one-click reclassify. */
@@ -331,8 +381,8 @@ function renderLastFocused(lf, now) {
   const use = lf || (!selfish && now && now.app ? now : null);
   if (!use || !use.app) {
     lastFocusedCache = null;
-    appEl.textContent = 'Waiting for an app…';
-    if (titleEl) titleEl.textContent = '';
+    setAppTrunc(appEl, 'Waiting for an app…');
+    if (titleEl) setAppTrunc(titleEl, '');
     if (catEl) {
       catEl.textContent = '—';
       catEl.className = 'chip other';
@@ -350,8 +400,8 @@ function renderLastFocused(lf, now) {
   if (oKey && lfSessionClass[oKey]) {
     lastFocusedCache.category = lfSessionClass[oKey];
   }
-  appEl.textContent = use.app;
-  if (titleEl) titleEl.textContent = use.title || '';
+  setAppTrunc(appEl, use.app);
+  if (titleEl) setAppTrunc(titleEl, use.title || '');
   if (catEl) {
     const cat = lastFocusedCache.category || 'other';
     catEl.textContent = cat;
@@ -489,7 +539,9 @@ function showPieTip(ev) {
       apps
         .map(
           (a) =>
-            '<li><span class="pt-name">' +
+            '<li><span class="pt-name app-trunc" data-full="' +
+            esc(a.name) +
+            '">' +
             esc(a.name) +
             '</span><span class="pt-secs">' +
             fmt(a.seconds) +
@@ -909,9 +961,11 @@ function tipAppsHtml(apps) {
     apps
       .map(
         (a) =>
-          '<li><span class="pt-name">' +
-          esc(a.name) +
-          '</span><span class="pt-secs">' +
+          '<li><span class="pt-name app-trunc" data-full="' +
+            esc(a.name) +
+            '">' +
+            esc(a.name) +
+            '</span><span class="pt-secs">' +
           fmt(a.seconds) +
           '</span></li>'
       )
@@ -1185,19 +1239,18 @@ function renderRoundup(stats) {
   const apps = (stats && stats.topApps) || [];
   const topP = apps.find((a) => a.category === 'productive');
   const topU = apps.find((a) => a.category === 'unproductive');
-  if ($('ru-top-focus')) $('ru-top-focus').textContent = topP ? topP.name : '—';
+  setAppTrunc($('ru-top-focus'), topP ? topP.name : '—');
   if ($('ru-top-focus-sub')) {
     $('ru-top-focus-sub').textContent = topP
       ? fmtFriendly(topP.seconds) + ' productive'
       : 'No productive apps yet';
   }
-  if ($('ru-distract')) $('ru-distract').textContent = topU ? topU.name : '—';
+  setAppTrunc($('ru-distract'), topU ? topU.name : '—');
   if ($('ru-distract-sub')) {
     $('ru-distract-sub').textContent = topU
       ? fmtFriendly(topU.seconds) + ' unproductive'
       : 'No unproductive apps yet';
   }
-
   const hours = normalizeByHour(stats && stats.byHour);
   let peakHour = -1;
   let peakProd = -1;
@@ -1246,7 +1299,7 @@ function renderRoundup(stats) {
           ').'
       );
       if (topP) lines.push('Most deep work in ' + topP.name + '.');
-      if (topU) lines.push(topU.name + ' led distractions.');
+      if (topU) lines.push('Most break-time app: ' + topU.name + '.');
       if (peakProd > 0) lines.push('Peak productive hour: ' + hourLabel(peakHour) + '.');
       if (hit) lines.push('Daily productivity goal: hit.');
       else lines.push('Daily productivity goal: ' + fmtGoalShort(left) + ' to go.');
@@ -1286,7 +1339,9 @@ function renderAppList(stats) {
       const raw = encodeURIComponent(a.name);
       return (
         '<li class="app-row">' +
-        '<span class="app-name" title="' +
+        '<span class="app-name app-trunc" data-full="' +
+        name +
+        '" title="' +
         name +
         '">' +
         name +
@@ -1779,3 +1834,8 @@ if (weekChartEl) {
   weekChartEl.addEventListener('mousemove', showWeekChartTip);
   weekChartEl.addEventListener('mouseleave', () => hideChartTip('week-tip'));
 }
+
+document.addEventListener('mousemove', (ev) => {
+  if (ev.target && ev.target.closest && ev.target.closest('.app-trunc')) showNameTip(ev);
+  else hideNameTip();
+});

@@ -1725,15 +1725,30 @@ body[data-boost="on"]::after {
   flex-direction: column;
   gap: 6px;
   min-height: 96px;
+  min-width: 0;
+}
+.roundup-chip .lf-kicker {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .roundup-chip-value {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.25;
-  word-break: break-word;
+  min-width: 0;
+  max-width: 100%;
 }
-.roundup-chip-sub { font-size: 11px; line-height: 1.35; }
+.roundup-chip-sub {
+  font-size: 11px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .roundup-story {
   margin-top: 14px;
   padding: 18px 20px 20px;
@@ -1744,4 +1759,36 @@ body[data-boost="on"]::after {
   line-height: 1.55;
   color: var(--text);
   white-space: pre-line;
+}
+
+.app-trunc {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  cursor: default;
+}
+.name-tip {
+  position: fixed;
+  z-index: 80;
+  max-width: min(360px, calc(100vw - 24px));
+  pointer-events: none;
+  white-space: normal;
+  word-break: break-word;
+}
+.name-tip .nt-label {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.name-tip .nt-full {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
 }
