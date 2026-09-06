@@ -56,6 +56,8 @@ Import merges by default. Clear today / Clear all history are permanent and ask 
 
 Home toggle sets ~3 min unproductive reminder. CSS-only FOCUS BOOST flash (skipped if prefers-reduced-motion), then data-boost=on armed state. Off restores the previous threshold.
 
+**Schedule (v1):** Settings → Auto FocusBoost with start/end (local time). Tracking stays 24/7; only Boost arms/disarms on the window. Manual Home toggle still works mid-window (schedule re-applies on the next enter/leave). Overnight windows supported.
+
 ## Performance & memory (Electron)
 
 **Is it fine for normal / power PCs?** Yes. A small Electron app like this typically sits in the ~100–300 MB RAM range (Chromium + Node). On 8–16 GB machines that is a rounding error next to Chrome/Discord/games; on “power” PCs it is a non-issue. We are not loading chart libraries, WebGL, or big media.
@@ -99,6 +101,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Tray presence + FocusBoost in tray
 - `.exe` packaging + first-run onboarding (primary browser → seed Focus Tags)
   - Intro copy: classification gets better as you tag more apps (P/U/I + Focus Tags) — update tags as you go; no need to rewrite past time
+  - **FocusBoost schedule** (onboarding): pick daily Boost hours during first-run; same control lives in Settings (onboarding seeds it). Tracking stays 24/7 — schedule only arms/disarms FocusBoost.
   - **Roundup notification time** (post-launch): during onboarding, pick a daily time (e.g. 5pm) for a Roundup toast; notification includes a button/action that opens the Roundup tab. Same control lives in Settings (onboarding just seeds it).
 - Disk usage display with privacy/Data
 

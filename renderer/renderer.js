@@ -154,6 +154,92 @@ function focusBoostSecFromSettings(settings) {
   if (Number.isFinite(n) && n >= 5) return Math.round(n);
   return FOCUSBOOST_DEFAULT_SEC;
 }
+
+function parseHmToMinutes(hm) {
+  const raw = String(hm || '').trim();
+  const m = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(min) || h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return h * 60 + min;
+}
+
+function isInFocusBoostScheduleWindow(settings, now) {
+  if (!settings || !settings.focusBoostScheduleEnabled) return false;
+  const start = parseHmToMinutes(settings.focusBoostScheduleStart || '09:00');
+  const end = parseHmToMinutes(settings.focusBoostScheduleEnd || '17:00');
+  if (start == null || end == null) return false;
+  const d = now || new Date();
+  const cur = d.getHours() * 60 + d.getMinutes();
+  if (start === end) return true; // 24h window
+  if (start < end) return cur >= start && cur < end;
+  // overnight: e.g. 22:00–06:00
+  return cur >= start || cur < end;
+}
+
+/** Last desired schedule state we applied (true/false/null). Transition-only. */
+let focusBoostScheduleDesired = null;
+
+async function armFocusBoostFromSchedule(settings) {
+  const boostSec = focusBoostSecFromSettings(settings);
+  const restore =
+    Number(settings.focusBoostRestoreSec) ||
+    (Number(settings.thresholdSec) && Number(settings.thresholdSec) !== boostSec
+      ? Number(settings.thresholdSec)
+      : thresholdBeforeBoost) ||
+    600;
+  thresholdBeforeBoost = restore;
+  const next = await pushSettings({
+    focusBoost: true,
+    thresholdSec: boostSec,
+    focusBoostRestoreSec: restore,
+    focusBoostSec: boostSec
+  });
+  syncFocusBoostUi(
+    next || {
+      focusBoost: true,
+      thresholdSec: boostSec,
+      focusBoostSec: boostSec,
+      focusBoostScheduleEnabled: true
+    }
+  );
+}
+
+async function disarmFocusBoostFromSchedule(settings) {
+  const boostSec = focusBoostSecFromSettings(settings);
+  const restore =
+    Number(settings.focusBoostRestoreSec) || thresholdBeforeBoost || 600;
+  const next = await pushSettings({
+    focusBoost: false,
+    thresholdSec: restore
+  });
+  syncFocusBoostUi(
+    next || {
+      focusBoost: false,
+      thresholdSec: restore,
+      focusBoostSec: boostSec
+    }
+  );
+}
+
+async function applyFocusBoostSchedule(settings, opts) {
+  const force = !!(opts && opts.force);
+  if (!settings || !settings.focusBoostScheduleEnabled) {
+    focusBoostScheduleDesired = null;
+    return;
+  }
+  const desired = isInFocusBoostScheduleWindow(settings);
+  if (!force && focusBoostScheduleDesired === desired) return;
+  focusBoostScheduleDesired = desired;
+  const on = !!settings.focusBoost;
+  if (desired && !on) {
+    await armFocusBoostFromSchedule(settings);
+  } else if (!desired && on) {
+    await disarmFocusBoostFromSchedule(settings);
+  }
+}
+
 const reduceMotion =
   typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -820,7 +906,9 @@ function applySettingsInputs(settings) {
   }
   syncPauseUi(settings);
   syncFocusBoostUi(settings);
+  syncFocusBoostScheduleUi(settings);
   applying = false;
+  applyFocusBoostSchedule(settings).catch(() => {});
 }
 
 function syncPauseUi(settings) {
@@ -859,10 +947,42 @@ function syncFocusBoostUi(settings) {
     label.innerHTML = '<span class="fb-focus">focus</span><span class="fb-boost">boost</span>';
   }
   const waitLabel = boostSec < 60 ? boostSec + 's' : Math.round((boostSec / 60) * 10) / 10 + ' min';
+  const sched = !!(settings && settings.focusBoostScheduleEnabled);
   btn.title = on
-    ? 'focusboost on · ~' + waitLabel + ' reminder'
-    : 'focusboost · ~' + waitLabel + ' reminder';
+    ? 'focusboost on · ~' + waitLabel + ' reminder' + (sched ? ' · scheduled' : '')
+    : 'focusboost · ~' + waitLabel + ' reminder' + (sched ? ' · scheduled' : '');
   if ($('thresh-label')) $('thresh-label').textContent = fmt(settings.thresholdSec || 600);
+}
+
+
+function syncFocusBoostScheduleUi(settings) {
+  const enabled = !!(settings && settings.focusBoostScheduleEnabled);
+  const toggle = $('fb-schedule-toggle');
+  const start = $('fb-schedule-start');
+  const end = $('fb-schedule-end');
+  const times = $('fb-schedule-times');
+  if (toggle && document.activeElement !== toggle) toggle.checked = enabled;
+  if (start && document.activeElement !== start) {
+    start.value = settings.focusBoostScheduleStart || '09:00';
+  }
+  if (end && document.activeElement !== end) {
+    end.value = settings.focusBoostScheduleEnd || '17:00';
+  }
+  if (times) times.classList.toggle('is-disabled', !enabled);
+  if (start) start.disabled = !enabled;
+  if (end) end.disabled = !enabled;
+  const hint = $('fb-schedule-hint');
+  if (hint) {
+    if (!enabled) {
+      hint.textContent = 'Local time. Overnight windows OK (e.g. 22:00–06:00).';
+    } else {
+      const a = settings.focusBoostScheduleStart || '09:00';
+      const b = settings.focusBoostScheduleEnd || '17:00';
+      const nowOn = isInFocusBoostScheduleWindow(settings);
+      hint.textContent =
+        'Active ' + a + '–' + b + ' local · currently ' + (nowOn ? 'in window' : 'outside window') + '.';
+    }
+  }
 }
 
 function playBoostFlash() {
@@ -1536,6 +1656,34 @@ if ($('pause-btn')) {
     setTrackingPaused(!on);
   });
 }
+
+async function saveFocusBoostSchedulePartial(partial) {
+  focusBoostScheduleDesired = null; // re-evaluate after schedule edits
+  const next = await pushSettings(partial);
+  syncFocusBoostScheduleUi(next || Object.assign({}, partial));
+  await applyFocusBoostSchedule(next || partial, { force: true });
+}
+
+if ($('fb-schedule-toggle')) {
+  $('fb-schedule-toggle').addEventListener('change', async () => {
+    await saveFocusBoostSchedulePartial({
+      focusBoostScheduleEnabled: !!$('fb-schedule-toggle').checked
+    });
+  });
+}
+if ($('fb-schedule-start')) {
+  $('fb-schedule-start').addEventListener('change', async () => {
+    const v = String($('fb-schedule-start').value || '09:00');
+    await saveFocusBoostSchedulePartial({ focusBoostScheduleStart: v });
+  });
+}
+if ($('fb-schedule-end')) {
+  $('fb-schedule-end').addEventListener('change', async () => {
+    const v = String($('fb-schedule-end').value || '17:00');
+    await saveFocusBoostSchedulePartial({ focusBoostScheduleEnd: v });
+  });
+}
+
 if ($('pause-toggle')) {
   $('pause-toggle').addEventListener('change', () => {
     setTrackingPaused($('pause-toggle').checked);
@@ -1907,3 +2055,19 @@ document.addEventListener('mousemove', (ev) => {
   if (ev.target && ev.target.closest && ev.target.closest('.app-trunc')) showNameTip(ev);
   else hideNameTip();
 });
+
+/** Re-check FocusBoost schedule on window enter/leave (transition-only). */
+let focusBoostScheduleTick = null;
+function startFocusBoostScheduleWatch() {
+  if (focusBoostScheduleTick) return;
+  focusBoostScheduleTick = window.setInterval(async () => {
+    if (!api) return;
+    try {
+      const state = await api.getState();
+      const settings = (state && state.stats && state.stats.settings) || {};
+      await applyFocusBoostSchedule(settings);
+      syncFocusBoostScheduleUi(settings);
+    } catch (_) {}
+  }, 20000);
+}
+startFocusBoostScheduleWatch();

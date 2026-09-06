@@ -1782,6 +1782,20 @@ body[data-boost="on"]::after {
   .settings-row-2 { grid-template-columns: 1fr; }
 }
 
+.settings-block-boost-schedule {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+#fb-schedule-times.is-disabled {
+  opacity: 0.45;
+}
+#fb-schedule-times input[type="time"] {
+  width: 100%;
+  max-width: 160px;
+}
+
+
 .chart-tip-wrap {
   position: relative;
 }
