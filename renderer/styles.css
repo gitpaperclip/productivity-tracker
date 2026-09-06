@@ -1653,6 +1653,14 @@ body[data-boost="on"]::after {
   flex-direction: column;
   gap: 14px;
 }
+.settings-block > .field:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.settings-block > .settings-row-2:last-child .field {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
 .settings-block-title {
   font-size: 12px;
   font-weight: 700;

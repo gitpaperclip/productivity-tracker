@@ -1169,7 +1169,7 @@ function roundupHeadlines(moodId, hit, thin) {
   }
   if (hit) {
     const map = {
-      thriving: ['Goal crushed', 'You cleared the productive target and stayed in the zone.'],
+      thriving: ['Goal crushed', 'You killed it today! 🥳'],
       focused: ['Goal hit', 'Solid focus day — you met the productive target.'],
       meh: ['Goal hit, mixed vibe', 'You made the productive goal even if the mix wasn’t perfect.'],
       distracted: ['Goal hit, rough edges', 'You still cleared the target despite some drift.'],
@@ -1179,7 +1179,7 @@ function roundupHeadlines(moodId, hit, thin) {
     return { headline: row[0], sub: row[1] };
   }
   const map = {
-    thriving: ['Almost there', 'Strong focus share — a bit more productive time hits the goal.'],
+    thriving: ['Almost there', "Let's finish strong! 💪"],
     focused: ['Close call', 'Good focus day. Nudge the goal or keep stacking productive time.'],
     meh: ['Mixed day', 'Some focus, some drift. Tags and FocusBoost can tighten tomorrow.'],
     distracted: ['Drift day', 'Unproductive time led. Tag distractions and arm FocusBoost.'],
