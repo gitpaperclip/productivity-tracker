@@ -1066,9 +1066,9 @@ h4.unprod { color: var(--unprod); }
   font-variant-numeric: tabular-nums;
 }
 .field input[type="time"]::-webkit-calendar-picker-indicator {
-  opacity: 0.55;
+  opacity: 0.9;
   cursor: pointer;
-  filter: invert(1);
+  filter: invert(1) brightness(1.4);
 }
 .field input[type="time"]:focus {
   outline: none;
@@ -1810,6 +1810,16 @@ body[data-boost="on"]::after {
   border-bottom: 0;
   padding-top: 8px;
   padding-bottom: 0;
+}
+
+.pause-settings-row {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.settings-goal-after-schedule {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
 
 

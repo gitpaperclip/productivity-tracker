@@ -348,13 +348,15 @@
 
         <article class="card">
           <h3>Tracker</h3>
-          <label class="switch-row">
+          <div class="switch-row pause-settings-row">
             <div>
               <div class="switch-title">Pause tracking</div>
               <div class="hint">Stops logging time and reminders. App stays open.</div>
             </div>
-            <input type="checkbox" id="pause-toggle" />
-          </label>
+            <button type="button" id="pause-settings-btn" class="pause-power" data-paused="off" title="Pause tracking" aria-label="Pause tracking" aria-pressed="false">
+              <svg class="pause-power-ico" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M7.5 6.2a7 7 0 1 0 9 0"/></svg>
+            </button>
+          </div>
           <div class="settings-block">
             <div class="settings-block-title">Timing</div>
             <div class="settings-row-2">
@@ -370,7 +372,7 @@
             <label class="switch-row" id="fb-schedule-row">
               <div>
                 <div class="switch-title">focusboost Schedule</div>
-                <div class="hint">Arms Boost in this window; tracking stays on all day.</div>
+                <div class="hint">Enable a focusboost schedule. Focusboost will automatically enable and disable based on this window.</div>
               </div>
               <input type="checkbox" id="fb-schedule-toggle" />
             </label>
@@ -384,7 +386,7 @@
                 <input type="time" id="fb-schedule-end" value="17:00" />
               </label>
             </div>
-            <label class="field">
+            <label class="field settings-goal-after-schedule">
               <div class="field-label-row">
                 <span>Daily Productivity Goal (hours)</span>
                 <span class="settings-token muted tiny">Used in Roundup</span>

@@ -913,15 +913,15 @@ function applySettingsInputs(settings) {
 
 function syncPauseUi(settings) {
   const paused = !!(settings && settings.trackingPaused);
-  const btn = $('pause-btn');
-  const toggle = $('pause-toggle');
-  if (btn) {
+  const applyPauseBtn = (btn) => {
+    if (!btn) return;
     btn.setAttribute('data-paused', paused ? 'on' : 'off');
     btn.setAttribute('aria-pressed', paused ? 'true' : 'false');
     btn.title = paused ? 'Resume tracking' : 'Pause tracking';
     btn.setAttribute('aria-label', paused ? 'Resume tracking' : 'Pause tracking');
-  }
-  if (toggle && document.activeElement !== toggle) toggle.checked = paused;
+  };
+  applyPauseBtn($('pause-btn'));
+  applyPauseBtn($('pause-settings-btn'));
   document.body.setAttribute('data-paused', paused ? 'on' : 'off');
   const pill = $('source-pill');
   if (pill && paused) {
@@ -1672,9 +1672,10 @@ if ($('fb-schedule-end')) {
   });
 }
 
-if ($('pause-toggle')) {
-  $('pause-toggle').addEventListener('change', () => {
-    setTrackingPaused($('pause-toggle').checked);
+if ($('pause-settings-btn')) {
+  $('pause-settings-btn').addEventListener('click', () => {
+    const on = $('pause-settings-btn').getAttribute('data-paused') === 'on';
+    setTrackingPaused(!on);
   });
 }
 
