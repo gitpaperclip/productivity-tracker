@@ -3,7 +3,7 @@
 const { createDemoBackend } = require('./demo-windows');
 const { classify, appLabel } = require('./classifier');
 
-function createRealBackend() {
+function createActiveWinBackend() {
   let impl = null;
   let failed = false;
   let lastError = null;
@@ -16,7 +16,6 @@ function createRealBackend() {
       return impl;
     } catch (err) {
       lastError = err.message || String(err);
-      console.warn('[tracker] active-win unavailable:', lastError);
       failed = true;
       return null;
     }
@@ -26,20 +25,28 @@ function createRealBackend() {
     const fn = await load();
     if (!fn) return { window: null, error: lastError || 'active-win not loaded' };
     try {
-      const win = await fn({
-        accessibilityPermission: false,
-        screenRecordingPermission: false
-      });
-      if (!win) return { window: null, error: null };
-      return { window: win, error: null };
+      const win = await fn({ accessibilityPermission: false, screenRecordingPermission: false });
+      return { window: win || null, error: null };
     } catch (err) {
       lastError = err.message || String(err);
-      console.warn('[tracker] getActiveWindow failed:', lastError);
       return { window: null, error: lastError };
     }
   }
 
   return { getActiveWindow };
+}
+
+function createRealBackend() {
+  if (process.platform === 'win32') {
+    try {
+      const { createWindowsBackend } = require('./windows-backend');
+      return createWindowsBackend();
+    } catch (err) {
+      console.warn('[tracker] windows-backend load failed, falling back to active-win', err.message);
+      return createActiveWinBackend();
+    }
+  }
+  return createActiveWinBackend();
 }
 
 function createTracker({ store, rules, onTick, onReminder }) {
@@ -73,11 +80,7 @@ function createTracker({ store, rules, onTick, onReminder }) {
       const result = await real.getActiveWindow();
       win = result.window;
       trackingError = result.error;
-      if (win) {
-        source = 'real';
-      } else {
-        source = 'idle';
-      }
+      source = win ? 'real' : 'idle';
     }
 
     const category = win ? classify(win, rules) : 'other';
@@ -86,11 +89,7 @@ function createTracker({ store, rules, onTick, onReminder }) {
       ? trackingError
       : (settings.demoMode ? '' : 'Switch apps to start tracking'));
 
-    const same =
-      current.app === app &&
-      current.title === title &&
-      current.category === category;
-
+    const same = current.app === app && current.title === title && current.category === category;
     if (!same) {
       current = { window: win, app, title, category, since: now, source };
     } else {
@@ -98,9 +97,7 @@ function createTracker({ store, rules, onTick, onReminder }) {
       current.source = source;
     }
 
-    if (win) {
-      store.addSeconds(app, category, elapsed);
-    }
+    if (win) store.addSeconds(app, category, elapsed);
 
     if (win && store.shouldRemind() && category === 'unproductive') {
       store.markReminder();
