@@ -90,7 +90,13 @@ function processNameForIgnore(entry) {
 
 /** Threshold before FocusBoost was armed (seconds). */
 let thresholdBeforeBoost = null;
-const FOCUSBOOST_SEC = 3 * 60;
+const FOCUSBOOST_DEFAULT_SEC = 3 * 60;
+
+function focusBoostSecFromSettings(settings) {
+  const n = Number(settings && settings.focusBoostSec);
+  if (Number.isFinite(n) && n >= 5) return Math.round(n);
+  return FOCUSBOOST_DEFAULT_SEC;
+}
 const reduceMotion =
   typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -739,6 +745,10 @@ function applySettingsInputs(settings) {
   const sec = Number(settings.thresholdSec) || 600;
   if ($('threshold-sec')) $('threshold-sec').value = sec;
   if ($('threshold-min')) $('threshold-min').value = Math.round((sec / 60) * 10) / 10;
+  const fbSec = focusBoostSecFromSettings(settings);
+  if ($('focusboost-sec') && document.activeElement !== $('focusboost-sec')) {
+    $('focusboost-sec').value = fbSec;
+  }
   let goalSec = Number(settings.dailyGoalSec);
   if (!Number.isFinite(goalSec) || goalSec <= 0) goalSec = 7200;
   const hoursVal = Math.round((goalSec / 3600) * 100) / 100;
@@ -756,9 +766,10 @@ function syncFocusBoostUi(settings) {
   const btn = $('focusboost-btn');
   const shell = document.body;
   if (!btn) return;
+  const boostSec = focusBoostSecFromSettings(settings);
   const armed =
     !!settings.focusBoost ||
-    (Number(settings.thresholdSec) === FOCUSBOOST_SEC && settings._boostArmed);
+    (Number(settings.thresholdSec) === boostSec && settings._boostArmed);
   const on = !!settings.focusBoost;
   btn.setAttribute('data-boost', on ? 'on' : 'off');
   btn.classList.toggle('armed', on);
@@ -767,7 +778,10 @@ function syncFocusBoostUi(settings) {
   if (label && !label.querySelector('.fb-focus')) {
     label.innerHTML = '<span class="fb-focus">focus</span><span class="fb-boost">boost</span>';
   }
-  btn.title = on ? 'focusboost on · ~3 min reminder' : 'focusboost · ~3 min reminder';
+  const waitLabel = boostSec < 60 ? boostSec + 's' : Math.round((boostSec / 60) * 10) / 10 + ' min';
+  btn.title = on
+    ? 'focusboost on · ~' + waitLabel + ' reminder'
+    : 'focusboost · ~' + waitLabel + ' reminder';
   if ($('thresh-label')) $('thresh-label').textContent = fmt(settings.thresholdSec || 600);
 }
 
@@ -1080,6 +1094,20 @@ if ($('threshold-sec')) {
     pushSettings({ thresholdSec: Math.round(sec), focusBoost: false });
   });
 }
+if ($('focusboost-sec')) {
+  $('focusboost-sec').addEventListener('change', async () => {
+    const sec = Number($('focusboost-sec').value);
+    if (!Number.isFinite(sec) || sec < 5) return;
+    const rounded = Math.round(sec);
+    const state = api && (await api.getState().catch(() => null));
+    const settings = (state && state.stats && state.stats.settings) || {};
+    const partial = { focusBoostSec: rounded };
+    // If boost is armed, also retarget the live threshold
+    if (settings.focusBoost) partial.thresholdSec = rounded;
+    const next = await pushSettings(partial);
+    syncFocusBoostUi(next || Object.assign({}, settings, partial));
+  });
+}
 
 function clampGoalHours(h) {
   if (!Number.isFinite(h) || h <= 0) return null;
@@ -1193,20 +1221,23 @@ async function toggleFocusBoost() {
   const state = await api.getState();
   const settings = (state && state.stats && state.stats.settings) || {};
   const on = !!settings.focusBoost;
+  const boostSec = focusBoostSecFromSettings(settings);
   if (!on) {
     thresholdBeforeBoost =
-      Number(settings.thresholdSec) && Number(settings.thresholdSec) !== FOCUSBOOST_SEC
+      Number(settings.thresholdSec) && Number(settings.thresholdSec) !== boostSec
         ? Number(settings.thresholdSec)
         : thresholdBeforeBoost || 600;
     const next = await pushSettings({
       focusBoost: true,
-      thresholdSec: FOCUSBOOST_SEC,
-      focusBoostRestoreSec: thresholdBeforeBoost
+      thresholdSec: boostSec,
+      focusBoostRestoreSec: thresholdBeforeBoost,
+      focusBoostSec: boostSec
     });
     syncFocusBoostUi(
       next || {
         focusBoost: true,
-        thresholdSec: FOCUSBOOST_SEC
+        thresholdSec: boostSec,
+        focusBoostSec: boostSec
       }
     );
     playFocusBoostFeel(true);
@@ -1220,7 +1251,8 @@ async function toggleFocusBoost() {
     syncFocusBoostUi(
       next || {
         focusBoost: false,
-        thresholdSec: restore
+        thresholdSec: restore,
+        focusBoostSec: boostSec
       }
     );
     playFocusBoostFeel(false);

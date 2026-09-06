@@ -106,6 +106,7 @@ function createStore(dataDir) {
       pollMs: 1500,
       focusBoost: false,
       focusBoostRestoreSec: null,
+      focusBoostSec: 180,
       dailyGoalSec: 7200
     },
     loadJson(settingsPath) || {}
