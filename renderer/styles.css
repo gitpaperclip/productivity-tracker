@@ -55,6 +55,9 @@
   --radius: 18px;
   --font: "Inter", system-ui, sans-serif;
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  /* UI chrome icons (time pickers, etc.) — follow theme tokens, not hardcoded white */
+  --icon: var(--text);
+  --icon-muted: var(--muted);
 }
 
 * { box-sizing: border-box; }
@@ -1061,9 +1064,29 @@ h4.unprod { color: var(--unprod); }
   font-variant-numeric: tabular-nums;
 }
 .field input[type="time"]::-webkit-calendar-picker-indicator {
-  opacity: 0.9;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  padding: 0;
   cursor: pointer;
-  filter: invert(1) brightness(1.4);
+  opacity: 1;
+  /* Theme-aware: paint with tokens instead of invert(white) hacks */
+  background-color: var(--icon-muted);
+  color: var(--icon-muted);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='8.25' fill='none' stroke='%23000' stroke-width='2'/%3E%3Cpath d='M12 7.5v5.1l3.4 2' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='8.25' fill='none' stroke='%23000' stroke-width='2'/%3E%3Cpath d='M12 7.5v5.1l3.4 2' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  /* Kill Chromium’s built-in glyph so the mask shows through */
+  background-image: none !important;
+  filter: none;
+}
+.field input[type="time"]:hover::-webkit-calendar-picker-indicator {
+  background-color: var(--icon);
 }
 .field input[type="time"]:focus {
   outline: none;
