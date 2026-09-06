@@ -730,11 +730,10 @@ function applySettingsInputs(settings) {
   if (applying) return;
   applying = true;
   const sec = Number(settings.thresholdSec) || 600;
-  if ($('threshold-sec')) $('threshold-sec').value = sec;
   if ($('threshold-min')) $('threshold-min').value = Math.round((sec / 60) * 10) / 10;
   const fbSec = focusBoostSecFromSettings(settings);
-  if ($('focusboost-sec') && document.activeElement !== $('focusboost-sec')) {
-    $('focusboost-sec').value = fbSec;
+  if ($('focusboost-min') && document.activeElement !== $('focusboost-min')) {
+    $('focusboost-min').value = Math.round((fbSec / 60) * 10) / 10;
   }
   if ($('reminder-message') && document.activeElement !== $('reminder-message')) {
     $('reminder-message').value = settings.reminderMessage || "You've been on {app} for a while... maybe it's time to get back?";
@@ -1072,18 +1071,11 @@ if ($('threshold-min')) {
     pushSettings({ thresholdSec: Math.round(min * 60), focusBoost: false });
   });
 }
-if ($('threshold-sec')) {
-  $('threshold-sec').addEventListener('change', () => {
-    const sec = Number($('threshold-sec').value);
-    if (!Number.isFinite(sec) || sec <= 0) return;
-    pushSettings({ thresholdSec: Math.round(sec), focusBoost: false });
-  });
-}
-if ($('focusboost-sec')) {
-  $('focusboost-sec').addEventListener('change', async () => {
-    const sec = Number($('focusboost-sec').value);
-    if (!Number.isFinite(sec) || sec < 5) return;
-    const rounded = Math.round(sec);
+if ($('focusboost-min')) {
+  $('focusboost-min').addEventListener('change', async () => {
+    const min = Number($('focusboost-min').value);
+    if (!Number.isFinite(min) || min <= 0) return;
+    const rounded = Math.max(5, Math.round(min * 60));
     const state = api && (await api.getState().catch(() => null));
     const settings = (state && state.stats && state.stats.settings) || {};
     const partial = { focusBoostSec: rounded };

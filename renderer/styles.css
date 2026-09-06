@@ -855,12 +855,32 @@ h4.unprod { color: var(--unprod); }
 }
 .switch-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
 .field { flex-direction: column; align-items: stretch; }
-.field span {
+.field > span {
   font-size: 13px;
   font-weight: 650;
   color: var(--text);
   letter-spacing: -0.01em;
   margin-bottom: 8px;
+}
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.field-label-row > span:first-child {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.field-label-row .settings-token {
+  margin: 0;
+  flex-shrink: 0;
+  font-weight: 450;
+  text-align: right;
 }
 .field-sub {
   display: block;
@@ -1567,15 +1587,7 @@ body[data-boost="on"]::after {
   line-height: 1.4;
 }
 .settings-block-reminders {
-  position: relative;
-  padding-top: 20px;
-}
-.settings-block-reminders .settings-token {
-  position: absolute;
-  top: 16px;
-  right: 0;
-  margin: 0;
-  text-align: right;
+  padding-top: 16px;
 }
 .settings-token code {
   font-size: 11px;

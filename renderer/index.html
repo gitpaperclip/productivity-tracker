@@ -277,29 +277,29 @@
             <div class="settings-block-title">Timing</div>
             <div class="settings-row-2">
               <label class="field">
-                <span>Reminder (minutes)</span>
+                <span>Default Reminder (minutes)</span>
                 <input type="number" id="threshold-min" min="0.1" step="0.5" value="10" />
               </label>
               <label class="field">
-                <span>Reminder (seconds)</span>
-                <input type="number" id="threshold-sec" min="5" step="5" value="600" />
+                <span>FocusBoost Reminder (minutes)</span>
+                <input type="number" id="focusboost-min" min="0.1" step="0.1" value="3" />
               </label>
             </div>
             <label class="field">
-              <span>FocusBoost wait (seconds)</span>
-              <input type="number" id="focusboost-sec" min="5" step="5" value="180" />
-            </label>
-            <label class="field">
-              <span>Daily productive goal (hours)</span>
-              <span class="field-sub muted tiny">Used by Roundup — not shown on Home</span>
+              <div class="field-label-row">
+                <span>Daily Productivity Goal (hours)</span>
+                <span class="settings-token muted tiny">Used in Roundup</span>
+              </div>
               <input type="number" id="daily-goal-hours" min="0.25" max="16" step="0.25" value="2" />
             </label>
           </div>
 
           <div class="settings-block settings-block-reminders">
-            <p class="settings-token muted tiny">Tokens: <code>{app}</code> <code>{streak}</code></p>
             <label class="field">
-              <span>Standard Reminder Notification</span>
+              <div class="field-label-row">
+                <span>Standard Reminder Notification</span>
+                <span class="settings-token muted tiny">Tokens: <code>{app}</code> <code>{streak}</code></span>
+              </div>
               <textarea id="reminder-message" class="rules-textarea settings-textarea" rows="2" spellcheck="true" placeholder="You've been on {app} for a while..."></textarea>
             </label>
             <label class="field">
@@ -307,8 +307,7 @@
               <textarea id="focusboost-message" class="rules-textarea settings-textarea" rows="2" spellcheck="true" placeholder="Hey! focusboost is enabled..."></textarea>
             </label>
           </div>
-
-          <p class="settings-meta muted tiny">Data: <code id="data-path">./data</code></p>
+<p class="settings-meta muted tiny">Data: <code id="data-path">./data</code></p>
         </article>
 
         <article class="card data-card">
