@@ -54,7 +54,6 @@
         <header class="page-head">
           <div>
             <h1>Home</h1>
-            <p class="muted" id="date-label">Live window tracking</p>
           </div>
         </header>
 
@@ -91,29 +90,6 @@
             <li><span class="swatch other"></span> Other <strong id="other-val">0:00</strong></li>
           </ul>
 
-          <div id="daily-goal-chip" class="daily-goal-chip" role="button" tabindex="0" aria-label="Today’s productive goal" title="Click to edit daily goal">
-            <div class="dg-top">
-              <span class="dg-label">Today’s goal</span>
-              <span id="dg-status" class="dg-status muted tiny"></span>
-              <button type="button" id="dg-edit-btn" class="dg-edit-btn" title="Edit goal" aria-label="Edit daily goal">✎</button>
-            </div>
-            <div class="dg-row">
-              <strong id="dg-progress-text" class="dg-progress-text">0m / 2h</strong>
-            </div>
-            <div class="dg-bar" aria-hidden="true">
-              <div id="dg-bar-fill" class="dg-bar-fill" style="width:0%"></div>
-            </div>
-            <div id="dg-edit" class="dg-edit hidden">
-              <label class="dg-edit-label" for="dg-hours-input">Hours</label>
-              <div class="dg-edit-controls">
-                <button type="button" id="dg-dec" class="btn-mini" aria-label="Decrease goal">−</button>
-                <input type="number" id="dg-hours-input" min="0.25" max="16" step="0.25" value="2" />
-                <button type="button" id="dg-inc" class="btn-mini" aria-label="Increase goal">+</button>
-                <button type="button" id="dg-save" class="btn-mini prod" title="Save">✓</button>
-              </div>
-            </div>
-          </div>
-
           <div id="week-bars" class="week-bars" hidden></div>
 
           <div id="last-focused" class="last-focused">
@@ -137,6 +113,31 @@
           <div class="home-meta muted tiny">
             Unproductive streak <strong id="streak">0:00</strong>
             · Reminder at <strong id="thresh-label">10:00</strong>
+          </div>
+        </article>
+
+        <article class="card daily-goal-card">
+          <div id="daily-goal-chip" class="daily-goal-chip" role="button" tabindex="0" aria-label="Today’s productive goal" title="Click to edit daily goal">
+            <div class="dg-top">
+              <span class="dg-label">Today’s goal</span>
+              <span id="dg-status" class="dg-status muted tiny"></span>
+              <button type="button" id="dg-edit-btn" class="dg-edit-btn" title="Edit goal" aria-label="Edit daily goal">✎</button>
+            </div>
+            <div class="dg-row">
+              <strong id="dg-progress-text" class="dg-progress-text">0m / 2h</strong>
+            </div>
+            <div class="dg-bar" aria-hidden="true">
+              <div id="dg-bar-fill" class="dg-bar-fill" style="width:0%"></div>
+            </div>
+            <div id="dg-edit" class="dg-edit hidden">
+              <label class="dg-edit-label" for="dg-hours-input">Hours</label>
+              <div class="dg-edit-controls">
+                <button type="button" id="dg-dec" class="btn-mini" aria-label="Decrease goal">−</button>
+                <input type="number" id="dg-hours-input" min="0.25" max="16" step="0.25" value="2" />
+                <button type="button" id="dg-inc" class="btn-mini" aria-label="Increase goal">+</button>
+                <button type="button" id="dg-save" class="btn-mini prod" title="Save">✓</button>
+              </div>
+            </div>
           </div>
         </article>
       </section>

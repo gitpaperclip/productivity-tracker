@@ -5,10 +5,12 @@ Desktop productivity tracker for Windows. Watches the foreground window, classif
 ## What you get
 
 - Last focused bar: last real app (never FocusFlow itself)
-- Home: mood, pie chart, daily productive goal chip, 7-day mini bars, FocusBoost (~3 min reminder)
+- Home: mood, pie, daily productive goal (own card), FocusBoost (~3 min reminder)
+- Analytics: Day · Week · Month
 - Apps: top apps with P / U / Ign reclassify
-- Focus tags: productive / unproductive keywords + ignore list
-- Settings: reminder threshold, demo mode, portable .focusflow backup
+- Focus Tags: productive / unproductive keywords + ignore list
+- Settings: reminder threshold, demo mode, daily goal hours, portable .focusflow backup
+- Fully local — no cloud sync, no account
 
 ## Windows: install and start
 
@@ -20,14 +22,14 @@ Optional demo: npm start -- --demo. Smoke: npm test.
 
 ## First open
 
-1. Tabs: Home | Apps | Settings.
+1. Tabs: Home | Analytics | Apps | Focus Tags | Settings.
 2. Switch to another app; FocusFlow logs that time.
 3. Home shows pie, mood, and Last focused (the app before you opened FocusFlow).
 4. Default reminder at 10 minutes. FocusBoost arms a ~3 minute threshold (CSS BOOST punch, then armed glow).
 
 ## Classification
 
-Keywords match process name, window title, and URL. Unproductive wins on overlap. Bare browsers stay other. Edit under Settings or use P/U on Apps.
+Keywords match process name, window title, and URL. Unproductive wins on overlap. Bare browsers stay other. Edit under Focus Tags or use P/U on Apps / Last focused.
 
 ## Ignore list
 
@@ -62,6 +64,42 @@ Home toggle sets ~3 min unproductive reminder. CSS-only FOCUS BOOST flash (skipp
 ## Mac / Linux
 
 Tracking backends TBD. UI and store run; live capture may use active-win or demo depending on environment.
+
+
+## Roadmap / ideas (survive memory wipes)
+
+North star: private · honest · alive. Local Windows companion with a daily loop (goal → Boost nudges → Roundup), not another guilt dashboard.
+
+### Near-term feel
+- Side nav smooth expand/collapse animation
+- Stronger FocusBoost "hit the UI" press feedback
+- Roundup tab (after Analytics): fun daily wrap — did you hit the goal? focus vibe?
+- Classification smarts: browser yellow "browser" tag, sharper title keywords
+
+### Product loop
+- Home daily goal chip (shipped; polish as needed)
+- Gentle health insights (short coach notes, no lectures)
+- Privacy mode (strip/hash window titles)
+- Tray presence + FocusBoost in tray
+- `.exe` packaging + first-run onboarding (primary browser → seed Focus Tags)
+- Disk usage display with privacy/Data
+
+### Shelved polish
+- Themes: Sand, Coral, Night, Starlight
+- Nav caret polish
+
+### Longer-term: Focus modes (context-aware productivity)
+Named modes that swap what "productive" means for the task you're in — e.g. Resume writing, Coding, Homework, Deep reading.
+- Each mode has its own productive / unproductive / ignore keyword sets (or overlays on the global Focus Tags)
+- Example: in Resume writing, VS Code / Cursor may count as unproductive (wrong rabbit hole); Word / Docs / LinkedIn profile editors count as productive
+- Example: in Coding, Stack Overflow / docs are productive; Netflix still isn't
+- UI: quick mode picker on Home (and later tray); mode name shown on Last focused / Roundup
+- Adaptive angle (later): suggest mode from recent apps, or warn when current apps fight the active mode
+- Keep fully local; modes live in settings/rules files, exportable in `.focusflow`
+
+### Explicit non-goals (for now)
+- Cloud sync / accounts
+- Heavy gamification / shame streaks
 
 ## License
 

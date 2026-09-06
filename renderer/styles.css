@@ -578,29 +578,51 @@ h4.unprod { color: var(--unprod); }
 }
 
 
-/* Daily productive goal chip (Home) */
+/* Daily productive goal (own Home card) */
+#view-home {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: min(720px, 100%);
+  width: 100%;
+  margin: 0 auto;
+}
+#view-home .page-head {
+  margin-bottom: 0;
+}
+#view-home .home-focus {
+  margin-left: 0;
+  margin-right: 0;
+  max-width: none;
+}
+.daily-goal-card {
+  padding: 18px 20px 20px;
+  width: 100%;
+}
+.daily-goal-card.met {
+  border-color: rgba(52,211,153,0.28);
+  background: linear-gradient(180deg, var(--prod-bg), var(--panel));
+  box-shadow: 0 0 0 1px rgba(52,211,153,0.08);
+}
 .daily-goal-chip {
   width: 100%;
-  max-width: min(420px, 100%);
   text-align: left;
-  padding: 12px 14px;
-  margin: 0 0 18px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--line);
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
   cursor: pointer;
-  transition: border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
+  transition: none;
 }
 .daily-goal-chip:hover,
 .daily-goal-chip:focus-visible {
-  border-color: var(--line-strong);
-  background: rgba(255,255,255,0.045);
   outline: none;
 }
 .daily-goal-chip.met {
-  border-color: rgba(52,211,153,0.28);
-  background: var(--prod-bg);
-  box-shadow: 0 0 0 1px rgba(52,211,153,0.08);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .dg-top {
   display: flex;
@@ -663,7 +685,8 @@ h4.unprod { color: var(--unprod); }
   background: var(--prod);
   transition: width 280ms ease;
 }
-.daily-goal-chip.met .dg-bar-fill {
+.daily-goal-chip.met .dg-bar-fill,
+.daily-goal-card.met .dg-bar-fill {
   background: linear-gradient(90deg, var(--prod), #6ee7b7);
 }
 .dg-edit {

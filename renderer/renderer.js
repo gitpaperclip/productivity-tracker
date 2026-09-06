@@ -389,6 +389,8 @@ function renderDailyGoal(stats) {
   const fill = $('dg-bar-fill');
   if (fill) fill.style.width = pct + '%';
   chip.classList.toggle('met', met);
+  const card = chip.closest('.daily-goal-card');
+  if (card) card.classList.toggle('met', met);
   const status = $('dg-status');
   if (status) status.textContent = met ? 'Goal met ✓' : '';
   const hoursInput = $('dg-hours-input');
@@ -815,7 +817,6 @@ function renderStats(stats) {
     applySettingsInputs(stats.settings);
     if (stats.dataDir && $('data-path')) $('data-path').textContent = stats.dataDir;
   }
-  if ($('date-label')) $('date-label').textContent = 'Live window tracking';
   renderAppList(stats);
 }
 
