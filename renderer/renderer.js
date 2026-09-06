@@ -1054,7 +1054,7 @@ function playFocusBoostFeel(arming) {
     );
   }
   if (arming) {
-    playBoostFlash();
+    // Overlay "FOCUS BOOST" flash removed — keep kick + button punch only.
     playBoostKick();
   }
 }
