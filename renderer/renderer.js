@@ -73,8 +73,19 @@ function lfOverrideKey(entry) {
 function applyLfButtonOutlines(category) {
   const prod = $('lf-prod');
   const unprod = $('lf-unprod');
+  const ign = $('lf-ignore');
   if (prod) prod.classList.toggle('selected', category === 'productive');
   if (unprod) unprod.classList.toggle('selected', category === 'unproductive');
+  if (ign) ign.classList.toggle('selected', category === 'ignored');
+}
+
+function processNameForIgnore(entry) {
+  if (!entry || !entry.app) return null;
+  return (
+    String(entry.app)
+      .replace(/\.exe$/i, '')
+      .trim() || null
+  );
 }
 
 /** Threshold before FocusBoost was armed (seconds). */
@@ -334,6 +345,20 @@ function renderMood(stats) {
   if (lab) lab.textContent = mood.label || 'Meh';
 }
 
+/** Latest Home pie slice geometry + apps for hover tip. */
+let pieHoverState = { total: 0, ends: [0, 0, 0], appsByCat: { productive: [], unproductive: [], other: [] } };
+
+function appsForCategory(stats, category) {
+  const apps = (stats && stats.topApps) || [];
+  return apps
+    .filter((a) => {
+      const cat =
+        a.category === 'productive' || a.category === 'unproductive' ? a.category : 'other';
+      return cat === category;
+    })
+    .slice(0, 3);
+}
+
 function renderPie(stats) {
   const pie = $('pie-chart');
   if (!pie) return;
@@ -347,15 +372,30 @@ function renderPie(stats) {
   $('other-val').textContent = fmt(oth);
   if ($('pie-total')) $('pie-total').textContent = fmt(total);
 
+  pieHoverState = {
+    total,
+    ends: [
+      total ? (prod / total) * 360 : 0,
+      total ? ((prod + unp) / total) * 360 : 0,
+      360
+    ],
+    appsByCat: {
+      productive: appsForCategory(stats, 'productive'),
+      unproductive: appsForCategory(stats, 'unproductive'),
+      other: appsForCategory(stats, 'other')
+    }
+  };
+  pie.classList.toggle('has-data', total > 0);
+
   if (total <= 0) {
     pie.style.background =
       'conic-gradient(rgba(148,163,184,0.25) 0deg 360deg)';
+    hidePieTip();
     return;
   }
   const pDeg = (prod / total) * 360;
   const uDeg = (unp / total) * 360;
   const oDeg = (oth / total) * 360;
-  // other is muted; productive vs unproductive dominate the pie
   const g =
     'conic-gradient(' +
     '#34d399 0deg ' +
@@ -372,6 +412,78 @@ function renderPie(stats) {
     (pDeg + uDeg + oDeg) +
     'deg)';
   pie.style.background = g;
+}
+
+function hidePieTip() {
+  const tip = $('pie-tip');
+  if (tip) tip.classList.add('hidden');
+}
+
+function categoryFromPieAngle(deg) {
+  const ends = pieHoverState.ends || [0, 0, 360];
+  if (deg < ends[0]) return 'productive';
+  if (deg < ends[1]) return 'unproductive';
+  return 'other';
+}
+
+function showPieTip(ev) {
+  const pie = $('pie-chart');
+  const tip = $('pie-tip');
+  const wrap = pie && pie.closest('.pie-wrap');
+  if (!pie || !tip || !wrap || pieHoverState.total <= 0) {
+    hidePieTip();
+    return;
+  }
+  const rect = pie.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = ev.clientX - cx;
+  const dy = ev.clientY - cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const inner = Math.min(rect.width, rect.height) * 0.22;
+  const outer = Math.min(rect.width, rect.height) / 2;
+  if (dist < inner || dist > outer) {
+    hidePieTip();
+    return;
+  }
+  // CSS conic-gradient 0deg is 12 o'clock, clockwise
+  let deg = (Math.atan2(dx, -dy) * 180) / Math.PI;
+  if (deg < 0) deg += 360;
+  const cat = categoryFromPieAngle(deg);
+  const apps = pieHoverState.appsByCat[cat] || [];
+  const title =
+    cat === 'productive' ? 'Productive' : cat === 'unproductive' ? 'Unproductive' : 'Other';
+  let body;
+  if (!apps.length) {
+    body = '<div class="pt-empty">No apps in this slice yet</div>';
+  } else {
+    body =
+      '<ul>' +
+      apps
+        .map(
+          (a) =>
+            '<li><span class="pt-name">' +
+            esc(a.name) +
+            '</span><span class="pt-secs">' +
+            fmt(a.seconds) +
+            '</span></li>'
+        )
+        .join('') +
+      '</ul>';
+  }
+  tip.innerHTML = '<div class="pt-cat ' + cat + '">' + title + ' · top apps</div>' + body;
+  tip.classList.remove('hidden');
+  const wrapRect = wrap.getBoundingClientRect();
+  let left = ev.clientX - wrapRect.left + 14;
+  let top = ev.clientY - wrapRect.top + 14;
+  tip.style.left = '0px';
+  tip.style.top = '0px';
+  const tw = tip.offsetWidth || 160;
+  const th = tip.offsetHeight || 80;
+  if (left + tw > wrapRect.width - 4) left = ev.clientX - wrapRect.left - tw - 12;
+  if (top + th > wrapRect.height - 4) top = ev.clientY - wrapRect.top - th - 8;
+  tip.style.left = Math.max(4, left) + 'px';
+  tip.style.top = Math.max(4, top) + 'px';
 }
 
 function renderDailyGoal(stats) {
@@ -650,7 +762,10 @@ function syncFocusBoostUi(settings) {
   btn.classList.toggle('armed', on);
   shell.setAttribute('data-boost', on ? 'on' : 'off');
   const label = $('focusboost-label');
-  if (label) label.textContent = on ? 'FocusBoost ON ⚡' : 'FocusBoost';
+  if (label && !label.querySelector('.fb-focus')) {
+    label.innerHTML = '<span class="fb-focus">focus</span><span class="fb-boost">boost</span>';
+  }
+  btn.title = on ? 'focusboost on · ~3 min reminder' : 'focusboost · ~3 min reminder';
   if ($('thresh-label')) $('thresh-label').textContent = fmt(settings.thresholdSec || 600);
 }
 
@@ -1373,4 +1488,47 @@ if ($('lf-prod')) {
 }
 if ($('lf-unprod')) {
   $('lf-unprod').addEventListener('click', () => quickClassifyLastFocused('unproductive'));
+}
+if ($('lf-ignore')) {
+  $('lf-ignore').addEventListener('click', () => ignoreLastFocused());
+}
+
+async function ignoreLastFocused() {
+  if (!api || !lastFocusedCache) return;
+  const name = processNameForIgnore(lastFocusedCache);
+  if (!name) return;
+  const next = cachedIgnore.slice();
+  const key = name.toLowerCase();
+  if (!next.map((x) => String(x).toLowerCase()).includes(key)) next.push(name);
+  try {
+    const payload = await api.setIgnore(next);
+    cachedIgnore = (payload && payload.ignore) || next;
+    fillIgnoreEditor({
+      ignore: cachedIgnore,
+      path: payload && payload.path,
+      isCustom: true
+    });
+    lastFocusedCache.category = 'ignored';
+    const oKey = lfOverrideKey(lastFocusedCache);
+    if (oKey) lfSessionClass[oKey] = 'ignored';
+    const catEl = $('lf-cat');
+    if (catEl) {
+      catEl.textContent = 'ignored';
+      catEl.className = 'chip ignored';
+    }
+    applyLfButtonOutlines('ignored');
+    const hint = $('lf-keyword-hint');
+    if (hint) {
+      hint.textContent = 'Ignoring: ' + name;
+      hint.classList.remove('hidden');
+    }
+  } catch (err) {
+    console.warn('ignore last-focused failed', err);
+  }
+}
+
+const pieEl = $('pie-chart');
+if (pieEl) {
+  pieEl.addEventListener('mousemove', showPieTip);
+  pieEl.addEventListener('mouseleave', hidePieTip);
 }

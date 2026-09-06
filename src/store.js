@@ -313,7 +313,7 @@ function createStore(dataDir) {
       byCategory[cat] = (byCategory[cat] || 0) + e.seconds;
     }
 
-    const topApps = visible.sort((a, b) => b.seconds - a.seconds).slice(0, 8);
+    const topApps = visible.sort((a, b) => b.seconds - a.seconds).slice(0, 40);
     const mood = moodFromCategories(byCategory);
 
     return {

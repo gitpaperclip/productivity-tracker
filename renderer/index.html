@@ -62,19 +62,20 @@
             Mood skins: animal / face skins will key off [data-mood="{id}"].
             Stable ids: thriving | focused | meh | distracted | doomscroll
           -->
-          <div id="mood-block" class="mood-block" data-mood="meh">
-            <span id="mood-emoji" class="mood-emoji" aria-hidden="true">😐</span>
-            <div class="mood-copy">
-              <span id="mood-label" class="mood-label">Meh</span>
-              <span class="mood-sub muted tiny">Focus level</span>
+          <div class="home-top">
+            <div id="mood-block" class="mood-block" data-mood="meh">
+              <span id="mood-emoji" class="mood-emoji" aria-hidden="true">😐</span>
+              <div class="mood-copy">
+                <span id="mood-label" class="mood-label">Meh</span>
+                <span class="mood-sub muted tiny">Focus level</span>
+              </div>
             </div>
-          </div>
 
-          <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off">
-            <span class="fb-bolt" aria-hidden="true">⚡</span>
-            <span id="focusboost-label">FocusBoost</span>
-            <span class="fb-sub">~3 min reminder</span>
-          </button>
+            <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off" title="~3 min unproductive reminder" aria-label="focusboost">
+              <span class="fb-bolt" aria-hidden="true">⚡</span>
+              <span id="focusboost-label" class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">boost</span></span>
+            </button>
+          </div>
 
           <div class="pie-wrap">
             <div id="pie-chart" class="pie-chart" role="img" aria-label="Time breakdown pie"></div>
@@ -82,6 +83,7 @@
               <div id="pie-total" class="pie-total">0:00</div>
               <div class="pie-total-label muted tiny">tracked</div>
             </div>
+            <div id="pie-tip" class="pie-tip hidden" role="tooltip"></div>
           </div>
 
           <ul class="pie-legend">
@@ -105,6 +107,7 @@
                 <span class="lf-reclass">
                   <button type="button" id="lf-prod" class="btn-mini prod" title="Mark productive">P</button>
                   <button type="button" id="lf-unprod" class="btn-mini unprod" title="Mark unproductive">U</button>
+                  <button type="button" id="lf-ignore" class="btn-mini ignore" title="Ignore (stop tracking)">I</button>
                 </span>
               </div>
             </div>
