@@ -941,11 +941,6 @@ h4.unprod { color: var(--unprod); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.lf-keyword-hint {
-  display: block;
-  margin-top: 6px;
-}
-.lf-keyword-hint.hidden { display: none; }
 .lf-actions {
   display: flex;
   align-items: center;

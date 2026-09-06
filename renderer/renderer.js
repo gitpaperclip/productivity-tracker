@@ -446,19 +446,6 @@ function keywordForQuickClassify(entry) {
     .trim() || null;
 }
 
-function updateLfKeywordHint(entry) {
-  const hint = $('lf-keyword-hint');
-  if (!hint) return;
-  const kw = keywordForQuickClassify(entry);
-  if (!kw) {
-    hint.textContent = '';
-    hint.classList.add('hidden');
-    return;
-  }
-  hint.textContent = 'Adds keyword: ' + kw;
-  hint.classList.remove('hidden');
-}
-
 function renderLastFocused(lf, now) {
   const appEl = $('lf-app');
   const titleEl = $('lf-title');
@@ -481,7 +468,6 @@ function renderLastFocused(lf, now) {
       catEl.textContent = '—';
       catEl.className = 'chip other';
     }
-    updateLfKeywordHint(null);
     applyLfButtonOutlines(null);
     return;
   }
@@ -502,7 +488,6 @@ function renderLastFocused(lf, now) {
     catEl.className = 'chip ' + cat;
   }
   applyLfButtonOutlines(lastFocusedCache.category);
-  updateLfKeywordHint(lastFocusedCache);
 }
 
 function renderMood(stats) {
@@ -2013,11 +1998,6 @@ async function ignoreLastFocused() {
       catEl.className = 'chip ignored';
     }
     applyLfButtonOutlines('ignored');
-    const hint = $('lf-keyword-hint');
-    if (hint) {
-      hint.textContent = 'Ignoring: ' + name;
-      hint.classList.remove('hidden');
-    }
   } catch (err) {
     console.warn('ignore last-focused failed', err);
   }
