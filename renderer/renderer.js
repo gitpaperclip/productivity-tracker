@@ -157,7 +157,7 @@ const ANALYTICS_SUBTITLES = {
   day: 'Today’s hours',
   week: 'Last 7 days',
   month: 'This month',
-  apps: 'Today’s top apps — reclassify with one click'
+  apps: 'Re-tag your top apps here.'
 };
 
 function setAnalyticsSegment(segment) {
@@ -1383,7 +1383,7 @@ function renderAppList(stats) {
         '">' +
         '<button type="button" class="btn-mini prod" data-action="productive" title="Mark productive">P</button>' +
         '<button type="button" class="btn-mini unprod" data-action="unproductive" title="Mark unproductive">U</button>' +
-        '<button type="button" class="btn-mini ignore" data-action="ignore" title="Ignore">Ign</button>' +
+        '<button type="button" class="btn-mini ignore" data-action="ignore" title="Ignore">ign</button>' +
         '</span>' +
         '</li>'
       );
