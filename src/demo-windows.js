@@ -1,4 +1,3 @@
-'use strict';
 
 /**
  * Scripted window sequence for demo / headless mode.

@@ -1,4 +1,3 @@
-'use strict';
 const { spawn } = require('child_process');
 const path = require('path');
 const root = path.join(__dirname, '..');

@@ -1,4 +1,3 @@
-'use strict';
 const { createWindowsBackend } = require('../src/windows-backend');
 createWindowsBackend().getActiveWindow().then((r) => {
   console.log(JSON.stringify(r, null, 2));

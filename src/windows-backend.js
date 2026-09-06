@@ -1,4 +1,3 @@
-'use strict';
 
 const { execFile } = require('child_process');
 
