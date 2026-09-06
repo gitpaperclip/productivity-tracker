@@ -105,7 +105,8 @@ function createStore(dataDir) {
       reminderCooldownSec: 90,
       pollMs: 1500,
       focusBoost: false,
-      focusBoostRestoreSec: null
+      focusBoostRestoreSec: null,
+      dailyGoalSec: 7200
     },
     loadJson(settingsPath) || {}
   );

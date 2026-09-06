@@ -577,6 +577,126 @@ h4.unprod { color: var(--unprod); }
   font-size: 14px;
 }
 
+
+/* Daily productive goal chip (Home) */
+.daily-goal-chip {
+  width: 100%;
+  max-width: min(420px, 100%);
+  text-align: left;
+  padding: 12px 14px;
+  margin: 0 0 18px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
+}
+.daily-goal-chip:hover,
+.daily-goal-chip:focus-visible {
+  border-color: var(--line-strong);
+  background: rgba(255,255,255,0.045);
+  outline: none;
+}
+.daily-goal-chip.met {
+  border-color: rgba(52,211,153,0.28);
+  background: var(--prod-bg);
+  box-shadow: 0 0 0 1px rgba(52,211,153,0.08);
+}
+.dg-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.dg-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 650;
+}
+.dg-status {
+  margin-left: auto;
+  color: var(--prod);
+  font-weight: 600;
+}
+.dg-status:empty { display: none; }
+.dg-edit-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  line-height: 1;
+}
+.dg-edit-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+}
+.dg-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.dg-progress-text {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.dg-bar {
+  margin-top: 10px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+.dg-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--prod);
+  transition: width 280ms ease;
+}
+.daily-goal-chip.met .dg-bar-fill {
+  background: linear-gradient(90deg, var(--prod), #6ee7b7);
+}
+.dg-edit {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dg-edit.hidden { display: none; }
+.dg-edit-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.dg-edit-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dg-edit-controls input[type="number"] {
+  width: 72px;
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 6px 8px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
 .last-focused {
   width: 100%;
   text-align: left;

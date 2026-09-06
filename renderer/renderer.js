@@ -30,6 +30,18 @@ function fmtFriendly(s) {
   return sec === 1 ? '1 second' : sec + ' seconds';
 }
 
+/** Compact goal display: 1h 12m, 2h, 45m */
+function fmtGoalShort(s) {
+  s = Math.max(0, Math.floor(+s || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h >= 1) {
+    if (m <= 0) return h + 'h';
+    return h + 'h ' + m + 'm';
+  }
+  return m + 'm';
+}
+
 function $(id) {
   return document.getElementById(id);
 }
@@ -362,6 +374,34 @@ function renderPie(stats) {
   pie.style.background = g;
 }
 
+function renderDailyGoal(stats) {
+  const chip = $('daily-goal-chip');
+  if (!chip) return;
+  const cats = (stats && stats.byCategory) || {};
+  const prod = Math.max(0, Number(cats.productive) || 0);
+  const settings = (stats && stats.settings) || {};
+  let goalSec = Number(settings.dailyGoalSec);
+  if (!Number.isFinite(goalSec) || goalSec <= 0) goalSec = 7200;
+  const pct = Math.min(100, Math.round((prod / goalSec) * 100));
+  const met = prod >= goalSec;
+  const textEl = $('dg-progress-text');
+  if (textEl) textEl.textContent = fmtGoalShort(prod) + ' / ' + fmtGoalShort(goalSec);
+  const fill = $('dg-bar-fill');
+  if (fill) fill.style.width = pct + '%';
+  chip.classList.toggle('met', met);
+  const status = $('dg-status');
+  if (status) status.textContent = met ? 'Goal met ✓' : '';
+  const hoursInput = $('dg-hours-input');
+  const settingsHours = $('daily-goal-hours');
+  const hoursVal = Math.round((goalSec / 3600) * 100) / 100;
+  if (hoursInput && document.activeElement !== hoursInput) {
+    hoursInput.value = hoursVal;
+  }
+  if (settingsHours && document.activeElement !== settingsHours) {
+    settingsHours.value = hoursVal;
+  }
+}
+
 function renderHomeWeekBars(stats) {
   const wrap = $('week-bars');
   if (!wrap) return;
@@ -583,6 +623,15 @@ function applySettingsInputs(settings) {
   const sec = Number(settings.thresholdSec) || 600;
   if ($('threshold-sec')) $('threshold-sec').value = sec;
   if ($('threshold-min')) $('threshold-min').value = Math.round((sec / 60) * 10) / 10;
+  let goalSec = Number(settings.dailyGoalSec);
+  if (!Number.isFinite(goalSec) || goalSec <= 0) goalSec = 7200;
+  const hoursVal = Math.round((goalSec / 3600) * 100) / 100;
+  if ($('daily-goal-hours') && document.activeElement !== $('daily-goal-hours')) {
+    $('daily-goal-hours').value = hoursVal;
+  }
+  if ($('dg-hours-input') && document.activeElement !== $('dg-hours-input')) {
+    $('dg-hours-input').value = hoursVal;
+  }
   syncFocusBoostUi(settings);
   applying = false;
 }
@@ -757,6 +806,7 @@ function renderStats(stats) {
   if (!stats) return;
   renderMood(stats);
   renderPie(stats);
+  renderDailyGoal(stats);
   renderWeek(stats);
   renderDay(stats);
   $('streak').textContent = fmt(stats.unproductiveStreak || 0);
@@ -876,6 +926,113 @@ if ($('threshold-sec')) {
     if (!Number.isFinite(sec) || sec <= 0) return;
     pushSettings({ thresholdSec: Math.round(sec), focusBoost: false });
   });
+}
+
+function clampGoalHours(h) {
+  if (!Number.isFinite(h) || h <= 0) return null;
+  return Math.min(16, Math.max(0.25, Math.round(h * 100) / 100));
+}
+
+async function persistDailyGoalHours(hours) {
+  const h = clampGoalHours(hours);
+  if (h == null) return;
+  const sec = Math.round(h * 3600);
+  const next = await pushSettings({ dailyGoalSec: sec });
+  // Refresh chip immediately even before next tracker tick
+  const chipStats = {
+    byCategory: { productive: 0 },
+    settings: next || { dailyGoalSec: sec }
+  };
+  // Prefer live totals from last render if available via DOM text — use settings alone for bar goal
+  const state = api && (await api.getState().catch(() => null));
+  if (state && state.stats) {
+    renderDailyGoal(
+      Object.assign({}, state.stats, {
+        settings: Object.assign({}, state.stats.settings || {}, next || { dailyGoalSec: sec })
+      })
+    );
+  } else {
+    renderDailyGoal(chipStats);
+  }
+  return next;
+}
+
+function toggleGoalEdit(forceOpen) {
+  const edit = $('dg-edit');
+  if (!edit) return;
+  const open = forceOpen != null ? forceOpen : edit.classList.contains('hidden');
+  edit.classList.toggle('hidden', !open);
+  if (open && $('dg-hours-input')) {
+    $('dg-hours-input').focus();
+    $('dg-hours-input').select();
+  }
+}
+
+if ($('daily-goal-hours')) {
+  $('daily-goal-hours').addEventListener('change', () => {
+    persistDailyGoalHours(Number($('daily-goal-hours').value));
+  });
+}
+
+const dgChip = $('daily-goal-chip');
+if (dgChip) {
+  dgChip.addEventListener('click', (ev) => {
+    if (ev.target.closest('.dg-edit') || ev.target.closest('#dg-edit-btn')) return;
+    if (ev.target.closest('input,button')) return;
+    toggleGoalEdit();
+  });
+  dgChip.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      if (ev.target.closest('.dg-edit')) return;
+      ev.preventDefault();
+      toggleGoalEdit();
+    }
+  });
+}
+if ($('dg-edit-btn')) {
+  $('dg-edit-btn').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    toggleGoalEdit();
+  });
+}
+if ($('dg-dec')) {
+  $('dg-dec').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const inp = $('dg-hours-input');
+    if (!inp) return;
+    const cur = Number(inp.value) || 2;
+    inp.value = clampGoalHours(cur - 0.25) || 0.25;
+  });
+}
+if ($('dg-inc')) {
+  $('dg-inc').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const inp = $('dg-hours-input');
+    if (!inp) return;
+    const cur = Number(inp.value) || 2;
+    inp.value = clampGoalHours(cur + 0.25) || 2;
+  });
+}
+if ($('dg-save')) {
+  $('dg-save').addEventListener('click', async (ev) => {
+    ev.stopPropagation();
+    const inp = $('dg-hours-input');
+    if (!inp) return;
+    await persistDailyGoalHours(Number(inp.value));
+    toggleGoalEdit(false);
+  });
+}
+if ($('dg-hours-input')) {
+  $('dg-hours-input').addEventListener('keydown', async (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      await persistDailyGoalHours(Number($('dg-hours-input').value));
+      toggleGoalEdit(false);
+    } else if (ev.key === 'Escape') {
+      toggleGoalEdit(false);
+    }
+  });
+  $('dg-hours-input').addEventListener('click', (ev) => ev.stopPropagation());
 }
 
 async function toggleFocusBoost() {

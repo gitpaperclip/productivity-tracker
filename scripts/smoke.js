@@ -147,7 +147,12 @@ assert(savedIgn.join(',') === 'explorer,dwm', 'saveIgnore normalizes');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-'));
 const store = createStore(dir);
-store.updateSettings({ thresholdSec: 30, reminderCooldownSec: 1, demoMode: true });
+assert(store.getSettings().dailyGoalSec === 7200, 'default dailyGoalSec === 7200');
+store.updateSettings({ dailyGoalSec: 3600 });
+assert(store.getSettings().dailyGoalSec === 3600, 'updateSettings persists dailyGoalSec');
+const settingsOnDisk = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf8'));
+assert(settingsOnDisk.dailyGoalSec === 3600, 'dailyGoalSec written to settings.json');
+store.updateSettings({ thresholdSec: 30, reminderCooldownSec: 1, demoMode: true, dailyGoalSec: 7200 });
 store.addSeconds('Google Chrome', 'unproductive', 20);
 assert(store.snapshot().unproductiveStreak === 20, 'streak grows on unproductive');
 assert(store.shouldRemind() === false, 'no remind before threshold');
@@ -265,6 +270,9 @@ assert(typeof payload.exportedAt === 'string' && payload.exportedAt.includes('T'
 assert(typeof payload.appVersion === 'string', 'export appVersion present');
 assert(payload.days[todayKey()], 'export days includes today');
 assert(payload.settings && payload.settings.thresholdSec === 120, 'export includes settings');
+store4.updateSettings({ dailyGoalSec: 5400 });
+const payloadGoal = buildExport(store4, { includeSettings: true });
+assert(payloadGoal.settings && payloadGoal.settings.dailyGoalSec === 5400, 'export round-trips dailyGoalSec');
 assert(payload.rules && payload.rules.productive.includes('code'), 'export includes rules');
 assert(Array.isArray(payload.ignore) && payload.ignore.includes('explorer'), 'export includes ignore');
 
