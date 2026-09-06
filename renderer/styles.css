@@ -1677,3 +1677,43 @@ body[data-boost="on"]::after {
   background: rgba(251,113,133,0.12);
 }
 .data-card .hint { text-align: left; }
+
+
+/* Settings grouping */
+.settings-block {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.settings-block-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.9;
+  margin: 0 0 2px;
+}
+.settings-token {
+  margin: -4px 0 0;
+  line-height: 1.4;
+}
+.settings-token code {
+  font-size: 11px;
+  margin-right: 6px;
+}
+.settings-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.settings-textarea {
+  min-height: 64px;
+  margin-top: 0;
+}
+@media (max-width: 640px) {
+  .settings-row-2 { grid-template-columns: 1fr; }
+}

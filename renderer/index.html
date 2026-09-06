@@ -301,35 +301,46 @@
           <label class="switch-row">
             <div>
               <div class="switch-title">Demo / simulator mode</div>
-              <div class="hint">Off by default on Windows. Uses real foreground window via active-win.</div>
             </div>
             <input type="checkbox" id="demo-toggle" />
           </label>
-          <label class="field">
-            <span>Reminder threshold (minutes)</span>
-            <input type="number" id="threshold-min" min="0.1" step="0.5" value="10" />
-          </label>
-          <label class="field">
-            <span>Reminder threshold (seconds)</span>
-            <input type="number" id="threshold-sec" min="5" step="5" value="600" />
-          </label>
-          <label class="field">
-            <span>FocusBoost wait (seconds)</span>
-            <input type="number" id="focusboost-sec" min="5" step="5" value="180" />
-          </label>
-          <label class="field">
-            <span>Standard reminder text</span>
-            <textarea id="reminder-message" class="rules-textarea" rows="2" spellcheck="true" placeholder="You've been on {app} for a while..."></textarea>
-          </label>
-          <label class="field">
-            <span>FocusBoost reminder text</span>
-            <textarea id="focusboost-message" class="rules-textarea" rows="2" spellcheck="true" placeholder="Hey! focusboost is enabled..."></textarea>
-          </label>
-          <label class="field">
-            <span>Daily productive goal (hours)</span>
-            <input type="number" id="daily-goal-hours" min="0.25" max="16" step="0.25" value="2" />
-          </label>
-          <p class="settings-meta muted tiny">Data folder: <code id="data-path">./data</code></p>
+
+          <div class="settings-block">
+            <div class="settings-block-title">Timing</div>
+            <div class="settings-row-2">
+              <label class="field">
+                <span>Reminder (minutes)</span>
+                <input type="number" id="threshold-min" min="0.1" step="0.5" value="10" />
+              </label>
+              <label class="field">
+                <span>Reminder (seconds)</span>
+                <input type="number" id="threshold-sec" min="5" step="5" value="600" />
+              </label>
+            </div>
+            <label class="field">
+              <span>FocusBoost wait (seconds)</span>
+              <input type="number" id="focusboost-sec" min="5" step="5" value="180" />
+            </label>
+            <label class="field">
+              <span>Daily productive goal (hours)</span>
+              <input type="number" id="daily-goal-hours" min="0.25" max="16" step="0.25" value="2" />
+            </label>
+          </div>
+
+          <div class="settings-block">
+            <div class="settings-block-title">Reminder copy</div>
+            <p class="settings-token muted tiny">Tokens: <code>{app}</code> <code>{streak}</code></p>
+            <label class="field">
+              <span>Standard</span>
+              <textarea id="reminder-message" class="rules-textarea settings-textarea" rows="2" spellcheck="true" placeholder="You've been on {app} for a while..."></textarea>
+            </label>
+            <label class="field">
+              <span>FocusBoost</span>
+              <textarea id="focusboost-message" class="rules-textarea settings-textarea" rows="2" spellcheck="true" placeholder="Hey! focusboost is enabled..."></textarea>
+            </label>
+          </div>
+
+          <p class="settings-meta muted tiny">Data: <code id="data-path">./data</code></p>
         </article>
 
         <article class="card data-card">
