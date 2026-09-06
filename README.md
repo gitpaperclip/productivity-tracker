@@ -143,9 +143,9 @@ Actionable pending work (parked or not started). Shipped notes live under **Road
 
 - **Named Focus profiles + Home hotswitch** (<=5 profiles; switch active P/U/Ign lists; `.focusflow-profile` pack format already exists — build multi-profile UI + Home switcher, not just export/import of the current lists)
 - **Crash / error local log**: on uncaught main/renderer errors or crash, write a local log under userData (or `./data` in dev) so debug is not screenshot-only. Fully local — no upload.
-- **Tray + Downtime** (shelved until tray): tray presence + FocusBoost in tray; tray menu (Pause, Boost, open Roundup/Home, pick Focus profile); **Downtime mode** (do not treat / do not log unproductive apps for evenings/breaks); tray icon state (active / downtime / paused)
+- **Tray + Downtime** (next after first `.exe` packaging pass): tray presence + FocusBoost in tray; tray menu (Pause, Boost, open Roundup/Home, pick Focus profile); **Downtime mode** (do not treat / do not log unproductive apps for evenings/breaks); tray icon state (active / downtime / paused)
 - **Nudges / FocusBoost analytics**: Analytics solo segment pill (right of toolbar) for reminder history — each toast logged (app, streak, time); counts; average time-to-refocus when measurable
-- **First-run onboarding** (TBD): primary browser -> seed Focus Tags; intro copy that tags improve classification over time; seed FocusBoost schedule + (post-launch) Roundup notification time
+- **First-run onboarding** (**deferred — not this week**): wait until **named Focus profiles + keyword packs** exist; then Quick start / Custom that picks a primary browser, seeds Focus Tags / a starter profile, FocusBoost schedule, and (later) Roundup toast time. **First `.exe` can ship without it** — persist an `onboardingCompleted` (or equivalent) flag so a later update can still show first-run to people who never finished it. Until profiles ship, onboarding would just be a thin Settings wizard and is not worth it.
 - **Disk usage display** with privacy/Data
 - **Gentle health insights** (short coach notes, no lectures)
 - **Privacy mode** (strip/hash window titles)
@@ -155,7 +155,7 @@ Actionable pending work (parked or not started). Shipped notes live under **Road
 - **Away notes** (parked — do not implement yet):
   - Notification toggle above sidebar power + status
   - Settings: iOS-style switches instead of checkboxes
-  - Onboarding: Quick start + Custom configuration
+  - Onboarding: Quick start + Custom configuration (same deferred gate as To-dos — after Focus profiles)
   - **Rebrand to "what the focus"** — **shelved / lowest priority — ship last**. Rename would touch many custom surfaces (package ids, `.focusflow` / `.focusflow-profile` formats, appId, paths, UI strings, etc.). Keep FocusFlow + package / `.focusflow` ids stable until a dedicated rename ship; do not start rename work now.
 
 
