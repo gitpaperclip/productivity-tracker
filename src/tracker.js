@@ -101,6 +101,8 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
     since: Date.now(),
     source: 'idle'
   };
+  /** Last non-ignored, non-FocusFlow window — survives while user looks at FocusFlow. */
+  let lastFocused = null;
 
   async function poll() {
     const now = Date.now();
@@ -157,6 +159,17 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
       store.addSeconds(app, category, elapsed);
     }
 
+    // Remember last real focused app (not ignored / not self) for Home "Last focused"
+    if (win && !ignored) {
+      lastFocused = {
+        app,
+        title,
+        category,
+        source,
+        at: now
+      };
+    }
+
     if (win && !ignored && store.shouldRemind() && category === 'unproductive') {
       store.markReminder();
       if (onReminder) {
@@ -181,6 +194,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
           elapsedSec: Math.round((now - current.since) / 1000),
           trackingError
         },
+        lastFocused,
         stats: store.snapshot(iHolder.ignore || [])
       });
     }
@@ -202,7 +216,11 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
     }
   }
 
-  return { start, stop, poll };
+  function getLastFocused() {
+    return lastFocused;
+  }
+
+  return { start, stop, poll, getLastFocused };
 }
 
 module.exports = { createTracker, createRealBackend };

@@ -1,9 +1,8 @@
 node_modules/
 data/stats.json
 data/settings.json
+data/rules.json
+data/ignore.json
+data/history/
 *.log
-
-bun.lock
-renderer/_b64.txt
-renderer/_body.txt
-renderer/renderer.txt
+*.focusflow

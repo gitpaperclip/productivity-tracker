@@ -20,5 +20,9 @@ contextBridge.exposeInMainWorld('focusflow', {
   getIgnore: () => ipcRenderer.invoke('ignore:get'),
   setIgnore: (list) => ipcRenderer.invoke('ignore:set', list),
   resetIgnore: () => ipcRenderer.invoke('ignore:reset'),
-  updateSettings: (partial) => ipcRenderer.invoke('settings:update', partial)
+  updateSettings: (partial) => ipcRenderer.invoke('settings:update', partial),
+  exportData: (opts) => ipcRenderer.invoke('data:export', opts || {}),
+  importData: (opts) => ipcRenderer.invoke('data:import', opts || {}),
+  clearToday: () => ipcRenderer.invoke('data:clearToday'),
+  clearAllHistory: () => ipcRenderer.invoke('data:clearAll')
 });

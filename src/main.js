@@ -2,7 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { app, BrowserWindow, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, dialog } = require('electron');
 
 const {
   loadRulesFrom,
@@ -14,6 +14,12 @@ const {
 } = require('./classifier');
 const { createStore } = require('./store');
 const { createTracker } = require('./tracker');
+const {
+  buildExport,
+  importBackup,
+  writeBackupFile,
+  readBackupFile
+} = require('./backup');
 
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu');
@@ -29,8 +35,8 @@ let rulesFilePath = null;
 let rulesIsCustom = false;
 let ignoreFilePath = null;
 let ignoreIsCustom = false;
-/** Last tracker tick — so state:get can return `now`. */
-let lastPayload = { now: null, stats: null };
+/** Last tracker tick — so state:get can return `now` + lastFocused. */
+let lastPayload = { now: null, stats: null, lastFocused: null };
 let servicesStarted = false;
 
 function dataDir() {
@@ -198,6 +204,7 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('state:get', async () => ({
   now: lastPayload.now || null,
+  lastFocused: lastPayload.lastFocused || (tracker && tracker.getLastFocused && tracker.getLastFocused()) || null,
   stats: store ? store.snapshot(ignoreHolder.ignore || []) : lastPayload.stats,
   platform: process.platform
 }));
@@ -252,4 +259,80 @@ ipcMain.handle('ignore:reset', async () => {
 ipcMain.handle('settings:update', async (_e, partial) => {
   if (!store) return {};
   return store.updateSettings(partial || {});
+});
+
+ipcMain.handle('data:export', async (_e, opts) => {
+  if (!store || !mainWindow) return { ok: false, error: 'not ready' };
+  const options = opts || {};
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export FocusFlow backup',
+    defaultPath: `focusflow-backup-${new Date().toISOString().slice(0, 10)}.focusflow`,
+    filters: [
+      { name: 'FocusFlow backup', extensions: ['focusflow', 'json'] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+
+  const payload = buildExport(store, {
+    includeSettings: options.includeSettings !== false,
+    includeRules: options.includeRules !== false,
+    includeIgnore: options.includeIgnore !== false,
+    rules: rulesHolder.rules,
+    ignore: ignoreHolder.ignore
+  });
+  writeBackupFile(result.filePath, payload);
+  return { ok: true, path: result.filePath };
+});
+
+ipcMain.handle('data:import', async (_e, opts) => {
+  if (!store || !mainWindow) return { ok: false, error: 'not ready' };
+  const options = opts || {};
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Import FocusFlow backup',
+    properties: ['openFile'],
+    filters: [
+      { name: 'FocusFlow backup', extensions: ['focusflow', 'json'] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled || !result.filePaths || !result.filePaths[0]) {
+    return { ok: false, canceled: true };
+  }
+
+  let obj;
+  try {
+    obj = readBackupFile(result.filePaths[0]);
+  } catch (err) {
+    return { ok: false, error: err.message || 'Failed to read backup' };
+  }
+
+  const imported = importBackup(store, obj, {
+    mode: options.mode === 'replace' ? 'replace' : 'merge',
+    onRules: (rules) => {
+      const dest = userRulesPath();
+      rulesHolder.rules = saveRules(dest, rules);
+      rulesFilePath = dest;
+      rulesIsCustom = true;
+    },
+    onIgnore: (list) => {
+      const dest = userIgnorePath();
+      ignoreHolder.ignore = saveIgnore(dest, list);
+      ignoreFilePath = dest;
+      ignoreIsCustom = true;
+    }
+  });
+  return { ...imported, path: result.filePaths[0] };
+});
+
+ipcMain.handle('data:clearToday', async () => {
+  if (!store) return { ok: false };
+  store.clearToday();
+  return { ok: true, stats: store.snapshot(ignoreHolder.ignore || []) };
+});
+
+ipcMain.handle('data:clearAll', async () => {
+  if (!store) return { ok: false };
+  store.clearAllHistory();
+  return { ok: true, stats: store.snapshot(ignoreHolder.ignore || []) };
 });

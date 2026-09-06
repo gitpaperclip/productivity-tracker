@@ -27,29 +27,38 @@ let applying = false;
 /** Cached rules/ignore for one-click reclassify. */
 let cachedRules = { productive: [], unproductive: [] };
 let cachedIgnore = [];
+/** Threshold before FocusBoost was armed (seconds). */
+let thresholdBeforeBoost = null;
+const FOCUSBOOST_SEC = 3 * 60;
+const reduceMotion =
+  typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     const tab = btn.getAttribute('data-tab');
-    $('view-dash').classList.toggle('hidden', tab !== 'dash');
+    $('view-home').classList.toggle('hidden', tab !== 'home');
+    $('view-apps').classList.toggle('hidden', tab !== 'apps');
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
     if (tab === 'settings') loadRulesAndIgnore();
   });
 });
 
+const navToggle = $('nav-toggle');
+if (navToggle) {
+  navToggle.addEventListener('click', () => {
+    document.body.classList.toggle('nav-collapsed');
+    const collapsed = document.body.classList.contains('nav-collapsed');
+    navToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    navToggle.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  });
+}
+
 $('banner-dismiss').addEventListener('click', () => $('banner').classList.add('hidden'));
 
-function renderNow(now) {
+function updateSourcePill(now) {
   if (!now) return;
-  $('now-app').textContent = now.app || 'Unknown';
-  $('now-title').textContent = now.title || '';
-  const cat = now.category || 'other';
-  const el = $('now-cat');
-  el.textContent = cat;
-  el.className = 'chip ' + cat;
-  $('now-elapsed').textContent = fmt(now.elapsedSec);
   const pill = $('source-pill');
   const source = now.source || 'idle';
   const labels = {
@@ -61,14 +70,15 @@ function renderNow(now) {
   pill.textContent = labels[source] || source;
   pill.className = 'status-pill ' + source;
   const hint = $('track-hint');
+  if (!hint) return;
   if (now.ignored) {
-    hint.textContent = 'System / shell window — shown but not logged.';
+    hint.textContent = 'System / shell / FocusFlow — shown in status but not logged.';
     hint.classList.remove('hidden');
   } else if (now.trackingError && source !== 'demo') {
     hint.textContent = 'Live window unavailable. ' + now.trackingError;
     hint.classList.remove('hidden');
   } else if (source === 'real') {
-    hint.textContent = 'Live Windows foreground tracking is on.';
+    hint.textContent = 'Live foreground tracking is on.';
     hint.classList.remove('hidden');
   } else if (source === 'demo') {
     hint.textContent = 'Demo simulator is on.';
@@ -78,38 +88,205 @@ function renderNow(now) {
   }
 }
 
+function renderLastFocused(lf, now) {
+  const appEl = $('lf-app');
+  const titleEl = $('lf-title');
+  const catEl = $('lf-cat');
+  if (!appEl) return;
+
+  // Prefer lastFocused (survives while FocusFlow is foreground); never show self as last focused
+  const selfish =
+    now &&
+    (now.ignored ||
+      /focusflow/i.test(now.app || '') ||
+      (/electron/i.test(now.app || '') && /focusflow/i.test(now.title || '')));
+
+  const use = lf || (!selfish && now && now.app ? now : null);
+  if (!use || !use.app) {
+    appEl.textContent = 'Waiting for an app…';
+    if (titleEl) titleEl.textContent = '';
+    if (catEl) {
+      catEl.textContent = '—';
+      catEl.className = 'chip other';
+    }
+    return;
+  }
+  appEl.textContent = use.app;
+  if (titleEl) titleEl.textContent = use.title || '';
+  if (catEl) {
+    const cat = use.category || 'other';
+    catEl.textContent = cat;
+    catEl.className = 'chip ' + cat;
+  }
+}
+
+function renderMood(stats) {
+  const block = $('mood-block');
+  if (!block) return;
+  const mood = (stats && stats.mood) || { id: 'meh', emoji: '😐', label: 'Meh' };
+  block.setAttribute('data-mood', mood.id || 'meh');
+  const em = $('mood-emoji');
+  const lab = $('mood-label');
+  if (em) em.textContent = mood.emoji || '😐';
+  if (lab) lab.textContent = mood.label || 'Meh';
+}
+
+function renderPie(stats) {
+  const pie = $('pie-chart');
+  if (!pie) return;
+  const cats = (stats && stats.byCategory) || {};
+  const prod = cats.productive || 0;
+  const unp = cats.unproductive || 0;
+  const oth = cats.other || 0;
+  const total = prod + unp + oth;
+  $('prod-val').textContent = fmt(prod);
+  $('unprod-val').textContent = fmt(unp);
+  $('other-val').textContent = fmt(oth);
+  if ($('pie-total')) $('pie-total').textContent = fmt(total);
+
+  if (total <= 0) {
+    pie.style.background =
+      'conic-gradient(rgba(148,163,184,0.25) 0deg 360deg)';
+    return;
+  }
+  const pDeg = (prod / total) * 360;
+  const uDeg = (unp / total) * 360;
+  const oDeg = (oth / total) * 360;
+  // other is muted; productive vs unproductive dominate the pie
+  const g =
+    'conic-gradient(' +
+    '#34d399 0deg ' +
+    pDeg +
+    'deg,' +
+    '#fb7185 ' +
+    pDeg +
+    'deg ' +
+    (pDeg + uDeg) +
+    'deg,' +
+    'rgba(148,163,184,0.45) ' +
+    (pDeg + uDeg) +
+    'deg ' +
+    (pDeg + uDeg + oDeg) +
+    'deg)';
+  pie.style.background = g;
+}
+
+function renderWeek(stats) {
+  const wrap = $('week-bars');
+  if (!wrap) return;
+  const week = (stats && stats.week) || [];
+  if (!week.length) {
+    wrap.hidden = true;
+    return;
+  }
+  let max = 1;
+  for (const d of week) {
+    const c = d.byCategory || {};
+    max = Math.max(max, (c.productive || 0) + (c.unproductive || 0) + (c.other || 0));
+  }
+  wrap.hidden = false;
+  wrap.innerHTML = week
+    .map((d) => {
+      const c = d.byCategory || {};
+      const p = c.productive || 0;
+      const u = c.unproductive || 0;
+      const o = c.other || 0;
+      const sum = p + u + o;
+      const h = Math.max(4, Math.round((sum / max) * 48));
+      const pH = sum ? Math.round((p / sum) * h) : 0;
+      const uH = sum ? Math.round((u / sum) * h) : 0;
+      const oH = Math.max(0, h - pH - uH);
+      const label = (d.date || '').slice(5); // MM-DD
+      return (
+        '<div class="week-col" title="' +
+        esc(d.date) +
+        '">' +
+        '<div class="week-stack" style="height:' +
+        h +
+        'px">' +
+        '<div class="week-seg prod" style="height:' +
+        pH +
+        'px"></div>' +
+        '<div class="week-seg unprod" style="height:' +
+        uH +
+        'px"></div>' +
+        '<div class="week-seg other" style="height:' +
+        oH +
+        'px"></div>' +
+        '</div>' +
+        '<span class="week-label">' +
+        esc(label) +
+        '</span></div>'
+      );
+    })
+    .join('');
+}
+
 function applySettingsInputs(settings) {
   if (applying) return;
   applying = true;
-  $('demo-toggle').checked = !!settings.demoMode;
+  if ($('demo-toggle')) $('demo-toggle').checked = !!settings.demoMode;
   const sec = Number(settings.thresholdSec) || 600;
-  $('threshold-sec').value = sec;
-  $('threshold-min').value = Math.round((sec / 60) * 10) / 10;
+  if ($('threshold-sec')) $('threshold-sec').value = sec;
+  if ($('threshold-min')) $('threshold-min').value = Math.round((sec / 60) * 10) / 10;
+  syncFocusBoostUi(settings);
   applying = false;
+}
+
+function syncFocusBoostUi(settings) {
+  const btn = $('focusboost-btn');
+  const shell = document.body;
+  if (!btn) return;
+  const armed =
+    !!settings.focusBoost ||
+    (Number(settings.thresholdSec) === FOCUSBOOST_SEC && settings._boostArmed);
+  const on = !!settings.focusBoost;
+  btn.setAttribute('data-boost', on ? 'on' : 'off');
+  btn.classList.toggle('armed', on);
+  shell.setAttribute('data-boost', on ? 'on' : 'off');
+  const label = $('focusboost-label');
+  if (label) label.textContent = on ? 'FocusBoost ON ⚡' : 'FocusBoost';
+  if ($('thresh-label')) $('thresh-label').textContent = fmt(settings.thresholdSec || 600);
+}
+
+function playBoostFlash() {
+  if (reduceMotion) return;
+  let overlay = $('boost-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'boost-overlay';
+    overlay.className = 'boost-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML =
+      '<div class="boost-flash"><span class="boost-scan"></span><span class="boost-text">FOCUS BOOST</span><span class="boost-hex"></span></div>';
+    document.body.appendChild(overlay);
+  }
+  overlay.classList.remove('play');
+  // reflow
+  void overlay.offsetWidth;
+  overlay.classList.add('play');
+  window.setTimeout(() => overlay.classList.remove('play'), 900);
 }
 
 function renderStats(stats) {
   if (!stats) return;
-  const cats = stats.byCategory || {};
-  const prod = cats.productive || 0;
-  const unp = cats.unproductive || 0;
-  const oth = cats.other || 0;
-  const total = Math.max(1, prod + unp + oth);
-  $('prod-val').textContent = fmt(prod);
-  $('unprod-val').textContent = fmt(unp);
-  $('other-val').textContent = fmt(oth);
-  $('prod-bar').style.width = (100 * prod) / total + '%';
-  $('unprod-bar').style.width = (100 * unp) / total + '%';
-  $('other-bar').style.width = (100 * oth) / total + '%';
+  renderMood(stats);
+  renderPie(stats);
+  renderWeek(stats);
   $('streak').textContent = fmt(stats.unproductiveStreak || 0);
   if (stats.settings) {
     $('thresh-label').textContent = fmt(stats.settings.thresholdSec || 600);
     applySettingsInputs(stats.settings);
-    if (stats.dataDir) $('data-path').textContent = stats.dataDir;
+    if (stats.dataDir && $('data-path')) $('data-path').textContent = stats.dataDir;
   }
   if (stats.date) $('date-label').textContent = 'Session date ' + stats.date;
+  renderAppList(stats);
+}
+
+function renderAppList(stats) {
   const list = $('app-list');
-  const apps = stats.topApps || [];
+  if (!list) return;
+  const apps = (stats && stats.topApps) || [];
   if (!apps.length) {
     list.innerHTML = '<li class="empty">No time logged yet</li>';
     return;
@@ -192,21 +369,54 @@ async function pushSettings(partial) {
   const next = await api.updateSettings(partial);
   applySettingsInputs(next);
   applying = false;
+  return next;
 }
 
-$('demo-toggle').addEventListener('change', () =>
-  pushSettings({ demoMode: $('demo-toggle').checked })
-);
-$('threshold-min').addEventListener('change', () => {
-  const min = Number($('threshold-min').value);
-  if (!Number.isFinite(min) || min <= 0) return;
-  pushSettings({ thresholdSec: Math.round(min * 60) });
-});
-$('threshold-sec').addEventListener('change', () => {
-  const sec = Number($('threshold-sec').value);
-  if (!Number.isFinite(sec) || sec <= 0) return;
-  pushSettings({ thresholdSec: Math.round(sec) });
-});
+if ($('demo-toggle')) {
+  $('demo-toggle').addEventListener('change', () =>
+    pushSettings({ demoMode: $('demo-toggle').checked })
+  );
+}
+if ($('threshold-min')) {
+  $('threshold-min').addEventListener('change', () => {
+    const min = Number($('threshold-min').value);
+    if (!Number.isFinite(min) || min <= 0) return;
+    pushSettings({ thresholdSec: Math.round(min * 60), focusBoost: false });
+  });
+}
+if ($('threshold-sec')) {
+  $('threshold-sec').addEventListener('change', () => {
+    const sec = Number($('threshold-sec').value);
+    if (!Number.isFinite(sec) || sec <= 0) return;
+    pushSettings({ thresholdSec: Math.round(sec), focusBoost: false });
+  });
+}
+
+async function toggleFocusBoost() {
+  if (!api) return;
+  const state = await api.getState();
+  const settings = (state && state.stats && state.stats.settings) || {};
+  const on = !!settings.focusBoost;
+  if (!on) {
+    thresholdBeforeBoost =
+      Number(settings.thresholdSec) && Number(settings.thresholdSec) !== FOCUSBOOST_SEC
+        ? Number(settings.thresholdSec)
+        : thresholdBeforeBoost || 600;
+    playBoostFlash();
+    await pushSettings({
+      focusBoost: true,
+      thresholdSec: FOCUSBOOST_SEC,
+      focusBoostRestoreSec: thresholdBeforeBoost
+    });
+  } else {
+    const restore =
+      Number(settings.focusBoostRestoreSec) || thresholdBeforeBoost || 600;
+    await pushSettings({
+      focusBoost: false,
+      thresholdSec: restore
+    });
+  }
+}
 
 function linesToList(text) {
   return String(text || '')
@@ -221,10 +431,12 @@ function fillRulesEditors(rules) {
     productive: rules.productive || [],
     unproductive: rules.unproductive || []
   };
-  $('rules-prod-edit').value = (rules.productive || []).join('\n');
-  $('rules-unprod-edit').value = (rules.unproductive || []).join('\n');
-  if (rules.path) $('rules-path').textContent = rules.path;
-  $('rules-custom-label').textContent = rules.isCustom ? '(custom)' : '(defaults)';
+  if ($('rules-prod-edit')) $('rules-prod-edit').value = (rules.productive || []).join('\n');
+  if ($('rules-unprod-edit')) $('rules-unprod-edit').value = (rules.unproductive || []).join('\n');
+  if (rules.path && $('rules-path')) $('rules-path').textContent = rules.path;
+  if ($('rules-custom-label')) {
+    $('rules-custom-label').textContent = rules.isCustom ? '(custom)' : '(defaults)';
+  }
 }
 
 function fillIgnoreEditor(payload) {
@@ -232,7 +444,7 @@ function fillIgnoreEditor(payload) {
   cachedIgnore = items.slice();
   const ta = $('ignore-edit');
   if (ta) ta.value = items.join('\n');
-  if (payload && payload.path) $('ignore-path').textContent = payload.path;
+  if (payload && payload.path && $('ignore-path')) $('ignore-path').textContent = payload.path;
   const label = $('ignore-custom-label');
   if (label) label.textContent = payload && payload.isCustom ? '(custom)' : '(defaults)';
 }
@@ -243,7 +455,7 @@ async function loadRulesAndIgnore() {
     const rules = await api.getRules();
     fillRulesEditors(rules);
   } catch (err) {
-    $('rules-status').textContent = 'Failed to load rules';
+    if ($('rules-status')) $('rules-status').textContent = 'Failed to load rules';
   }
   try {
     if (api.getIgnore) {
@@ -253,56 +465,130 @@ async function loadRulesAndIgnore() {
   } catch (_) {}
 }
 
-$('rules-save').addEventListener('click', async () => {
-  if (!api || !api.setRules) return;
-  $('rules-status').textContent = 'Saving…';
-  try {
-    const next = await api.setRules({
-      productive: linesToList($('rules-prod-edit').value),
-      unproductive: linesToList($('rules-unprod-edit').value)
-    });
-    fillRulesEditors(next);
-    $('rules-status').textContent = 'Saved — live now';
-  } catch (err) {
-    $('rules-status').textContent = 'Save failed';
-  }
-});
+if ($('rules-save')) {
+  $('rules-save').addEventListener('click', async () => {
+    if (!api || !api.setRules) return;
+    $('rules-status').textContent = 'Saving…';
+    try {
+      const next = await api.setRules({
+        productive: linesToList($('rules-prod-edit').value),
+        unproductive: linesToList($('rules-unprod-edit').value)
+      });
+      fillRulesEditors(next);
+      $('rules-status').textContent = 'Saved — live now';
+    } catch (err) {
+      $('rules-status').textContent = 'Save failed';
+    }
+  });
+}
 
-$('rules-reset').addEventListener('click', async () => {
-  if (!api || !api.resetRules) return;
-  $('rules-status').textContent = 'Resetting…';
-  try {
-    const next = await api.resetRules();
-    fillRulesEditors(next);
-    $('rules-status').textContent = 'Defaults restored';
-  } catch (err) {
-    $('rules-status').textContent = 'Reset failed';
-  }
-});
+if ($('rules-reset')) {
+  $('rules-reset').addEventListener('click', async () => {
+    if (!api || !api.resetRules) return;
+    $('rules-status').textContent = 'Resetting…';
+    try {
+      const next = await api.resetRules();
+      fillRulesEditors(next);
+      $('rules-status').textContent = 'Defaults restored';
+    } catch (err) {
+      $('rules-status').textContent = 'Reset failed';
+    }
+  });
+}
 
-$('ignore-save').addEventListener('click', async () => {
-  if (!api || !api.setIgnore) return;
-  $('ignore-status').textContent = 'Saving…';
-  try {
-    const next = await api.setIgnore(linesToList($('ignore-edit').value));
-    fillIgnoreEditor(next);
-    $('ignore-status').textContent = 'Saved — live now';
-  } catch (err) {
-    $('ignore-status').textContent = 'Save failed';
-  }
-});
+if ($('ignore-save')) {
+  $('ignore-save').addEventListener('click', async () => {
+    if (!api || !api.setIgnore) return;
+    $('ignore-status').textContent = 'Saving…';
+    try {
+      const next = await api.setIgnore(linesToList($('ignore-edit').value));
+      fillIgnoreEditor(next);
+      $('ignore-status').textContent = 'Saved — live now';
+    } catch (err) {
+      $('ignore-status').textContent = 'Save failed';
+    }
+  });
+}
 
-$('ignore-reset').addEventListener('click', async () => {
-  if (!api || !api.resetIgnore) return;
-  $('ignore-status').textContent = 'Resetting…';
-  try {
-    const next = await api.resetIgnore();
-    fillIgnoreEditor(next);
-    $('ignore-status').textContent = 'Defaults restored';
-  } catch (err) {
-    $('ignore-status').textContent = 'Reset failed';
-  }
-});
+if ($('ignore-reset')) {
+  $('ignore-reset').addEventListener('click', async () => {
+    if (!api || !api.resetIgnore) return;
+    $('ignore-status').textContent = 'Resetting…';
+    try {
+      const next = await api.resetIgnore();
+      fillIgnoreEditor(next);
+      $('ignore-status').textContent = 'Defaults restored';
+    } catch (err) {
+      $('ignore-status').textContent = 'Reset failed';
+    }
+  });
+}
+
+if ($('data-export')) {
+  $('data-export').addEventListener('click', async () => {
+    if (!api || !api.exportData) return;
+    $('data-status').textContent = 'Exporting…';
+    try {
+      const res = await api.exportData({
+        includeSettings: true,
+        includeRules: true,
+        includeIgnore: true
+      });
+      if (res && res.canceled) $('data-status').textContent = 'Export canceled';
+      else if (res && res.ok) $('data-status').textContent = 'Exported';
+      else $('data-status').textContent = (res && res.error) || 'Export failed';
+    } catch (err) {
+      $('data-status').textContent = 'Export failed';
+    }
+  });
+}
+
+if ($('data-import')) {
+  $('data-import').addEventListener('click', async () => {
+    if (!api || !api.importData) return;
+    $('data-status').textContent = 'Importing…';
+    try {
+      const res = await api.importData({ mode: 'merge' });
+      if (res && res.canceled) $('data-status').textContent = 'Import canceled';
+      else if (res && res.ok) {
+        $('data-status').textContent = 'Imported ' + (res.daysImported || 0) + ' day(s)';
+        const state = await api.getState();
+        if (state) renderStats(state.stats);
+        await loadRulesAndIgnore();
+      } else $('data-status').textContent = (res && res.error) || 'Import failed';
+    } catch (err) {
+      $('data-status').textContent = 'Import failed';
+    }
+  });
+}
+
+if ($('data-clear-today')) {
+  $('data-clear-today').addEventListener('click', async () => {
+    if (!api || !api.clearToday) return;
+    if (!confirm('Clear TODAY\'s tracked time?
+
+Permanently deletes today\'s stats on this device. No cloud backup. Cannot be undone.')) return;
+    const res = await api.clearToday();
+    if (res && res.ok) {
+      $('data-status').textContent = 'Today cleared';
+      renderStats(res.stats);
+    }
+  });
+}
+
+if ($('data-clear-all')) {
+  $('data-clear-all').addEventListener('click', async () => {
+    if (!api || !api.clearAllHistory) return;
+    if (!confirm('CLEAR ALL HISTORY?
+
+Deletes today and every archived day on this device. No cloud backup. Cannot be undone.')) return;
+    const res = await api.clearAllHistory();
+    if (res && res.ok) {
+      $('data-status').textContent = 'All history cleared';
+      renderStats(res.stats);
+    }
+  });
+}
 
 async function boot() {
   if (!api) return;
@@ -310,13 +596,15 @@ async function boot() {
     const state = await api.getState();
     if (state) {
       if (state.platform) $('platform-label').textContent = state.platform;
-      if (state.now) renderNow(state.now);
+      updateSourcePill(state.now);
+      renderLastFocused(state.lastFocused, state.now);
       renderStats(state.stats);
     }
   } catch (_) {}
   await loadRulesAndIgnore();
   api.onUpdate((payload) => {
-    renderNow(payload.now);
+    updateSourcePill(payload.now);
+    renderLastFocused(payload.lastFocused, payload.now);
     renderStats(payload.stats);
   });
   api.onReminder((payload) => {
@@ -326,3 +614,6 @@ async function boot() {
 }
 
 boot();
+
+// Expose for inline onclick if needed
+window.__focusflowToggleBoost = toggleFocusBoost;

@@ -17,9 +17,13 @@
           <div class="logo-sub">Productivity</div>
         </div>
       </div>
+      <button type="button" id="nav-toggle" class="nav-toggle" aria-expanded="true" title="Collapse sidebar">⟨</button>
       <nav class="nav">
-        <button class="nav-btn active" data-tab="dash" type="button">
-          <span class="nav-ico">◉</span> Today
+        <button class="nav-btn active" data-tab="home" type="button">
+          <span class="nav-ico">◉</span> Home
+        </button>
+        <button class="nav-btn" data-tab="apps" type="button">
+          <span class="nav-ico">▣</span> Apps
         </button>
         <button class="nav-btn" data-tab="settings" type="button">
           <span class="nav-ico">⚙</span> Settings
@@ -40,72 +44,93 @@
         <button id="banner-dismiss" type="button">Dismiss</button>
       </div>
 
-      <section id="view-dash" class="view">
+      <!-- HOME: pie + mood + last focused -->
+      <section id="view-home" class="view">
         <header class="page-head">
           <div>
-            <h1>Today</h1>
+            <h1>Home</h1>
             <p class="muted" id="date-label">Live window tracking</p>
           </div>
         </header>
 
-        <article class="hero card">
-          <div class="hero-top">
-            <span class="kicker">Now viewing</span>
-            <span id="now-cat" class="chip other">other</span>
+        <article class="card home-focus">
+          <!--
+            Mood skins: animal / face skins will key off [data-mood="{id}"].
+            Stable ids: thriving | focused | meh | distracted | doomscroll
+          -->
+          <div id="mood-block" class="mood-block" data-mood="meh">
+            <span id="mood-emoji" class="mood-emoji" aria-hidden="true">😐</span>
+            <div class="mood-copy">
+              <span id="mood-label" class="mood-label">Meh</span>
+              <span class="mood-sub muted tiny">Today’s focus vibe</span>
+            </div>
           </div>
-          <h2 id="now-app">Waiting for a window…</h2>
-          <p id="now-title" class="muted title-line">Grant focus to any app to start</p>
-          <div class="hero-meta">
-            <div class="meta-block">
-              <span class="meta-label">On this window</span>
-              <span id="now-elapsed" class="meta-value">0:00</span>
+
+          <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off" onclick="window.__focusflowToggleBoost && window.__focusflowToggleBoost()">
+            <span class="fb-bolt" aria-hidden="true">⚡</span>
+            <span id="focusboost-label">FocusBoost</span>
+            <span class="fb-sub">~3 min reminder</span>
+          </button>
+
+          <div class="pie-wrap">
+            <div id="pie-chart" class="pie-chart" role="img" aria-label="Time breakdown pie"></div>
+            <div class="pie-center">
+              <div id="pie-total" class="pie-total">0:00</div>
+              <div class="pie-total-label muted tiny">tracked</div>
             </div>
-            <div class="meta-block">
-              <span class="meta-label">Unproductive streak</span>
-              <span id="streak" class="meta-value">0:00</span>
+          </div>
+
+          <ul class="pie-legend">
+            <li><span class="swatch prod"></span> Productive <strong id="prod-val">0:00</strong></li>
+            <li><span class="swatch unprod"></span> Unproductive <strong id="unprod-val">0:00</strong></li>
+            <li><span class="swatch other"></span> Other <strong id="other-val">0:00</strong></li>
+          </ul>
+
+          <div id="week-bars" class="week-bars" hidden></div>
+
+          <div id="last-focused" class="last-focused">
+            <div class="lf-kicker">Last focused</div>
+            <div class="lf-row">
+              <div class="lf-main">
+                <span id="lf-app" class="lf-app">Waiting for an app…</span>
+                <span id="lf-title" class="lf-title muted"></span>
+              </div>
+              <span id="lf-cat" class="chip other">—</span>
             </div>
-            <div class="meta-block">
-              <span class="meta-label">Reminder at</span>
-              <span id="thresh-label" class="meta-value">10:00</span>
-            </div>
+          </div>
+
+          <div class="home-meta muted tiny">
+            Unproductive streak <strong id="streak">0:00</strong>
+            · Reminder at <strong id="thresh-label">10:00</strong>
           </div>
           <p id="track-hint" class="hint hidden"></p>
         </article>
-
-        <div class="grid-2">
-          <article class="card">
-            <h3>Breakdown</h3>
-            <div class="bars">
-              <div class="bar-row">
-                <div class="bar-label"><span>Productive</span><span id="prod-val">0:00</span></div>
-                <div class="track"><div id="prod-bar" class="fill prod"></div></div>
-              </div>
-              <div class="bar-row">
-                <div class="bar-label"><span>Unproductive</span><span id="unprod-val">0:00</span></div>
-                <div class="track"><div id="unprod-bar" class="fill unprod"></div></div>
-              </div>
-              <div class="bar-row">
-                <div class="bar-label"><span>Other</span><span id="other-val">0:00</span></div>
-                <div class="track"><div id="other-bar" class="fill other"></div></div>
-              </div>
-            </div>
-          </article>
-
-          <article class="card">
-            <h3>Top apps</h3>
-            <p class="hint top-apps-hint">Reclassify with one click — adds the process name to keywords or ignore.</p>
-            <ul id="app-list" class="app-list">
-              <li class="empty">No time logged yet</li>
-            </ul>
-          </article>
-        </div>
       </section>
 
+      <!-- APPS: top apps + reclassify -->
+      <section id="view-apps" class="view hidden">
+        <header class="page-head">
+          <div>
+            <h1>Apps</h1>
+            <p class="muted">Today’s top apps — reclassify with one click</p>
+          </div>
+        </header>
+
+        <article class="card">
+          <h3>Top apps</h3>
+          <p class="hint top-apps-hint">P = productive, U = unproductive, Ign = ignore (adds process name to keywords or ignore list).</p>
+          <ul id="app-list" class="app-list">
+            <li class="empty">No time logged yet</li>
+          </ul>
+        </article>
+      </section>
+
+      <!-- SETTINGS -->
       <section id="view-settings" class="view hidden">
         <header class="page-head">
           <div>
             <h1>Settings</h1>
-            <p class="muted">Tracking, reminders, and rules</p>
+            <p class="muted">Tracking, reminders, rules, and data</p>
           </div>
         </header>
 
@@ -152,7 +177,7 @@
 
         <article class="card">
           <h3>Ignored system apps</h3>
-          <p class="hint">Shown in Now viewing but not logged (no time, no streak). One process name / keyword per line.</p>
+          <p class="hint">Shown in tracking status but not logged (no time, no streak). One process name / keyword per line.</p>
           <textarea id="ignore-edit" class="rules-textarea" spellcheck="false" rows="10" placeholder="one process name per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="ignore-save" class="btn primary">Save ignore list</button>
@@ -160,6 +185,28 @@
             <span id="ignore-status" class="muted tiny"></span>
           </div>
           <p class="hint">File: <code id="ignore-path">src/ignore.json</code> <span id="ignore-custom-label"></span></p>
+        </article>
+
+        <article class="card data-card">
+          <h3>Data</h3>
+          <div class="privacy-warning" role="note">
+            <strong>Privacy warning</strong>
+            <p>Exports include app names, window titles, and time history. Treat a <code>.focusflow</code> file like a personal diary. There is <em>no cloud sync</em> — only you choose where to save or open a backup on this machine (or copy the file yourself between PCs).</p>
+          </div>
+          <p class="hint">Portable backup for moving history between your own computers. Import merges by default.</p>
+          <div class="rules-actions data-actions">
+            <button type="button" id="data-export" class="btn primary">Export backup…</button>
+            <button type="button" id="data-import" class="btn">Import backup…</button>
+            <span id="data-status" class="muted tiny"></span>
+          </div>
+          <div class="danger-zone">
+            <h4 class="danger-heading">Clear data</h4>
+            <p class="hint">Permanent. Confirm before proceeding.</p>
+            <div class="rules-actions">
+              <button type="button" id="data-clear-today" class="btn danger-outline">Clear today</button>
+              <button type="button" id="data-clear-all" class="btn danger">Clear all history</button>
+            </div>
+          </div>
         </article>
       </section>
     </main>

@@ -14,8 +14,19 @@ const {
   appLabel,
   isBrowserProcess
 } = require('../src/classifier');
-const { createStore } = require('../src/store');
+const {
+  createStore,
+  todayKey,
+  moodFromCategories,
+  emptyByHour
+} = require('../src/store');
 const { createDemoBackend } = require('../src/demo-windows');
+const {
+  buildExport,
+  importBackup,
+  writeBackupFile,
+  readBackupFile
+} = require('../src/backup');
 
 const rules = loadRules();
 const ignore = loadIgnore();
@@ -172,6 +183,157 @@ assert(rules.unproductive.includes('youtube'), 'youtube still in unproductive de
 assert(ignore.includes('explorer'), 'ignore defaults include explorer');
 assert(ignore.includes('shellexperiencehost'), 'ignore defaults include shellexperiencehost');
 assert(ignore.includes('focusflow'), 'ignore defaults include focusflow');
+
+// ——— byHour increments ———
+const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-hour-'));
+const store2 = createStore(dir2);
+const hour = new Date().getHours();
+store2.addSeconds('Code', 'productive', 10);
+store2.addSeconds('YouTube', 'unproductive', 5);
+store2.addSeconds('Notes', 'other', 3);
+const snap2 = store2.snapshot();
+assert(Array.isArray(snap2.byHour) && snap2.byHour.length === 24, 'byHour has 24 entries');
+assert(snap2.byHour[hour].productive === 10, 'byHour productive increments current hour');
+assert(snap2.byHour[hour].unproductive === 5, 'byHour unproductive increments current hour');
+assert(snap2.byHour[hour].other === 3, 'byHour other increments current hour');
+store2.addSeconds('Explorer', 'ignored', 100);
+assert(snap2.byHour[hour].productive === 10, 'ignore excluded from byHour (pre-check)');
+const snapIgn = store2.snapshot();
+assert(snapIgn.byHour[hour].productive === 10, 'ignored seconds excluded from byHour');
+assert(
+  snapIgn.byCategory.productive + snapIgn.byCategory.unproductive + snapIgn.byCategory.other === 18,
+  'ignore excluded from category totals'
+);
+
+// ——— archive on roll (simulate date change) ———
+const dir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-roll-'));
+const store3 = createStore(dir3);
+store3.addSeconds('Code', 'productive', 42);
+const yesterday = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+})();
+// Force state date to yesterday then trigger roll via addSeconds
+const st = store3.getState();
+st.date = yesterday;
+store3.replaceToday(st);
+// Manually set date without going through replaceToday's migrate — write raw
+fs.writeFileSync(
+  path.join(dir3, 'stats.json'),
+  JSON.stringify(
+    Object.assign({}, store3.getState(), {
+      date: yesterday,
+      byCategory: { productive: 42, unproductive: 0, other: 0 }
+    }),
+    null,
+    2
+  )
+);
+const store3b = createStore(dir3);
+// createStore should archive yesterday and start fresh today
+const histFile = path.join(dir3, 'history', yesterday + '.json');
+assert(fs.existsSync(histFile), 'archive on roll writes history/YYYY-MM-DD.json');
+const archived = JSON.parse(fs.readFileSync(histFile, 'utf8'));
+assert(archived.byCategory.productive === 42, 'archived day keeps productive seconds');
+assert(store3b.getState().date === todayKey(), 'after roll today is emptyDay date');
+assert(store3b.getState().byCategory.productive === 0, 'today starts empty after roll');
+
+const snapWeek = store3b.snapshot();
+assert(Array.isArray(snapWeek.week) && snapWeek.week.length === 7, 'snapshot week has 7 days');
+const yEntry = snapWeek.week.find((d) => d.date === yesterday);
+assert(yEntry && yEntry.byCategory.productive === 42, 'week includes archived yesterday');
+
+// ——— export schema roundtrip ———
+const dir4 = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-bak-'));
+const store4 = createStore(dir4);
+store4.addSeconds('Code', 'productive', 7);
+store4.updateSettings({ thresholdSec: 120, focusBoost: true });
+const payload = buildExport(store4, {
+  includeSettings: true,
+  includeRules: true,
+  includeIgnore: true,
+  rules: { productive: ['code'], unproductive: ['youtube'] },
+  ignore: ['explorer']
+});
+assert(payload.format === 'focusflow-backup', 'export format focusflow-backup');
+assert(payload.schemaVersion === 1, 'export schemaVersion 1');
+assert(typeof payload.exportedAt === 'string' && payload.exportedAt.includes('T'), 'export exportedAt ISO');
+assert(typeof payload.appVersion === 'string', 'export appVersion present');
+assert(payload.days[todayKey()], 'export days includes today');
+assert(payload.settings && payload.settings.thresholdSec === 120, 'export includes settings');
+assert(payload.rules && payload.rules.productive.includes('code'), 'export includes rules');
+assert(Array.isArray(payload.ignore) && payload.ignore.includes('explorer'), 'export includes ignore');
+
+const bakPath = path.join(dir4, 'test.focusflow');
+writeBackupFile(bakPath, payload);
+const round = readBackupFile(bakPath);
+assert(round.format === 'focusflow-backup', 'backup file roundtrip format');
+
+const dir5 = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-imp-'));
+const store5 = createStore(dir5);
+const imp = importBackup(store5, round, { mode: 'replace' });
+assert(imp.ok, 'importBackup ok');
+assert(imp.daysImported >= 1, 'importBackup imported days');
+assert(store5.snapshot().byCategory.productive >= 7, 'import restore productive seconds');
+
+// ——— mood id mapping ———
+assert(moodFromCategories({ productive: 0, unproductive: 0 }).id === 'meh', 'mood both 0 → meh');
+assert(moodFromCategories({ productive: 90, unproductive: 10 }).id === 'thriving', 'mood >=0.8 thriving');
+assert(moodFromCategories({ productive: 70, unproductive: 30 }).id === 'focused', 'mood >=0.6 focused');
+assert(moodFromCategories({ productive: 50, unproductive: 50 }).id === 'meh', 'mood >=0.4 meh');
+assert(moodFromCategories({ productive: 30, unproductive: 70 }).id === 'distracted', 'mood >=0.2 distracted');
+assert(moodFromCategories({ productive: 10, unproductive: 90 }).id === 'doomscroll', 'mood <0.2 doomscroll');
+const moodSnap = store2.snapshot();
+assert(moodSnap.mood && typeof moodSnap.mood.id === 'string', 'snapshot includes mood helper');
+assert(
+  ['thriving', 'focused', 'meh', 'distracted', 'doomscroll'].includes(moodSnap.mood.id),
+  'mood id is stable enum'
+);
+
+// migrate missing byHour
+const migrated = require('../src/store').migrateDay({
+  date: todayKey(),
+  byApp: {},
+  byCategory: { productive: 1, unproductive: 0, other: 0 }
+});
+assert(Array.isArray(migrated.byHour) && migrated.byHour.length === 24, 'migrate missing byHour → zeros');
+assert(migrated.byHour.every((h) => h.productive === 0 && h.unproductive === 0 && h.other === 0), 'byHour zeros');
+
+// clearToday / clearAll
+store4.clearToday();
+assert(store4.snapshot().byCategory.productive === 0, 'clearToday resets today');
+
+
+// ——— history retention cap ———
+const { MAX_HISTORY_DAYS } = require("../src/store");
+assert(MAX_HISTORY_DAYS === 90, "MAX_HISTORY_DAYS is 90");
+const dirPrune = fs.mkdtempSync(path.join(os.tmpdir(), "focusflow-prune-"));
+const storePrune = createStore(dirPrune);
+const histDir = path.join(dirPrune, "history");
+fs.mkdirSync(histDir, { recursive: true });
+for (let i = 0; i < 95; i++) {
+  const d = new Date();
+  d.setDate(d.getDate() - i - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const key = y + "-" + m + "-" + day;
+  fs.writeFileSync(path.join(histDir, key + ".json"), JSON.stringify({
+    date: key,
+    byApp: {},
+    byCategory: { productive: 1, unproductive: 0, other: 0 },
+    byHour: Array.from({ length: 24 }, () => ({ productive: 0, unproductive: 0, other: 0 })),
+    unproductiveStreak: 0,
+    lastReminderAt: 0
+  }));
+}
+storePrune.pruneOldHistory();
+const left = fs.readdirSync(histDir).filter((f) => f.endsWith(".json"));
+assert(left.length <= MAX_HISTORY_DAYS, "prune keeps at most 90 history files (" + left.length + ")");
 
 console.log(failed ? `\n${failed} failed` : '\nall smoke checks passed');
 process.exit(failed ? 1 : 0);
