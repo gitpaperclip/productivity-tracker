@@ -25,6 +25,9 @@
         <button class="nav-btn" data-tab="analytics" type="button" title="Analytics">
           <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M7 16V10"/><path d="M12 16V6"/><path d="M17 16v-4"/></svg></span><span class="nav-label">Analytics</span>
         </button>
+        <button class="nav-btn" data-tab="roundup" type="button" title="Roundup">
+          <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 0 1 2-2z"/><path d="M9 9h6M9 13h4"/></svg></span><span class="nav-label">Roundup</span>
+        </button>
         <button class="nav-btn" data-tab="tags" type="button" title="Focus Tags">
           <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 13.5 12 22l-8.5-8.5a2 2 0 0 1 0-2.8L12 2l6.7 6.7a2 2 0 0 1 0 2.8z"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Focus Tags</span>
         </button>
@@ -118,6 +121,70 @@
       </section>
 
 
+
+      <!-- ROUNDUP: daily wrap + goal payoff -->
+      <section id="view-roundup" class="view hidden">
+        <header class="page-head">
+          <div>
+            <h1>Roundup</h1>
+            <p class="muted" id="roundup-date">Today</p>
+          </div>
+        </header>
+
+        <article class="card roundup-hero" id="roundup-hero" data-mood="meh">
+          <div class="roundup-hero-top">
+            <span id="roundup-emoji" class="roundup-emoji" aria-hidden="true">😐</span>
+            <div class="roundup-hero-copy">
+              <div id="roundup-headline" class="roundup-headline">Quiet start</div>
+              <div id="roundup-sub" class="roundup-sub muted">Not enough tracked time yet for a full wrap.</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card roundup-goal" id="roundup-goal-card">
+          <div class="field-label-row roundup-goal-head">
+            <span class="lf-kicker">Daily productivity goal</span>
+            <span id="roundup-goal-status" class="settings-token muted tiny">—</span>
+          </div>
+          <div class="roundup-goal-row">
+            <div id="roundup-goal-value" class="roundup-goal-value">0m / 2h</div>
+            <div id="roundup-goal-pct" class="roundup-goal-pct muted">0%</div>
+          </div>
+          <div class="roundup-goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="roundup-goal-bar">
+            <div id="roundup-goal-fill" class="roundup-goal-fill"></div>
+          </div>
+          <p id="roundup-goal-note" class="roundup-goal-note muted tiny">Change the target in Settings.</p>
+        </article>
+
+        <div class="roundup-highlights" id="roundup-highlights">
+          <article class="card roundup-chip">
+            <div class="lf-kicker">Top focus</div>
+            <div id="ru-top-focus" class="roundup-chip-value">—</div>
+            <div id="ru-top-focus-sub" class="roundup-chip-sub muted tiny">No productive apps yet</div>
+          </article>
+          <article class="card roundup-chip">
+            <div class="lf-kicker">Biggest distraction</div>
+            <div id="ru-distract" class="roundup-chip-value">—</div>
+            <div id="ru-distract-sub" class="roundup-chip-sub muted tiny">No unproductive apps yet</div>
+          </article>
+          <article class="card roundup-chip">
+            <div class="lf-kicker">Peak hour</div>
+            <div id="ru-peak" class="roundup-chip-value">—</div>
+            <div id="ru-peak-sub" class="roundup-chip-sub muted tiny">Most productive hour</div>
+          </article>
+          <article class="card roundup-chip">
+            <div class="lf-kicker">Focus share</div>
+            <div id="ru-share" class="roundup-chip-value">—</div>
+            <div id="ru-share-sub" class="roundup-chip-sub muted tiny">Of productive + unproductive</div>
+          </article>
+        </div>
+
+        <article class="card roundup-story">
+          <div class="lf-kicker">The story</div>
+          <div id="roundup-story" class="roundup-story-body muted">Start using apps and Roundup will write a short wrap for today.</div>
+        </article>
+      </section>
+
       <!-- ANALYTICS: Day · Week · Month · Apps -->
       <section id="view-analytics" class="view hidden">
         <header class="page-head">
@@ -145,7 +212,9 @@
               <span><span class="swatch unprod"></span> Unproductive</span>
               <span><span class="swatch other"></span> Other</span>
             </div>
-            <div id="day-chart" class="day-chart" role="img" aria-label="Hourly time breakdown"></div>
+            <div class="chart-tip-wrap"><div id="day-chart" class="day-chart" role="img" aria-label="Hourly time breakdown"></div>
+            <div id="day-tip" class="chart-tip pie-tip hidden" role="tooltip"></div>
+          </div>
           </article>
 
           <div class="day-metric-grid">
@@ -174,7 +243,9 @@
               <span><span class="swatch unprod"></span> Unproductive</span>
               <span><span class="swatch other"></span> Other</span>
             </div>
-            <div id="week-chart" class="day-chart week-chart" role="img" aria-label="Weekly time breakdown"></div>
+            <div class="chart-tip-wrap"><div id="week-chart" class="day-chart week-chart" role="img" aria-label="Weekly time breakdown"></div>
+            <div id="week-tip" class="chart-tip pie-tip hidden" role="tooltip"></div>
+          </div>
           </article>
 
           <div class="day-metric-grid">

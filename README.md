@@ -9,7 +9,7 @@ Desktop productivity tracker for Windows. Watches the foreground window, classif
 - Last focused bar: last real app (never FocusFlow itself)
 - Home: mood, pie, FocusBoost (~3 min reminder), Last focused P/U/I
 - Analytics: Day · Week · Month · Apps (top apps P / U / Ign)
-- Roundup: daily wrap + goal payoff (in progress)
+- Roundup: daily wrap + goal payoff (headline, goal bar, highlights, story)
 - Focus Tags: productive / unproductive keywords + ignore list
 - Settings: default + FocusBoost reminder timing, daily productivity goal (for Roundup), portable `.focusflow` backup
 - Fully local — no cloud sync, no account
@@ -24,7 +24,7 @@ Optional demo: npm start -- --demo. Smoke: npm test.
 
 ## First open
 
-1. Tabs: Home | Analytics | Focus Tags | Settings. (Apps lives under Analytics.)
+1. Tabs: Home | Analytics | Roundup | Focus Tags | Settings. (Apps lives under Analytics.)
 2. Switch to another app; FocusFlow logs that time.
 3. Home shows pie, mood, and Last focused (the app before you opened FocusFlow).
 4. Default reminder at 10 minutes. FocusBoost arms a ~3 minute threshold (CSS BOOST punch, then armed glow).
@@ -88,7 +88,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - **Nudges / FocusBoost analytics** (wanted): Analytics view for reminder history — each toast logged (app, streak, time); counts; average time-to-refocus after a nudge when measurable. UI: its own solo segment pill (same style as Apps), pinned on the **right** of the Analytics toolbar (Day·Week·Month left cluster · Apps · FocusBoost/Nudges on the right). Not a separate sidebar tab unless it grows.
 - ~~Side nav smooth expand/collapse animation~~ **done** (CSS width/opacity; respects reduced-motion; mobile rail unchanged)
 - ~~Stronger FocusBoost "hit the UI" press feedback~~ **done** (button punch + edge kick on arm; soft settle on disarm)
-- Roundup tab (after Analytics): fun daily wrap — did you hit the goal? focus vibe?
+- ~~Roundup tab (after Analytics)~~ **done (v1)**: headline, goal bar, highlights, story
 - Classification smarts: browser yellow "browser" tag, sharper title keywords
 
 ### Product loop
@@ -98,6 +98,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - **Pause / disable tracking** — not built yet (only demo mode + ignore list). Need a clear Pause that stops logging without quitting the app; show Pausing in status / tray
 - Tray presence + FocusBoost in tray
 - `.exe` packaging + first-run onboarding (primary browser → seed Focus Tags)
+  - Intro copy: classification gets better as you tag more apps (P/U/I + Focus Tags) — update tags as you go; no need to rewrite past time
 - Disk usage display with privacy/Data
 
 ### Tray stage (shelved until tray)

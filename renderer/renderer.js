@@ -136,6 +136,8 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     $('view-home').classList.toggle('hidden', tab !== 'home');
     const analyticsView = $('view-analytics');
     if (analyticsView) analyticsView.classList.toggle('hidden', tab !== 'analytics');
+    const roundupView = $('view-roundup');
+    if (roundupView) roundupView.classList.toggle('hidden', tab !== 'roundup');
     const tagsView = $('view-tags');
     if (tagsView) tagsView.classList.toggle('hidden', tab !== 'tags' && tab !== 'focus-tags');
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
@@ -629,11 +631,20 @@ function renderWeek(stats) {
   let bestProd = -1;
   const days = week.map((d) => {
     const c = (d && d.byCategory) || {};
+    const apps = Array.isArray(d && d.topApps) ? d.topApps : [];
     return {
       date: (d && d.date) || '',
       productive: Math.max(0, Number(c.productive) || 0),
       unproductive: Math.max(0, Number(c.unproductive) || 0),
-      other: Math.max(0, Number(c.other) || 0)
+      other: Math.max(0, Number(c.other) || 0),
+      topApps: apps
+        .map((a) => ({
+          name: a.name,
+          seconds: Math.max(0, Number(a.seconds) || 0),
+          category: a.category || 'other'
+        }))
+        .filter((a) => a.seconds > 0)
+        .slice(0, 3)
     };
   });
 
@@ -651,24 +662,23 @@ function renderWeek(stats) {
   }
   if (max < 1) max = 1;
 
+  weekHoverDays = days.map((h) => ({
+    date: h.date,
+    label: formatWeekDateLabel(h.date),
+    productive: h.productive,
+    unproductive: h.unproductive,
+    other: h.other,
+    topApps: Array.isArray(h.topApps) ? h.topApps.slice(0, 3) : []
+  }));
+  hideChartTip('week-tip');
   chart.innerHTML = days
-    .map((h) => {
+    .map((h, i) => {
       const sum = h.productive + h.unproductive + h.other;
       const empty = sum <= 0;
       const trackPct = empty ? 0 : Math.max(6, Math.round((sum / max) * 100));
       const pPct = sum ? (h.productive / sum) * 100 : 0;
       const uPct = sum ? (h.unproductive / sum) * 100 : 0;
       const oPct = sum ? (h.other / sum) * 100 : 0;
-      const tip =
-        formatWeekDateLabel(h.date) +
-        ' · P ' +
-        fmtFriendly(h.productive) +
-        ' · U ' +
-        fmtFriendly(h.unproductive) +
-        ' · O ' +
-        fmtFriendly(h.other) +
-        ' · Σ ' +
-        fmtFriendly(sum);
       const tick = weekTickLabel(h.date);
       const stack = empty
         ? '<div class="day-stack empty-slot" aria-hidden="true"></div>'
@@ -686,8 +696,8 @@ function renderWeek(stats) {
       return (
         '<div class="day-col' +
         (empty ? ' empty' : '') +
-        '" title="' +
-        esc(tip) +
+        '" data-day="' +
+        i +
         '" style="--bar-h:' +
         trackPct +
         '%">' +
@@ -836,8 +846,22 @@ function hourLabel(h) {
   return pad(h) + ':00–' + pad(end) + ':00';
 }
 
+function topAppsFromByApp(byApp, limit) {
+  const lim = limit || 3;
+  if (!byApp || typeof byApp !== 'object') return [];
+  return Object.entries(byApp)
+    .map(([name, info]) => ({
+      name,
+      seconds: Math.max(0, Number(info && info.seconds) || 0),
+      category: (info && info.category) || 'other'
+    }))
+    .filter((e) => e.seconds > 0 && e.category !== 'ignored')
+    .sort((a, b) => b.seconds - a.seconds)
+    .slice(0, lim);
+}
+
 function normalizeByHour(raw) {
-  const zeros = () => ({ productive: 0, unproductive: 0, other: 0 });
+  const zeros = () => ({ productive: 0, unproductive: 0, other: 0, topApps: [] });
   if (!Array.isArray(raw) || raw.length !== 24) {
     return Array.from({ length: 24 }, zeros);
   }
@@ -846,9 +870,122 @@ function normalizeByHour(raw) {
     return {
       productive: Math.max(0, Number(o.productive) || 0),
       unproductive: Math.max(0, Number(o.unproductive) || 0),
-      other: Math.max(0, Number(o.other) || 0)
+      other: Math.max(0, Number(o.other) || 0),
+      topApps: topAppsFromByApp(o.byApp, 3)
     };
   });
+}
+
+let dayHoverHours = [];
+let weekHoverDays = [];
+
+function hideChartTip(id) {
+  const tip = $(id);
+  if (tip) tip.classList.add('hidden');
+}
+
+function placeChartTip(tip, wrap, clientX, clientY) {
+  if (!tip || !wrap) return;
+  tip.classList.remove('hidden');
+  const wrapRect = wrap.getBoundingClientRect();
+  let left = clientX - wrapRect.left + 14;
+  let top = clientY - wrapRect.top + 14;
+  tip.style.left = '0px';
+  tip.style.top = '0px';
+  const tw = tip.offsetWidth || 180;
+  const th = tip.offsetHeight || 90;
+  if (left + tw > wrapRect.width - 4) left = clientX - wrapRect.left - tw - 12;
+  if (top + th > wrapRect.height - 4) top = clientY - wrapRect.top - th - 8;
+  tip.style.left = Math.max(4, left) + 'px';
+  tip.style.top = Math.max(4, top) + 'px';
+}
+
+function tipAppsHtml(apps) {
+  if (!apps || !apps.length) {
+    return '<div class="pt-empty">No apps logged in this slice yet</div>';
+  }
+  return (
+    '<ul>' +
+    apps
+      .map(
+        (a) =>
+          '<li><span class="pt-name">' +
+          esc(a.name) +
+          '</span><span class="pt-secs">' +
+          fmt(a.seconds) +
+          '</span></li>'
+      )
+      .join('') +
+    '</ul>'
+  );
+}
+
+function showDayChartTip(ev) {
+  const chart = $('day-chart');
+  const tip = $('day-tip');
+  const wrap = chart && chart.closest('.chart-tip-wrap');
+  const col = ev.target.closest && ev.target.closest('.day-col');
+  if (!chart || !tip || !wrap || !col || col.classList.contains('empty')) {
+    hideChartTip('day-tip');
+    return;
+  }
+  const idx = Number(col.getAttribute('data-hour'));
+  const h = dayHoverHours[idx];
+  if (!h) {
+    hideChartTip('day-tip');
+    return;
+  }
+  const sum = h.productive + h.unproductive + h.other;
+  const head =
+    hourLabel(idx) +
+    ' · ' +
+    fmtFriendly(sum) +
+    ' tracked';
+  const meta =
+    '<div class="pt-empty" style="margin-bottom:6px">P ' +
+    fmt(h.productive) +
+    ' · U ' +
+    fmt(h.unproductive) +
+    ' · O ' +
+    fmt(h.other) +
+    '</div>';
+  tip.innerHTML =
+    '<div class="pt-cat">Hour · top apps</div>' + meta + tipAppsHtml(h.topApps);
+  placeChartTip(tip, wrap, ev.clientX, ev.clientY);
+}
+
+function showWeekChartTip(ev) {
+  const chart = $('week-chart');
+  const tip = $('week-tip');
+  const wrap = chart && chart.closest('.chart-tip-wrap');
+  const col = ev.target.closest && ev.target.closest('.day-col');
+  if (!chart || !tip || !wrap || !col || col.classList.contains('empty')) {
+    hideChartTip('week-tip');
+    return;
+  }
+  const idx = Number(col.getAttribute('data-day'));
+  const d = weekHoverDays[idx];
+  if (!d) {
+    hideChartTip('week-tip');
+    return;
+  }
+  const sum = d.productive + d.unproductive + d.other;
+  const head = (d.label || d.date || 'Day') + ' · ' + fmtFriendly(sum) + ' tracked';
+  const meta =
+    '<div class="pt-empty" style="margin-bottom:6px">P ' +
+    fmt(d.productive) +
+    ' · U ' +
+    fmt(d.unproductive) +
+    ' · O ' +
+    fmt(d.other) +
+    '</div>';
+  tip.innerHTML =
+    '<div class="pt-cat">' +
+    esc(head) +
+    '</div>' +
+    meta +
+    tipAppsHtml(d.topApps);
+  placeChartTip(tip, wrap, ev.clientX, ev.clientY);
 }
 
 function renderDay(stats) {
@@ -879,6 +1016,8 @@ function renderDay(stats) {
     }
   }
 
+  dayHoverHours = hours;
+  hideChartTip('day-tip');
   chart.innerHTML = hours
     .map((h, i) => {
       const sum = h.productive + h.unproductive + h.other;
@@ -887,16 +1026,6 @@ function renderDay(stats) {
       const pPct = sum ? (h.productive / sum) * 100 : 0;
       const uPct = sum ? (h.unproductive / sum) * 100 : 0;
       const oPct = sum ? (h.other / sum) * 100 : 0;
-      const tip =
-        hourLabel(i) +
-        ' · P ' +
-        fmtFriendly(h.productive) +
-        ' · U ' +
-        fmtFriendly(h.unproductive) +
-        ' · O ' +
-        fmtFriendly(h.other) +
-        ' · Σ ' +
-        fmtFriendly(sum);
       const tick = i % 3 === 0 ? String(i) : '';
       const stack = empty
         ? '<div class="day-stack empty-slot" aria-hidden="true"></div>'
@@ -914,8 +1043,8 @@ function renderDay(stats) {
       return (
         '<div class="day-col' +
         (empty ? ' empty' : '') +
-        '" title="' +
-        esc(tip) +
+        '" data-hour="' +
+        i +
         '" style="--bar-h:' +
         trackPct +
         '%">' +
@@ -960,12 +1089,180 @@ function renderDay(stats) {
   if (shareSub) shareSub.textContent = focusSub;
 }
 
+
+function formatRoundupDate(dateKey) {
+  if (!dateKey) return 'Today';
+  const parts = String(dateKey).split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return 'Today';
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  try {
+    return d.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (_) {
+    return dateKey;
+  }
+}
+
+function roundupHeadlines(moodId, hit, thin) {
+  if (thin) {
+    return {
+      headline: 'Quiet start',
+      sub: 'Not enough tracked time yet for a full wrap. Keep working — Roundup fills in as the day goes.'
+    };
+  }
+  if (hit) {
+    const map = {
+      thriving: ['Goal crushed', 'You cleared the productive target and stayed in the zone.'],
+      focused: ['Goal hit', 'Solid focus day — you met the productive target.'],
+      meh: ['Goal hit, mixed vibe', 'You made the productive goal even if the mix wasn’t perfect.'],
+      distracted: ['Goal hit, rough edges', 'You still cleared the target despite some drift.'],
+      doomscroll: ['Goal hit somehow', 'Productive target cleared — maybe tighten Focus Tags next.']
+    };
+    const row = map[moodId] || map.meh;
+    return { headline: row[0], sub: row[1] };
+  }
+  const map = {
+    thriving: ['Almost there', 'Strong focus share — a bit more productive time hits the goal.'],
+    focused: ['Close call', 'Good focus day. Nudge the goal or keep stacking productive time.'],
+    meh: ['Mixed day', 'Some focus, some drift. Tags and FocusBoost can tighten tomorrow.'],
+    distracted: ['Drift day', 'Unproductive time led. Tag distractions and arm FocusBoost.'],
+    doomscroll: ['Doomscroll o’clock', 'Heavy unproductive stretch. Reset with Focus Tags + Boost.']
+  };
+  const row = map[moodId] || map.meh;
+  return { headline: row[0], sub: row[1] };
+}
+
+function renderRoundup(stats) {
+  if (!$('view-roundup')) return;
+  const cats = (stats && stats.byCategory) || {};
+  const prod = Math.max(0, Number(cats.productive) || 0);
+  const unp = Math.max(0, Number(cats.unproductive) || 0);
+  const oth = Math.max(0, Number(cats.other) || 0);
+  const total = prod + unp + oth;
+  const thin = total < 60;
+  const mood = (stats && stats.mood) || { id: 'meh', emoji: '😐', label: 'Meh' };
+  const settings = (stats && stats.settings) || {};
+  let goalSec = Number(settings.dailyGoalSec);
+  if (!Number.isFinite(goalSec) || goalSec <= 0) goalSec = 7200;
+  const pct = Math.min(100, Math.round((prod / goalSec) * 100));
+  const hit = prod >= goalSec;
+  const left = Math.max(0, goalSec - prod);
+
+  const dateEl = $('roundup-date');
+  if (dateEl) dateEl.textContent = formatRoundupDate(stats && stats.date);
+
+  const hero = $('roundup-hero');
+  if (hero) hero.setAttribute('data-mood', mood.id || 'meh');
+  if ($('roundup-emoji')) $('roundup-emoji').textContent = mood.emoji || '😐';
+  const copy = roundupHeadlines(mood.id || 'meh', hit, thin);
+  if ($('roundup-headline')) $('roundup-headline').textContent = copy.headline;
+  if ($('roundup-sub')) $('roundup-sub').textContent = copy.sub;
+
+  const goalCard = $('roundup-goal-card');
+  if (goalCard) goalCard.setAttribute('data-hit', thin ? 'na' : hit ? 'yes' : 'no');
+  if ($('roundup-goal-status')) {
+    $('roundup-goal-status').textContent = thin ? 'Warming up' : hit ? 'Hit' : 'In progress';
+  }
+  if ($('roundup-goal-value')) {
+    $('roundup-goal-value').textContent = fmtGoalShort(prod) + ' / ' + fmtGoalShort(goalSec);
+  }
+  if ($('roundup-goal-pct')) $('roundup-goal-pct').textContent = pct + '%';
+  const fill = $('roundup-goal-fill');
+  const bar = $('roundup-goal-bar');
+  if (fill) fill.style.width = pct + '%';
+  if (bar) bar.setAttribute('aria-valuenow', String(pct));
+  if ($('roundup-goal-note')) {
+    $('roundup-goal-note').textContent = thin
+      ? 'Change the target in Settings.'
+      : hit
+        ? 'Nice — productive goal cleared. Tweak it anytime in Settings.'
+        : fmtGoalShort(left) + ' productive left · change target in Settings.';
+  }
+
+  const apps = (stats && stats.topApps) || [];
+  const topP = apps.find((a) => a.category === 'productive');
+  const topU = apps.find((a) => a.category === 'unproductive');
+  if ($('ru-top-focus')) $('ru-top-focus').textContent = topP ? topP.name : '—';
+  if ($('ru-top-focus-sub')) {
+    $('ru-top-focus-sub').textContent = topP
+      ? fmtFriendly(topP.seconds) + ' productive'
+      : 'No productive apps yet';
+  }
+  if ($('ru-distract')) $('ru-distract').textContent = topU ? topU.name : '—';
+  if ($('ru-distract-sub')) {
+    $('ru-distract-sub').textContent = topU
+      ? fmtFriendly(topU.seconds) + ' unproductive'
+      : 'No unproductive apps yet';
+  }
+
+  const hours = normalizeByHour(stats && stats.byHour);
+  let peakHour = -1;
+  let peakProd = -1;
+  for (let i = 0; i < 24; i++) {
+    if (hours[i].productive > peakProd) {
+      peakProd = hours[i].productive;
+      peakHour = i;
+    }
+  }
+  if ($('ru-peak')) {
+    $('ru-peak').textContent = peakProd > 0 ? hourLabel(peakHour) : '—';
+  }
+  if ($('ru-peak-sub')) {
+    $('ru-peak-sub').textContent =
+      peakProd > 0 ? fmtFriendly(peakProd) + ' productive' : 'Most productive hour';
+  }
+
+  const denom = prod + unp;
+  if ($('ru-share')) {
+    $('ru-share').textContent = denom > 0 ? Math.round((prod / denom) * 100) + '%' : '—';
+  }
+  if ($('ru-share-sub')) {
+    $('ru-share-sub').textContent =
+      denom > 0
+        ? fmtFriendly(prod) + ' productive · ' + fmtFriendly(unp) + ' unproductive'
+        : 'Of productive + unproductive';
+  }
+
+  const story = $('roundup-story');
+  if (story) {
+    if (thin) {
+      story.textContent =
+        'Start using apps and Roundup will write a short wrap for today.';
+      story.classList.add('muted');
+    } else {
+      const lines = [];
+      lines.push(
+        'Tracked ' +
+          fmtFriendly(total) +
+          ' today (' +
+          fmtFriendly(prod) +
+          ' productive, ' +
+          fmtFriendly(unp) +
+          ' unproductive' +
+          (oth > 0 ? ', ' + fmtFriendly(oth) + ' other' : '') +
+          ').'
+      );
+      if (topP) lines.push('Most deep work in ' + topP.name + '.');
+      if (topU) lines.push(topU.name + ' led distractions.');
+      if (peakProd > 0) lines.push('Peak productive hour: ' + hourLabel(peakHour) + '.');
+      if (hit) lines.push('Daily productivity goal: hit.');
+      else lines.push('Daily productivity goal: ' + fmtGoalShort(left) + ' to go.');
+      story.textContent = lines.join('\n');
+      story.classList.remove('muted');
+    }
+  }
+}
+
 function renderStats(stats) {
   if (!stats) return;
   renderMood(stats);
   renderPie(stats);
   renderWeek(stats);
   renderDay(stats);
+  renderRoundup(stats);
   $('streak').textContent = fmt(stats.unproductiveStreak || 0);
   if (stats.settings) {
     $('thresh-label').textContent = fmt(stats.settings.thresholdSec || 600);
@@ -1470,4 +1767,15 @@ const pieEl = $('pie-chart');
 if (pieEl) {
   pieEl.addEventListener('mousemove', showPieTip);
   pieEl.addEventListener('mouseleave', hidePieTip);
+}
+
+const dayChartEl = $('day-chart');
+if (dayChartEl) {
+  dayChartEl.addEventListener('mousemove', showDayChartTip);
+  dayChartEl.addEventListener('mouseleave', () => hideChartTip('day-tip'));
+}
+const weekChartEl = $('week-chart');
+if (weekChartEl) {
+  weekChartEl.addEventListener('mousemove', showWeekChartTip);
+  weekChartEl.addEventListener('mouseleave', () => hideChartTip('week-tip'));
 }

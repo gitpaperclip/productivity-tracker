@@ -460,15 +460,29 @@ h4.unprod { color: var(--unprod); }
 }
 .swatch {
   display: inline-block;
+  box-sizing: border-box;
   width: 10px;
   height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  max-width: 10px;
+  max-height: 10px;
   border-radius: 3px;
   margin-right: 6px;
   vertical-align: middle;
+  flex: 0 0 10px;
+  padding: 0;
+  border: 0;
 }
 .swatch.prod { background: var(--prod); }
 .swatch.unprod { background: var(--unprod); }
-.swatch.other { background: var(--other); }
+.swatch.other { background: var(--other); opacity: 1; }
+.day-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  line-height: 1;
+}
 
 .week-bars {
   width: 100%;
@@ -636,8 +650,9 @@ h4.unprod { color: var(--unprod); }
   cursor: default;
 }
 .day-stack {
-  width: 100%;
-  max-width: 28px;
+  width: 14px;
+  max-width: 14px;
+  min-width: 14px;
   height: var(--bar-h, 0%);
   min-height: 0;
   border-radius: 6px 6px 3px 3px;
@@ -647,6 +662,7 @@ h4.unprod { color: var(--unprod); }
   flex-direction: column-reverse;
   border: 0;
   transition: height 200ms ease;
+  align-self: center;
 }
 .day-col:not(.empty) .day-stack {
   min-height: 6px;
@@ -668,12 +684,16 @@ h4.unprod { color: var(--unprod); }
 }
 .day-seg {
   width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   min-height: 0;
   flex-shrink: 0;
+  align-self: stretch;
 }
 .day-seg.prod { background: var(--prod); }
 .day-seg.unprod { background: var(--unprod); }
-.day-seg.other { background: var(--other); opacity: 0.7; }
+.day-seg.other { background: var(--other); }
 .day-tick {
   font-size: 10px;
   color: var(--muted);
@@ -1604,4 +1624,124 @@ body[data-boost="on"]::after {
 }
 @media (max-width: 640px) {
   .settings-row-2 { grid-template-columns: 1fr; }
+}
+
+.chart-tip-wrap {
+  position: relative;
+}
+.day-col:not(.empty) {
+  cursor: pointer;
+}
+.day-col:not(.empty):hover .day-stack {
+  box-shadow: inset 0 0 0 1px rgba(129,140,248,0.45);
+}
+.chart-tip.pie-tip {
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Roundup */
+.roundup-hero {
+  padding: 22px 22px 20px;
+}
+.roundup-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.roundup-emoji {
+  font-size: 42px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.roundup-headline {
+  font-size: clamp(22px, 2.8vw, 28px);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+.roundup-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.roundup-goal {
+  margin-top: 14px;
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.roundup-goal-head { margin-bottom: 0; }
+.roundup-goal-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.roundup-goal-value {
+  font-size: clamp(20px, 2.4vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.roundup-goal-pct {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.roundup-goal-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  box-shadow: inset 0 0 0 1px var(--line);
+  overflow: hidden;
+}
+.roundup-goal-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(52,211,153,0.85), rgba(56,189,248,0.75));
+  transition: width 220ms ease;
+}
+.roundup-goal[data-hit="yes"] .roundup-goal-fill {
+  background: linear-gradient(90deg, rgba(52,211,153,0.95), rgba(16,185,129,0.85));
+}
+.roundup-goal[data-hit="no"] .roundup-goal-fill {
+  background: linear-gradient(90deg, rgba(251,113,133,0.75), rgba(251,146,60,0.7));
+}
+.roundup-goal-note { margin: 0; }
+.roundup-highlights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+@media (max-width: 900px) {
+  .roundup-highlights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.roundup-chip {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 96px;
+}
+.roundup-chip-value {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  word-break: break-word;
+}
+.roundup-chip-sub { font-size: 11px; line-height: 1.35; }
+.roundup-story {
+  margin-top: 14px;
+  padding: 18px 20px 20px;
+}
+.roundup-story-body {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-line;
 }

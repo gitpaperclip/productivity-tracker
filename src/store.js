@@ -14,7 +14,7 @@ function todayKey() {
 const MAX_HISTORY_DAYS = 90;
 
 function emptyHour() {
-  return { productive: 0, unproductive: 0, other: 0 };
+  return { productive: 0, unproductive: 0, other: 0, byApp: {} };
 }
 
 function emptyByHour() {
@@ -43,9 +43,13 @@ function migrateDay(raw) {
       raw.byCategory || {}
     ),
     byHour: Array.isArray(raw.byHour) && raw.byHour.length === 24
-      ? raw.byHour.map((h) =>
-          Object.assign(emptyHour(), h && typeof h === 'object' ? h : {})
-        )
+      ? raw.byHour.map((h) => {
+          const base = emptyHour();
+          const src = h && typeof h === 'object' ? h : {};
+          const byApp =
+            src.byApp && typeof src.byApp === 'object' ? { ...src.byApp } : {};
+          return Object.assign(base, src, { byApp });
+        })
       : emptyByHour(),
     unproductiveStreak: Number(raw.unproductiveStreak) || 0,
     lastReminderAt: Number(raw.lastReminderAt) || 0
@@ -195,6 +199,14 @@ function createStore(dataDir) {
     const hour = new Date().getHours();
     if (!state.byHour[hour]) state.byHour[hour] = emptyHour();
     state.byHour[hour][cat] = (state.byHour[hour][cat] || 0) + sec;
+    if (!state.byHour[hour].byApp || typeof state.byHour[hour].byApp !== 'object') {
+      state.byHour[hour].byApp = {};
+    }
+    if (!state.byHour[hour].byApp[app]) {
+      state.byHour[hour].byApp[app] = { seconds: 0, category };
+    }
+    state.byHour[hour].byApp[app].seconds += sec;
+    state.byHour[hour].byApp[app].category = category;
 
     if (category === 'unproductive') {
       state.unproductiveStreak += sec;
@@ -278,6 +290,18 @@ function createStore(dataDir) {
       } else {
         dayObj = loadHistoryDay(key);
       }
+      let topApps = [];
+      if (dayObj && dayObj.byApp && typeof dayObj.byApp === 'object') {
+        topApps = Object.entries(dayObj.byApp)
+          .map(([name, info]) => ({
+            name,
+            seconds: (info && info.seconds) || 0,
+            category: (info && info.category) || 'other'
+          }))
+          .filter((e) => e.category !== 'ignored' && e.seconds > 0)
+          .sort((a, b) => b.seconds - a.seconds)
+          .slice(0, 3);
+      }
       days.push({
         date: key,
         byCategory: dayObj
@@ -285,7 +309,8 @@ function createStore(dataDir) {
               { productive: 0, unproductive: 0, other: 0 },
               dayObj.byCategory || {}
             )
-          : { productive: 0, unproductive: 0, other: 0 }
+          : { productive: 0, unproductive: 0, other: 0 },
+        topApps
       });
     }
     return days;
@@ -323,9 +348,12 @@ function createStore(dataDir) {
       date: state.date,
       byCategory,
       topApps,
-      byHour: (state.byHour || emptyByHour()).map((h) =>
-        Object.assign(emptyHour(), h || {})
-      ),
+      byHour: (state.byHour || emptyByHour()).map((h) => {
+        const src = h || {};
+        const byApp =
+          src.byApp && typeof src.byApp === 'object' ? { ...src.byApp } : {};
+        return Object.assign(emptyHour(), src, { byApp });
+      }),
       week: weekSummary(),
       unproductiveStreak: state.unproductiveStreak,
       lastReminderAt: state.lastReminderAt,
