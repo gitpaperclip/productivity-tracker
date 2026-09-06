@@ -78,6 +78,7 @@ body {
   grid-template-columns: 220px 1fr;
   min-height: 100vh;
   background: transparent;
+  transition: grid-template-columns 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .rail {
@@ -88,9 +89,33 @@ body {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .logo { display: flex; gap: 12px; align-items: center; padding: 4px 8px; }
+.logo > div {
+  overflow: hidden;
+  max-width: 160px;
+  opacity: 1;
+  white-space: nowrap;
+  transition: opacity 180ms ease, max-width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-label {
+  display: inline-block;
+  max-width: 140px;
+  opacity: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: baseline;
+  transition: opacity 180ms ease, max-width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rail-foot .tiny {
+  overflow: hidden;
+  max-height: 40px;
+  opacity: 1;
+  transition: opacity 160ms ease, max-height 240ms ease;
+}
 .logo-mark-ff {
   width: 34px; height: 34px; border-radius: 12px;
   display: flex; align-items: baseline; justify-content: center;
@@ -119,7 +144,7 @@ body {
   padding: 11px 12px; border-radius: 12px;
   font: inherit; font-size: 14px; font-weight: 500;
   display: flex; align-items: center; gap: 10px;
-  transition: background 160ms ease, color 160ms ease;
+  transition: background 160ms ease, color 160ms ease, padding 280ms cubic-bezier(0.22, 1, 0.36, 1), gap 280ms ease;
 }
 .nav-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); }
 .nav-btn.active { background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
@@ -130,6 +155,7 @@ body {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
   letter-spacing: 0.02em;
+  transition: width 240ms ease, height 240ms ease, padding 240ms ease, font-size 120ms ease, margin 240ms ease;
 }
 .status-pill.real { background: var(--prod-bg); color: var(--prod); }
 .status-pill.demo { background: rgba(129,140,248,0.15); color: #c7d2fe; }
@@ -784,10 +810,41 @@ h4.unprod { color: var(--unprod); }
 }
 
 @media (max-width: 900px) {
-  .shell { grid-template-columns: 1fr; }
-  .rail { flex-direction: row; align-items: center; gap: 16px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .shell {
+    grid-template-columns: 1fr;
+    transition: none;
+  }
+  .rail { flex-direction: row; align-items: center; gap: 16px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
   .nav { flex-direction: row; }
   .rail-foot { margin-top: 0; margin-left: auto; }
+  .nav-toggle { display: none; }
+  /* Collapse class must not shrink the horizontal rail */
+  body.nav-collapsed .shell { grid-template-columns: 1fr; }
+  body.nav-collapsed .logo > div,
+  body.nav-collapsed .nav-label {
+    max-width: 160px;
+    opacity: 1;
+  }
+  body.nav-collapsed .nav-btn {
+    justify-content: flex-start;
+    padding-left: 12px;
+    padding-right: 12px;
+    gap: 10px;
+  }
+  body.nav-collapsed .nav-btn .nav-ico { font-size: inherit; opacity: 0.7; }
+  body.nav-collapsed .rail-foot .tiny {
+    display: block;
+    max-height: 40px;
+    opacity: 1;
+  }
+  body.nav-collapsed .status-pill {
+    font-size: 12px;
+    width: auto;
+    height: auto;
+    padding: 7px 10px;
+    margin: 0;
+    border-radius: 999px;
+  }
 }
 
 .switch-row, .field {
@@ -933,27 +990,49 @@ code { font-family: var(--mono); color: #c7d2fe; font-size: 12px; }
   font-size: 14px;
   line-height: 1;
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 160ms ease, border-color 160ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .nav-toggle:hover { color: var(--text); border-color: var(--line-strong); }
-
+.nav-caret {
+  display: block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 7px 5px 0;
+  border-color: transparent currentColor transparent transparent;
+  margin-right: 1px;
+}
 body.nav-collapsed .shell {
   grid-template-columns: 72px 1fr;
 }
-body.nav-collapsed .logo-word,
-body.nav-collapsed .logo-sub,
 body.nav-collapsed .nav-btn {
-  font-size: 0;
   gap: 0;
   justify-content: center;
   padding-left: 8px;
   padding-right: 8px;
 }
+body.nav-collapsed .nav-label {
+  max-width: 0;
+  opacity: 0;
+}
 body.nav-collapsed .nav-btn .nav-ico {
   font-size: 16px;
   opacity: 1;
 }
-body.nav-collapsed .logo > div { display: none; }
-body.nav-collapsed .rail-foot .tiny { display: none; }
+body.nav-collapsed .logo > div {
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+body.nav-collapsed .rail-foot .tiny {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+}
 body.nav-collapsed .status-pill {
   font-size: 0;
   width: 12px;
@@ -961,6 +1040,7 @@ body.nav-collapsed .status-pill {
   padding: 0;
   margin: 0 auto;
   border-radius: 50%;
+  transition: width 240ms ease, height 240ms ease, padding 240ms ease, font-size 0ms linear 120ms;
 }
 body.nav-collapsed .nav-toggle { transform: scaleX(-1); }
 
@@ -1196,18 +1276,119 @@ body[data-boost="on"]::after {
   30%, 50% { opacity: 0.2; }
 }
 
+/* Button physical hit / settle + screen-edge kick */
+.focusboost-btn.fb-hit {
+  animation: fb-hit 420ms cubic-bezier(0.2, 1.45, 0.3, 1) !important;
+}
+.focusboost-btn.fb-settle {
+  animation: fb-settle 300ms ease-out !important;
+}
+.focusboost-btn.fb-hit::after,
+.focusboost-btn.fb-settle::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+.focusboost-btn.fb-hit::after {
+  border: 2px solid rgba(52,211,153,0.75);
+  box-shadow: 0 0 18px rgba(251,191,36,0.35);
+  animation: fb-ripple 420ms ease-out forwards;
+}
+.focusboost-btn.fb-settle::after {
+  border: 1px solid rgba(148,163,184,0.35);
+  animation: fb-settle-ring 300ms ease-out forwards;
+}
+
+@keyframes fb-hit {
+  0% { transform: scale(1) rotate(0deg); }
+  12% { transform: scale(0.9) rotate(-1.2deg); }
+  28% { transform: scale(1.1) rotate(1.6deg); }
+  48% { transform: scale(0.96) rotate(-0.6deg); }
+  68% { transform: scale(1.04) rotate(0.4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+@keyframes fb-settle {
+  0% { transform: scale(1); }
+  45% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+@keyframes fb-ripple {
+  0% { transform: scale(0.92); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+@keyframes fb-settle-ring {
+  0% { transform: scale(1.05); opacity: 0.55; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+.boost-kick {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  opacity: 0;
+  visibility: hidden;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(52,211,153,0.28), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 0% 50%, rgba(251,191,36,0.16), transparent 65%),
+    radial-gradient(ellipse 50% 35% at 100% 50%, rgba(52,211,153,0.14), transparent 65%);
+  box-shadow:
+    inset 0 0 0 0 transparent;
+}
+.boost-kick.play {
+  visibility: visible;
+  animation: boost-kick-flash 480ms ease-out forwards;
+}
+@keyframes boost-kick-flash {
+  0% {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 70px 18px rgba(52,211,153,0.4),
+      inset 0 0 120px 36px rgba(251,191,36,0.18);
+  }
+  55% {
+    opacity: 0.7;
+    box-shadow:
+      inset 0 0 40px 8px rgba(52,211,153,0.22),
+      inset 0 0 80px 16px rgba(251,191,36,0.1);
+  }
+  100% {
+    opacity: 0;
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .shell,
+  .logo > div,
+  .nav-label,
+  .nav-btn,
+  .nav-toggle,
+  .rail-foot .tiny,
+  body.nav-collapsed .status-pill {
+    transition: none !important;
+  }
   .boost-overlay,
   .boost-overlay.play,
   .boost-overlay.play .boost-flash,
   .boost-scan,
   .boost-hex,
+  .boost-kick,
+  .boost-kick.play,
   .focusboost-btn[data-boost="on"],
   .focusboost-btn.armed,
+  .focusboost-btn.fb-hit,
+  .focusboost-btn.fb-settle,
+  .focusboost-btn.fb-hit::after,
+  .focusboost-btn.fb-settle::after,
   body[data-boost="on"]::after {
     animation: none !important;
   }
-  .boost-overlay.play { display: none; }
+  .boost-overlay.play,
+  .boost-kick.play { display: none; }
   /* Haze stays; falling bolts disabled */
   body[data-boost="on"]::after {
     content: none;

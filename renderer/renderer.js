@@ -673,6 +673,41 @@ function playBoostFlash() {
   window.setTimeout(() => overlay.classList.remove('play'), 900);
 }
 
+function playBoostKick() {
+  if (reduceMotion) return;
+  let kick = $('boost-kick');
+  if (!kick) {
+    kick = document.createElement('div');
+    kick.id = 'boost-kick';
+    kick.className = 'boost-kick';
+    kick.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(kick);
+  }
+  kick.classList.remove('play');
+  void kick.offsetWidth;
+  kick.classList.add('play');
+  window.setTimeout(() => kick.classList.remove('play'), 520);
+}
+
+/** Physical button feedback: hard hit on arm, soft settle on disarm. */
+function playFocusBoostFeel(arming) {
+  if (reduceMotion) return;
+  const btn = $('focusboost-btn');
+  if (btn) {
+    btn.classList.remove('fb-hit', 'fb-settle');
+    void btn.offsetWidth;
+    btn.classList.add(arming ? 'fb-hit' : 'fb-settle');
+    window.setTimeout(
+      () => btn.classList.remove('fb-hit', 'fb-settle'),
+      arming ? 480 : 320
+    );
+  }
+  if (arming) {
+    playBoostFlash();
+    playBoostKick();
+  }
+}
+
 
 function hourLabel(h) {
   const end = (h + 1) % 24;
@@ -1057,7 +1092,7 @@ async function toggleFocusBoost() {
         thresholdSec: FOCUSBOOST_SEC
       }
     );
-    playBoostFlash();
+    playFocusBoostFeel(true);
   } else {
     const restore =
       Number(settings.focusBoostRestoreSec) || thresholdBeforeBoost || 600;
@@ -1071,6 +1106,7 @@ async function toggleFocusBoost() {
         thresholdSec: restore
       }
     );
+    playFocusBoostFeel(false);
   }
 }
 

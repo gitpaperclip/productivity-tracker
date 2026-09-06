@@ -73,8 +73,8 @@ Tracking backends TBD. UI and store run; live capture may use active-win or demo
 North star: private · honest · alive. Local Windows companion with a daily loop (goal → Boost nudges → Roundup), not another guilt dashboard.
 
 ### Near-term feel
-- Side nav smooth expand/collapse animation
-- Stronger FocusBoost "hit the UI" press feedback
+- ~~Side nav smooth expand/collapse animation~~ **done** (CSS width/opacity; respects reduced-motion; mobile rail unchanged)
+- ~~Stronger FocusBoost "hit the UI" press feedback~~ **done** (button punch + edge kick on arm; soft settle on disarm)
 - Roundup tab (after Analytics): fun daily wrap — did you hit the goal? focus vibe?
 - Classification smarts: browser yellow "browser" tag, sharper title keywords
 
