@@ -54,15 +54,17 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-function setAppTrunc(el, text) {
+function setAppTrunc(el, text, tipLabel) {
   if (!el) return;
   const t = text == null ? '' : String(text);
   el.textContent = t;
   if (t && t !== '—' && t !== 'Waiting for an app…') {
     el.setAttribute('data-full', t);
     el.classList.add('app-trunc');
+    if (tipLabel) el.setAttribute('data-tip-label', tipLabel);
   } else {
     el.setAttribute('data-full', '');
+    el.removeAttribute('data-tip-label');
   }
 }
 
@@ -83,14 +85,19 @@ function showNameTip(ev) {
     hideNameTip();
     return;
   }
-  // Only show when truncated (or always for long strings)
-  const truncated = el.scrollWidth > el.clientWidth + 1 || full.length > 18;
+  // Only show when actually truncated
+  const truncated = el.scrollWidth > el.clientWidth + 1;
   if (!truncated) {
     hideNameTip();
     return;
   }
+  const kind = el.getAttribute('data-tip-label') || 'Full text';
   tip.innerHTML =
-    '<div class="nt-label">Full name</div><div class="nt-full">' + esc(full) + '</div>';
+    '<div class="nt-label">' +
+    esc(kind) +
+    '</div><div class="nt-full">' +
+    esc(full) +
+    '</div>';
   tip.classList.remove('hidden');
   const pad = 12;
   const tw = tip.offsetWidth || 200;
@@ -1239,18 +1246,18 @@ function renderRoundup(stats) {
   const apps = (stats && stats.topApps) || [];
   const topP = apps.find((a) => a.category === 'productive');
   const topU = apps.find((a) => a.category === 'unproductive');
-  setAppTrunc($('ru-top-focus'), topP ? topP.name : '—');
-  if ($('ru-top-focus-sub')) {
-    $('ru-top-focus-sub').textContent = topP
-      ? fmtFriendly(topP.seconds) + ' productive'
-      : 'No productive apps yet';
-  }
-  setAppTrunc($('ru-distract'), topU ? topU.name : '—');
-  if ($('ru-distract-sub')) {
-    $('ru-distract-sub').textContent = topU
-      ? fmtFriendly(topU.seconds) + ' unproductive'
-      : 'No unproductive apps yet';
-  }
+  setAppTrunc($('ru-top-focus'), topP ? topP.name : '—', 'App');
+  setAppTrunc(
+    $('ru-top-focus-sub'),
+    topP ? fmtFriendly(topP.seconds) + ' productive' : 'No productive apps yet',
+    'Detail'
+  );
+  setAppTrunc($('ru-distract'), topU ? topU.name : '—', 'App');
+  setAppTrunc(
+    $('ru-distract-sub'),
+    topU ? fmtFriendly(topU.seconds) + ' unproductive' : 'No unproductive apps yet',
+    'Detail'
+  );
   const hours = normalizeByHour(stats && stats.byHour);
   let peakHour = -1;
   let peakProd = -1;
@@ -1260,24 +1267,22 @@ function renderRoundup(stats) {
       peakHour = i;
     }
   }
-  if ($('ru-peak')) {
-    $('ru-peak').textContent = peakProd > 0 ? hourLabel(peakHour) : '—';
-  }
-  if ($('ru-peak-sub')) {
-    $('ru-peak-sub').textContent =
-      peakProd > 0 ? fmtFriendly(peakProd) + ' productive' : 'Most productive hour';
-  }
+  setAppTrunc($('ru-peak'), peakProd > 0 ? hourLabel(peakHour) : '—', 'Peak hour');
+  setAppTrunc(
+    $('ru-peak-sub'),
+    peakProd > 0 ? fmtFriendly(peakProd) + ' productive' : 'Most productive hour',
+    'Detail'
+  );
 
   const denom = prod + unp;
-  if ($('ru-share')) {
-    $('ru-share').textContent = denom > 0 ? Math.round((prod / denom) * 100) + '%' : '—';
-  }
-  if ($('ru-share-sub')) {
-    $('ru-share-sub').textContent =
-      denom > 0
-        ? fmtFriendly(prod) + ' productive · ' + fmtFriendly(unp) + ' unproductive'
-        : 'Of productive + unproductive';
-  }
+  setAppTrunc($('ru-share'), denom > 0 ? Math.round((prod / denom) * 100) + '%' : '—', 'Focus share');
+  setAppTrunc(
+    $('ru-share-sub'),
+    denom > 0
+      ? fmtFriendly(prod) + ' productive · ' + fmtFriendly(unp) + ' unproductive'
+      : 'Of productive + unproductive',
+    'Detail'
+  );
 
   const story = $('roundup-story');
   if (story) {
