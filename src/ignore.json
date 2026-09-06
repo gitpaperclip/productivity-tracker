@@ -1,0 +1,21 @@
+{
+  "ignore": [
+    "explorer",
+    "applicationframehost",
+    "shellexperiencehost",
+    "searchapp",
+    "searchui",
+    "startmenuexperiencehost",
+    "textinputhost",
+    "systemsettings",
+    "lockapp",
+    "dwm",
+    "taskmgr",
+    "securityhealthsystray",
+    "nvidia share",
+    "windows shell experience",
+    "progman",
+    "calculator",
+    "calc"
+  ]
+}

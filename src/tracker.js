@@ -1,7 +1,7 @@
 'use strict';
 
 const { createDemoBackend } = require('./demo-windows');
-const { classify, appLabel } = require('./classifier');
+const { classify, appLabel, isIgnored } = require('./classifier');
 
 function createActiveWinBackend() {
   let impl = null;
@@ -16,6 +16,7 @@ function createActiveWinBackend() {
       return impl;
     } catch (err) {
       lastError = err.message || String(err);
+      console.warn('[tracker] active-win unavailable:', lastError);
       failed = true;
       return null;
     }
@@ -25,10 +26,14 @@ function createActiveWinBackend() {
     const fn = await load();
     if (!fn) return { window: null, error: lastError || 'active-win not loaded' };
     try {
-      const win = await fn({ accessibilityPermission: false, screenRecordingPermission: false });
+      const win = await fn({
+        accessibilityPermission: false,
+        screenRecordingPermission: false
+      });
       return { window: win || null, error: null };
     } catch (err) {
       lastError = err.message || String(err);
+      console.warn('[tracker] active-win getActiveWindow failed:', lastError);
       return { window: null, error: lastError };
     }
   }
@@ -36,20 +41,54 @@ function createActiveWinBackend() {
   return { getActiveWindow };
 }
 
+/**
+ * win32: PowerShell/user32 windows-backend is PRIMARY.
+ * active-win only on non-Windows, or if windows-backend fails to load / errors at runtime.
+ * Never silently switch to demo when demoMode is false.
+ */
 function createRealBackend() {
   if (process.platform === 'win32') {
+    let windows = null;
+    let activeWin = null;
+    let useActiveWin = false;
+
     try {
-      const { createWindowsBackend } = require('./windows-backend');
-      return createWindowsBackend();
+      windows = require('./windows-backend').createWindowsBackend();
     } catch (err) {
-      console.warn('[tracker] windows-backend load failed, falling back to active-win', err.message);
+      console.warn(
+        '[tracker] windows-backend load failed, falling back to active-win:',
+        err.message || err
+      );
       return createActiveWinBackend();
     }
+
+    async function getActiveWindow() {
+      if (!useActiveWin) {
+        const result = await windows.getActiveWindow();
+        if (result.window || !result.error) {
+          return result;
+        }
+        console.warn('[tracker] windows-backend error, falling back to active-win:', result.error);
+        useActiveWin = true;
+      }
+      if (!activeWin) activeWin = createActiveWinBackend();
+      return activeWin.getActiveWindow();
+    }
+
+    return { getActiveWindow };
   }
+
   return createActiveWinBackend();
 }
 
-function createTracker({ store, rules, onTick, onReminder }) {
+/**
+ * rulesHolder = { rules }; ignoreHolder = { ignore }
+ * Mutable so IPC can hot-reload without restarting tracker.
+ * Also accepts legacy `rules` / `ignore` plain values for smoke/tests.
+ */
+function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick, onReminder }) {
+  const rHolder = rulesHolder || { rules: rules };
+  const iHolder = ignoreHolder || { ignore: ignore || [] };
   const real = createRealBackend();
   const demo = createDemoBackend();
   let timer = null;
@@ -70,26 +109,42 @@ function createTracker({ store, rules, onTick, onReminder }) {
 
     const settings = store.getSettings();
     let win = null;
-    let source = 'demo';
+    let source = 'idle';
     let trackingError = null;
 
     if (settings.demoMode) {
       win = demo.getActiveWindow();
       source = 'demo';
+      trackingError = null;
     } else {
+      // Real mode only — do not silently fall back to demo
       const result = await real.getActiveWindow();
       win = result.window;
-      trackingError = result.error;
+      trackingError = result.error || null;
       source = win ? 'real' : 'idle';
     }
 
-    const category = win ? classify(win, rules) : 'other';
-    const app = win ? appLabel(win) : (trackingError ? 'Tracking unavailable' : 'No active window');
-    const title = (win && win.title) || (trackingError
-      ? trackingError
-      : (settings.demoMode ? '' : 'Switch apps to start tracking'));
+    const ignored = win ? isIgnored(win, iHolder.ignore || []) : false;
+    // Show in Now viewing; do not log time or affect streaks when ignored
+    const category = !win ? 'other' : ignored ? 'ignored' : classify(win, rHolder.rules);
+    const app = win
+      ? appLabel(win)
+      : trackingError
+        ? 'Tracking unavailable'
+        : 'No active window';
+    const title =
+      (win && win.title) ||
+      (trackingError
+        ? trackingError
+        : settings.demoMode
+          ? ''
+          : 'Switch apps to start tracking');
 
-    const same = current.app === app && current.title === title && current.category === category;
+    const same =
+      current.app === app &&
+      current.title === title &&
+      current.category === category;
+
     if (!same) {
       current = { window: win, app, title, category, since: now, source };
     } else {
@@ -97,9 +152,11 @@ function createTracker({ store, rules, onTick, onReminder }) {
       current.source = source;
     }
 
-    if (win) store.addSeconds(app, category, elapsed);
+    if (win && !ignored) {
+      store.addSeconds(app, category, elapsed);
+    }
 
-    if (win && store.shouldRemind() && category === 'unproductive') {
+    if (win && !ignored && store.shouldRemind() && category === 'unproductive') {
       store.markReminder();
       if (onReminder) {
         onReminder({
@@ -118,6 +175,7 @@ function createTracker({ store, rules, onTick, onReminder }) {
           title,
           category,
           source,
+          ignored,
           url: (win && win.url) || '',
           elapsedSec: Math.round((now - current.since) / 1000),
           trackingError

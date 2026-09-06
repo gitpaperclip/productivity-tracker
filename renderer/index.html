@@ -129,18 +129,31 @@
         </article>
 
         <article class="card">
-          <h3>Classification rules</h3>
-          <p class="hint">Case-insensitive match on process + title + URL. Unproductive wins on overlap.</p>
+          <h3>Classification keywords</h3>
+          <p class="hint">Matches process name, window title, and URL. Unproductive wins on overlap. Chrome titles like ‘YouTube’ count.</p>
           <div class="rules-cols">
             <div>
               <h4 class="prod">Productive</h4>
-              <ul id="rules-prod" class="rules"></ul>
+              <textarea id="rules-prod-edit" class="rules-textarea" spellcheck="false" rows="14" placeholder="one keyword per line"></textarea>
             </div>
             <div>
               <h4 class="unprod">Unproductive</h4>
-              <ul id="rules-unprod" class="rules"></ul>
+              <textarea id="rules-unprod-edit" class="rules-textarea" spellcheck="false" rows="14" placeholder="one keyword per line"></textarea>
             </div>
           </div>
+          <div class="rules-actions">
+            <button type="button" id="rules-save" class="btn primary">Save keywords</button>
+            <button type="button" id="rules-reset" class="btn ghost">Reset to defaults</button>
+            <span id="rules-status" class="muted tiny"></span>
+          </div>
+          <p class="hint">Active file: <code id="rules-path">src/rules.json</code> <span id="rules-custom-label"></span></p>
+        </article>
+
+        <article class="card">
+          <h3>Ignored system apps</h3>
+          <p class="hint">Shown in Now viewing but not logged (no time, no streak). Shell / OS chrome noise.</p>
+          <ul id="ignore-list" class="rules ignore-list"></ul>
+          <p class="hint">File: <code id="ignore-path">src/ignore.json</code></p>
         </article>
       </section>
     </main>
