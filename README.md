@@ -106,6 +106,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - ~~Stronger FocusBoost "hit the UI" press feedback~~ **done** (button punch + edge kick on arm; soft settle on disarm)
 - ~~Roundup tab (after Analytics)~~ **done (v1)**: headline, goal bar, highlights, story
 - Classification smarts: browser yellow "browser" tag, sharper title keywords
+- **Focus Tags quick add + search** (wanted): on Focus Tags, search/add a keyword with P / U / Ign; show if that tag already exists (and which list). Ship before Focus profiles.
 
 ### Product loop
 - Daily productivity goal: Settings-only (feeds Roundup; off Home)
@@ -120,7 +121,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Disk usage display with privacy/Data
 
 ### Tray stage (shelved until tray)
-- Tray menu: pick **Focus mode** quickly (Coding, Resume writing, Homework, …)
+- Tray menu: pick **Focus profile** quickly (Coding, Resume writing, Homework, …)
 - **Downtime mode**: don’t treat (or don’t log) unproductive apps — evenings / breaks without guilt or noise; still optional light presence
 - Tray: Pause tracking, arm/disarm FocusBoost, open Roundup / Home
 - Tray icon state reflects mode (active / downtime / paused)
@@ -132,15 +133,18 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Roundup daily notification (post-launch): onboarding + Settings time picker; Windows toast with action → Roundup tab
 - **Focus share goal** (later): Settings target % focused vs unfocused; Roundup shows hit/miss alongside productive-hours goal (Analytics already has Focus share)
 
-### Longer-term: Focus modes (context-aware productivity)
-Named modes that swap what "productive" means for the task you're in — e.g. Resume writing, Coding, Homework, Deep reading.
-- Each mode has its own productive / unproductive / ignore keyword sets (or overlays on the global Focus Tags)
-- Example: in Resume writing, VS Code / Cursor may count as unproductive (wrong rabbit hole); Word / Docs / LinkedIn profile editors count as productive
-- Example: in Coding, Stack Overflow / docs are productive; Netflix still isn't
-- UI: quick mode picker on Home (and later tray); mode name shown on Last focused / Roundup
-- Adaptive angle (later): suggest mode from recent apps, or warn when current apps fight the active mode
-- **Downtime** mode: pause unproductive scoring / reminders (and optionally skip logging U apps) without full app quit — pairs with tray
-- Keep fully local; modes live in settings/rules files, exportable in `.focusflow`
+### Longer-term: Focus profiles (context-aware productivity)
+Formerly "Focus modes" — named **Focus profiles** that swap what "productive" means for the task you're in (e.g. Writing, Coding, Homework, Deep reading).
+- **Cap: up to 5 profiles** (user-workshopped defaults later; add/remove within the cap)
+- Each profile owns its productive / unproductive / ignore Focus Tags (or overlays on a base set)
+- Example: Writing profile — VS Code / Cursor may count as unproductive; Word / Docs / LinkedIn editors count as productive
+- Example: Coding profile — Stack Overflow / docs productive; Netflix still isn't
+- **Lives on the Focus Tags page**: manage profiles there (create/edit/remove, see which tags belong to the active profile)
+- **Home hotswitch**: quick switcher for the active Focus profile (later also tray)
+- **Export / import** Focus profiles (portable; fits `.focusflow` or a small profile pack) — after switch + Tags UI work
+- Adaptive angle (later): suggest profile from recent apps, or warn when current apps fight the active profile
+- **Downtime** profile/mode: pause unproductive scoring / reminders (and optionally skip logging U apps) without full app quit — pairs with tray
+- Keep fully local
 
 ### Explicit non-goals (for now)
 - Cloud sync / accounts
