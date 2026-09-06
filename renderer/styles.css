@@ -1811,9 +1811,6 @@ body[data-boost="on"]::after {
   padding-top: 8px;
   padding-bottom: 0;
 }
-#fb-schedule-hint {
-  margin-top: 8px;
-}
 
 
 .chart-tip-wrap {

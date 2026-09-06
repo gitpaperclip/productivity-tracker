@@ -971,18 +971,6 @@ function syncFocusBoostScheduleUi(settings) {
   if (times) times.classList.toggle('is-disabled', !enabled);
   if (start) start.disabled = !enabled;
   if (end) end.disabled = !enabled;
-  const hint = $('fb-schedule-hint');
-  if (hint) {
-    if (!enabled) {
-      hint.textContent = 'Local time. Overnight windows OK (e.g. 22:00–06:00).';
-    } else {
-      const a = settings.focusBoostScheduleStart || '09:00';
-      const b = settings.focusBoostScheduleEnd || '17:00';
-      const nowOn = isInFocusBoostScheduleWindow(settings);
-      hint.textContent =
-        'Active ' + a + '–' + b + ' local · currently ' + (nowOn ? 'in window' : 'outside window') + '.';
-    }
-  }
 }
 
 function playBoostFlash() {
