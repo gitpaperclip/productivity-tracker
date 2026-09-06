@@ -148,8 +148,7 @@
         <article class="card roundup-goal" id="roundup-goal-card">
           <div class="field-label-row roundup-goal-head">
             <span class="lf-kicker">Daily productivity goal</span>
-            <span id="roundup-goal-status" class="settings-token muted tiny">—</span>
-          </div>
+                      </div>
           <div class="roundup-goal-row">
             <div id="roundup-goal-value" class="roundup-goal-value">0m / 2h</div>
             <div id="roundup-goal-pct" class="roundup-goal-pct muted">0%</div>
@@ -157,7 +156,6 @@
           <div class="roundup-goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="roundup-goal-bar">
             <div id="roundup-goal-fill" class="roundup-goal-fill"></div>
           </div>
-          <p id="roundup-goal-note" class="roundup-goal-note muted tiny">Change the target in Settings.</p>
         </article>
 
         <div class="roundup-highlights" id="roundup-highlights">
@@ -216,9 +214,15 @@
               <span><span class="swatch unprod"></span> Unproductive</span>
               <span><span class="swatch other"></span> Other</span>
             </div>
-            <div class="chart-tip-wrap"><div id="day-chart" class="day-chart" role="img" aria-label="Hourly time breakdown"></div>
-            <div id="day-tip" class="chart-tip pie-tip hidden" role="tooltip"></div>
-          </div>
+            <div class="chart-tip-wrap">
+              <div class="chart-frame">
+                <div id="day-y-axis" class="chart-y" aria-hidden="true"></div>
+                <div class="chart-plot">
+                  <div id="day-chart" class="day-chart" role="img" aria-label="Hourly time breakdown"></div>
+                </div>
+                <div id="day-tip" class="chart-tip pie-tip hidden" role="tooltip"></div>
+              </div>
+            </div>
           </article>
 
           <div class="day-metric-grid">
@@ -247,9 +251,15 @@
               <span><span class="swatch unprod"></span> Unproductive</span>
               <span><span class="swatch other"></span> Other</span>
             </div>
-            <div class="chart-tip-wrap"><div id="week-chart" class="day-chart week-chart" role="img" aria-label="Weekly time breakdown"></div>
-            <div id="week-tip" class="chart-tip pie-tip hidden" role="tooltip"></div>
-          </div>
+            <div class="chart-tip-wrap">
+              <div class="chart-frame">
+                <div id="week-y-axis" class="chart-y" aria-hidden="true"></div>
+                <div class="chart-plot">
+                  <div id="week-chart" class="day-chart week-chart" role="img" aria-label="Weekly time breakdown"></div>
+                </div>
+                <div id="week-tip" class="chart-tip pie-tip hidden" role="tooltip"></div>
+              </div>
+            </div>
           </article>
 
           <div class="day-metric-grid">

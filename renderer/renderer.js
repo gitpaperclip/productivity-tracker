@@ -709,6 +709,50 @@ function formatWeekDateLabel(iso) {
   }
 }
 
+function formatAxisDuration(seconds) {
+  seconds = Math.max(0, Math.floor(+seconds || 0));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h >= 1) {
+    if (m <= 0) return h + 'h';
+    return h + 'h ' + m + 'm';
+  }
+  if (m >= 1) return m + 'm';
+  if (seconds <= 0) return '0';
+  return seconds + 's';
+}
+
+function niceAxisMaxSeconds(maxSeconds) {
+  const max = Math.max(0, Number(maxSeconds) || 0);
+  if (max <= 0) return 60 * 60;
+  const steps = [
+    60, 120, 300, 600, 900, 1800, 2700,
+    3600, 5400, 7200, 10800, 14400, 18000, 21600,
+    28800, 36000, 43200, 54000, 64800, 86400
+  ];
+  for (let i = 0; i < steps.length; i++) {
+    if (steps[i] >= max) return steps[i];
+  }
+  return Math.ceil(max / 3600) * 3600;
+}
+
+function renderChartYAxis(elementId, axisMaxSeconds) {
+  const el = $(elementId);
+  if (!el) return;
+  const max = Math.max(0, Number(axisMaxSeconds) || 0) || 60 * 60;
+  const mid = max / 2;
+  el.innerHTML =
+    '<span class="chart-y-tick">' +
+    esc(formatAxisDuration(max)) +
+    '</span>' +
+    '<span class="chart-y-tick">' +
+    esc(formatAxisDuration(mid)) +
+    '</span>' +
+    '<span class="chart-y-tick">' +
+    esc(formatAxisDuration(0)) +
+    '</span>';
+}
+
 function weekTickLabel(iso) {
   const raw = String(iso || '');
   const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -750,6 +794,7 @@ function renderWeek(stats) {
 
   if (!week.length) {
     chart.innerHTML = '<div class="week-empty muted">No week data yet</div>';
+    renderChartYAxis('week-y-axis', 60 * 60);
     setMetrics('—', 'No productive time yet', '0 min', 'All categories · last 7 days', '—', 'Of productive + unproductive');
     return;
   }
@@ -792,6 +837,8 @@ function renderWeek(stats) {
     }
   }
   if (max < 1) max = 1;
+  const axisMax = niceAxisMaxSeconds(max);
+  renderChartYAxis('week-y-axis', axisMax);
 
   weekHoverDays = days.map((h) => ({
     date: h.date,
@@ -806,7 +853,7 @@ function renderWeek(stats) {
     .map((h, i) => {
       const sum = h.productive + h.unproductive + h.other;
       const empty = sum <= 0;
-      const trackPct = empty ? 0 : Math.max(6, Math.round((sum / max) * 100));
+      const trackPct = empty ? 0 : Math.max(6, Math.round((sum / axisMax) * 100));
       const pPct = sum ? (h.productive / sum) * 100 : 0;
       const uPct = sum ? (h.unproductive / sum) * 100 : 0;
       const oPct = sum ? (h.other / sum) * 100 : 0;
@@ -1182,6 +1229,8 @@ function renderDay(stats) {
     }
   }
   if (max < 1) max = 1;
+  const axisMax = niceAxisMaxSeconds(max);
+  renderChartYAxis('day-y-axis', axisMax);
 
   if (analyticsSegment === 'day') {
     const sub = $('analytics-subtitle');
@@ -1197,7 +1246,7 @@ function renderDay(stats) {
     .map((h, i) => {
       const sum = h.productive + h.unproductive + h.other;
       const empty = sum <= 0;
-      const trackPct = empty ? 0 : Math.max(6, Math.round((sum / max) * 100));
+      const trackPct = empty ? 0 : Math.max(6, Math.round((sum / axisMax) * 100));
       const pPct = sum ? (h.productive / sum) * 100 : 0;
       const uPct = sum ? (h.unproductive / sum) * 100 : 0;
       const oPct = sum ? (h.other / sum) * 100 : 0;
@@ -1338,9 +1387,7 @@ function renderRoundup(stats) {
 
   const goalCard = $('roundup-goal-card');
   if (goalCard) goalCard.setAttribute('data-hit', thin ? 'na' : hit ? 'yes' : 'no');
-  if ($('roundup-goal-status')) {
-    $('roundup-goal-status').textContent = thin ? 'Warming up' : hit ? 'Hit' : 'In progress';
-  }
+
   if ($('roundup-goal-value')) {
     $('roundup-goal-value').textContent = fmtGoalShort(prod) + ' / ' + fmtGoalShort(goalSec);
   }
