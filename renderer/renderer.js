@@ -932,8 +932,12 @@ function fillRulesEditors(rules) {
   if ($('rules-prod-edit')) $('rules-prod-edit').value = (rules.productive || []).join('\n');
   if ($('rules-unprod-edit')) $('rules-unprod-edit').value = (rules.unproductive || []).join('\n');
   if (rules.path && $('rules-path')) $('rules-path').textContent = rules.path;
+  if (rules.path && $('rules-unprod-path')) $('rules-unprod-path').textContent = rules.path;
   if ($('rules-custom-label')) {
     $('rules-custom-label').textContent = rules.isCustom ? '(custom)' : '(defaults)';
+  }
+  if ($('rules-unprod-custom-label')) {
+    $('rules-unprod-custom-label').textContent = rules.isCustom ? '(custom)' : '(defaults)';
   }
 }
 

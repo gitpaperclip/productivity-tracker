@@ -29,7 +29,7 @@
           <span class="nav-ico">▣</span> Apps
         </button>
         <button class="nav-btn" data-tab="tags" type="button">
-          <span class="nav-ico">＃</span> Focus tags
+          <span class="nav-ico">＃</span> Focus Tags
         </button>
         <button class="nav-btn" data-tab="settings" type="button">
           <span class="nav-ico">⚙</span> Settings
@@ -224,12 +224,10 @@
       <section id="view-tags" class="view hidden">
         <header class="page-head">
           <div>
-            <h1>Focus tags</h1>
-            <p class="muted">Keywords that classify what you’re doing</p>
+            <h1>Focus Tags</h1>
+            <p class="muted tags-lead">Tags match process names, window title, and URL. Browsers use title keywords. Unproductive tag will win for overlapping keywords. Ignored keywords are not tracked for time.</p>
           </div>
         </header>
-
-        <p class="tags-intro muted">Tags match process name, window title, and URL. Browsers use title keywords (bare browser stays other). Unproductive wins on overlap. Ignore shows in status but isn’t logged.</p>
 
         <article class="card tags-card">
           <div class="lf-kicker tag-kicker prod">Productive</div>
@@ -252,6 +250,7 @@
             <button type="button" id="rules-unprod-reset" class="btn ghost">Reset to defaults</button>
             <span id="rules-unprod-status" class="muted tiny"></span>
           </div>
+          <p class="hint">Active file: <code id="rules-unprod-path">src/rules.json</code> <span id="rules-unprod-custom-label"></span></p>
         </article>
 
         <article class="card tags-card">
