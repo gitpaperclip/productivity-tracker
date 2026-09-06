@@ -3,6 +3,7 @@
 const path = require('path');
 const fs = require('fs');
 const { app, BrowserWindow, ipcMain, Notification, dialog } = require('electron');
+const { createAppTray } = require('./tray');
 
 const {
   loadRulesFrom,
@@ -50,6 +51,8 @@ let ignoreIsCustom = false;
 /** Last tracker tick — so state:get can return `now` + lastFocused. */
 let lastPayload = { now: null, stats: null, lastFocused: null };
 let servicesStarted = false;
+let appTray = null;
+let isQuitting = false;
 
 function dataDir() {
   try {
@@ -140,6 +143,13 @@ function createWindow() {
     mainWindow.show();
     // Start tracker after window is visible
     ensureTrackerStarted();
+  });
+  mainWindow.on('close', (e) => {
+    if (isQuitting) return;
+    if (appTray) {
+      e.preventDefault();
+      mainWindow.hide();
+    }
   });
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -260,23 +270,66 @@ function ensureTrackerStarted() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('tracker:update', payload);
       }
+      if (appTray && typeof appTray.refresh === 'function') {
+        appTray.refresh();
+      }
     },
     onReminder: fireReminder
   });
   tracker.start();
 }
 
+function sendTrackerUpdateToRenderer(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('tracker:update', payload);
+  }
+}
+
+function createTray() {
+  if (appTray) return appTray;
+  appTray = createAppTray({
+    getMainWindow: () => mainWindow,
+    getStore: () => store,
+    getSessionManager: () => sessionManager,
+    getLastPayload: () => lastPayload,
+    sendTrackerUpdate: (payload) => {
+      lastPayload = Object.assign({}, lastPayload, payload || {});
+      sendTrackerUpdateToRenderer(lastPayload);
+    },
+    onQuit: () => {
+      isQuitting = true;
+      if (tracker) {
+        try { tracker.stop(); } catch (_) {}
+      }
+      app.quit();
+    }
+  });
+  return appTray;
+}
+
 app.whenReady().then(() => {
   startServices();
   createWindow();
+  createTray();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
 });
 
 app.on('window-all-closed', () => {
-  if (tracker) tracker.stop();
-  if (process.platform !== 'darwin') app.quit();
+  // Keep running in tray; only stop tracker / quit when explicitly quitting.
+  if (isQuitting || !appTray) {
+    if (tracker) tracker.stop();
+    if (process.platform !== 'darwin') app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 ipcMain.handle('state:get', async () => ({
@@ -345,6 +398,9 @@ ipcMain.handle('settings:update', async (_e, partial) => {
     !!partial.sessionHistoryEnabled !== !!prev.sessionHistoryEnabled
   ) {
     sessionManager.applyHistorySetting(!!next.sessionHistoryEnabled);
+  }
+  if (appTray && typeof appTray.refresh === 'function') {
+    appTray.refresh();
   }
   return next;
 });
