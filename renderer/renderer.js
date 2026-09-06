@@ -565,9 +565,7 @@ if ($('data-import')) {
 if ($('data-clear-today')) {
   $('data-clear-today').addEventListener('click', async () => {
     if (!api || !api.clearToday) return;
-    if (!confirm('Clear TODAY\'s tracked time?
-
-Permanently deletes today\'s stats on this device. No cloud backup. Cannot be undone.')) return;
+    if (!confirm("Clear TODAY's tracked time?\n\nPermanently deletes today's stats on this device. No cloud backup. Cannot be undone.")) return;
     const res = await api.clearToday();
     if (res && res.ok) {
       $('data-status').textContent = 'Today cleared';
@@ -579,9 +577,7 @@ Permanently deletes today\'s stats on this device. No cloud backup. Cannot be un
 if ($('data-clear-all')) {
   $('data-clear-all').addEventListener('click', async () => {
     if (!api || !api.clearAllHistory) return;
-    if (!confirm('CLEAR ALL HISTORY?
-
-Deletes today and every archived day on this device. No cloud backup. Cannot be undone.')) return;
+    if (!confirm("CLEAR ALL HISTORY?\n\nDeletes today and every archived day on this device. No cloud backup. Cannot be undone.")) return;
     const res = await api.clearAllHistory();
     if (res && res.ok) {
       $('data-status').textContent = 'All history cleared';
