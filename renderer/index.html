@@ -336,14 +336,12 @@
         <article class="card session-timer-card" id="session-timer-card" data-running="off">
           <div class="session-timer-kicker">
             <span class="lf-kicker" id="session-timer-mode-label">Pomodoro</span>
-            <span id="session-timer-live" class="session-timer-live muted tiny">Ready</span>
           </div>
-          <div id="session-timer-display" class="session-timer-display mono" aria-live="polite">25:00</div>
-          <div class="session-timer-sub muted tiny" id="session-timer-sub">25 min planned</div>
+          <div id="session-timer-display" class="session-timer-display" aria-live="polite">25:00</div>
 
           <div class="segment-control session-mode-control" role="group" aria-label="Session mode">
-            <button type="button" class="segment-btn active" data-session-mode="pomodoro">Pomodoro · 25</button>
-            <button type="button" class="segment-btn" data-session-mode="deep">Deep · 90</button>
+            <button type="button" class="segment-btn active" data-session-mode="pomodoro">Pomodoro</button>
+            <button type="button" class="segment-btn" data-session-mode="deep">Deep</button>
             <button type="button" class="segment-btn" data-session-mode="custom">Custom</button>
           </div>
 
@@ -355,8 +353,12 @@
           </div>
 
           <div class="session-timer-actions">
-            <button type="button" id="session-start-btn" class="btn primary">Start session</button>
-            <button type="button" id="session-stop-btn" class="btn ghost" disabled>Stop early</button>
+            <button type="button" id="session-start-btn" class="session-play" title="Start session" aria-label="Start session">
+              <svg class="session-play-ico" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="currentColor" d="M9.2 6.8c-.7-.4-1.5.1-1.5.9v8.6c0 .8.8 1.3 1.5.9l7.4-4.3c.7-.4.7-1.4 0-1.8L9.2 6.8z"/>
+              </svg>
+            </button>
+            <button type="button" id="session-stop-btn" class="session-stop hidden" title="Stop session" aria-label="Stop session" disabled>STOP</button>
           </div>
 
           <p class="hint session-distract-hint">

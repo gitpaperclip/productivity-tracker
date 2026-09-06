@@ -2207,7 +2207,21 @@ function setSelectedSessionMode(mode, opts) {
   const silent = opts && opts.silent;
   if (mode !== 'pomodoro' && mode !== 'deep' && mode !== 'custom') mode = 'pomodoro';
   selectedSessionMode = mode;
-  document.querySelectorAll('[data-session-mode]').forEach((btn) => {
+  const sessionLogListEl = $('session-log-list');
+if (sessionLogListEl && !sessionLogListEl._expandBound) {
+  sessionLogListEl._expandBound = true;
+  sessionLogListEl.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.session-log-summary');
+    if (!btn || !sessionLogListEl.contains(btn)) return;
+    const item = btn.closest('.session-log-item');
+    if (!item) return;
+    const open = item.getAttribute('data-open') === 'on';
+    item.setAttribute('data-open', open ? 'off' : 'on');
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+  });
+}
+
+document.querySelectorAll('[data-session-mode]').forEach((btn) => {
     const on = btn.getAttribute('data-session-mode') === mode;
     btn.classList.toggle('active', on);
   });
@@ -2242,13 +2256,6 @@ function updateIdleCountdownDisplay() {
   }
   const modeLabel = $('session-timer-mode-label');
   if (modeLabel) modeLabel.textContent = label;
-  const sub = $('session-timer-sub');
-  if (sub) sub.textContent = Math.round(planned / 60) + ' min planned';
-  const live = $('session-timer-live');
-  if (live) {
-    live.textContent = 'Ready';
-    live.setAttribute('data-active', 'off');
-  }
   const homeStatus = $('home-session-status');
   if (homeStatus) {
     homeStatus.textContent = 'Idle';
@@ -2272,9 +2279,14 @@ function syncSessionControlsRunning(running) {
   if (card) card.setAttribute('data-running', running ? 'on' : 'off');
   if (startBtn) {
     startBtn.disabled = !!running;
-    startBtn.textContent = running ? 'Running…' : 'Start session';
+    startBtn.classList.toggle('hidden', !!running);
+    startBtn.setAttribute('aria-hidden', running ? 'true' : 'false');
   }
-  if (stopBtn) stopBtn.disabled = !running;
+  if (stopBtn) {
+    stopBtn.disabled = !running;
+    stopBtn.classList.toggle('hidden', !running);
+    stopBtn.setAttribute('aria-hidden', running ? 'false' : 'true');
+  }
   if (homeBtn) {
     homeBtn.textContent = running ? 'Stop' : 'Start';
     homeBtn.classList.toggle('primary', !running);
@@ -2312,21 +2324,6 @@ function renderActiveSession(session) {
   }
   const modeLabel = $('session-timer-mode-label');
   if (modeLabel) modeLabel.textContent = session.modeLabel || 'Session';
-  const sub = $('session-timer-sub');
-  if (sub) {
-    const planned = Number(session.plannedSec) || 0;
-    sub.textContent =
-      Math.round(planned / 60) +
-      ' min planned · ' +
-      (session.distractionCount || 0) +
-      ' distraction' +
-      (session.distractionCount === 1 ? '' : 's');
-  }
-  const live = $('session-timer-live');
-  if (live) {
-    live.textContent = 'Running';
-    live.setAttribute('data-active', 'on');
-  }
   const homeStatus = $('home-session-status');
   if (homeStatus) {
     homeStatus.textContent = (session.modeLabel || 'Session') + ' · ' + text;
@@ -2397,6 +2394,14 @@ async function stopFocusSession() {
   }
 }
 
+
+/** Main elapsed unit for session titles: 5m24s → 5m; 29s → 0m; 75m → 1h. */
+function fmtElapsedMainUnit(sec) {
+  const s = Math.max(0, Math.floor(Number(sec) || 0));
+  if (s >= 3600) return Math.floor(s / 3600) + 'h';
+  return Math.floor(s / 60) + 'm';
+}
+
 function statusChip(status) {
   if (status === 'completed') return '<span class="session-status-chip completed">Completed</span>';
   if (status === 'running') return '<span class="session-status-chip running">Running</span>';
@@ -2448,8 +2453,8 @@ function renderSessionLogList(payload) {
   }
   list.innerHTML = items
     .map((s) => {
-      const planned = Math.round((Number(s.plannedSec) || 0) / 60);
       const elapsed = Number(s.elapsedSec) || 0;
+      const unit = fmtElapsedMainUnit(elapsed);
       const range =
         fmtClock(s.startedAt) +
         (s.endedAt ? ' – ' + fmtClock(s.endedAt) : ' – now');
@@ -2466,16 +2471,20 @@ function renderSessionLogList(payload) {
             '</span></span>'
         )
         .join('');
+      const title =
+        esc(s.modeLabel || s.mode || 'Session') + ' · ' + unit;
       return (
-        '<div class="session-log-item">' +
-        '<div class="session-log-top">' +
-        '<div class="session-log-title">' +
-        esc(s.modeLabel || s.mode || 'Session') +
-        ' · ' +
-        planned +
-        'm</div>' +
+        '<div class="session-log-item" data-open="off">' +
+        '<button type="button" class="session-log-summary" aria-expanded="false">' +
+        '<span class="session-log-summary-left">' +
+        '<span class="session-log-caret" aria-hidden="true">▶</span>' +
+        '<span class="session-log-title">' +
+        title +
+        '</span>' +
+        '</span>' +
         statusChip(s.status) +
-        '</div>' +
+        '</button>' +
+        '<div class="session-log-details">' +
         '<div class="session-log-meta">' +
         esc(range) +
         ' · elapsed ' +
@@ -2487,6 +2496,7 @@ function renderSessionLogList(payload) {
         '<div class="session-log-distract">Distractions: <strong>' +
         esc(String(s.distractionCount || 0)) +
         '</strong></div>' +
+        '</div>' +
         '</div>'
       );
     })
