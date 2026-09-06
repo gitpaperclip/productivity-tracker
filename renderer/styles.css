@@ -193,16 +193,16 @@ body {
 .nav-btn.active .nav-ico { opacity: 1; }
 
 .rail-foot { margin-top: auto; padding: 8px; display: grid; gap: 8px; justify-items: stretch; }
-.rail-foot > .notif-toggle { justify-self: end; }
 .notif-toggle {
   appearance: none;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: auto;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
   max-width: 100%;
-  margin-left: auto;
+  margin: 0;
+  box-sizing: border-box;
   padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -228,9 +228,9 @@ body {
   border-color: rgba(251,113,133,0.35);
   background: rgba(251,113,133,0.08);
 }
-.notif-label { letter-spacing: -0.01em; }
+.notif-label { letter-spacing: 0.04em; margin-left: auto; text-align: right; }
 body.nav-collapsed .notif-label { display: none; }
-body.nav-collapsed .notif-toggle { justify-content: center; padding: 8px; width: auto; margin: 0 auto; }
+body.nav-collapsed .notif-toggle { justify-content: center; padding: 8px; width: auto; max-width: none; margin: 0 auto; }
 .status-pill {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
