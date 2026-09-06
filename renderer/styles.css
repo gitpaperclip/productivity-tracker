@@ -87,16 +87,22 @@ body {
 }
 
 .logo { display: flex; gap: 12px; align-items: center; padding: 4px 8px; }
-.logo-mark-img {
+.logo-mark-ff {
   width: 34px; height: 34px; border-radius: 12px;
-  display: block; flex-shrink: 0;
-  filter: brightness(0) invert(1);
-  box-shadow: 0 8px 24px rgba(129,140,248,0.25);
+  display: flex; align-items: baseline; justify-content: center;
+  flex-shrink: 0; gap: 0;
+  font-size: 22px; line-height: 1; letter-spacing: -0.08em;
+  background: var(--panel-2);
+  box-shadow: 0 8px 24px rgba(129,140,248,0.25), inset 0 0 0 1px var(--line);
+  padding-top: 4px;
 }
+.wm-f1 { font-weight: 700; font-style: normal; font-family: "Inter", system-ui, sans-serif; }
+.wm-f2 { font-weight: 400; font-style: italic; font-family: "Inter", system-ui, sans-serif; }
 .logo-word {
   display: flex; align-items: baseline; gap: 0;
   letter-spacing: -0.04em; line-height: 1.1;
   font-size: 17px;
+  font-family: "Inter", system-ui, sans-serif;
 }
 .wm-focus { font-weight: 700; font-style: normal; }
 .wm-flow { font-weight: 400; font-style: italic; }
