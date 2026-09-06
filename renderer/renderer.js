@@ -826,7 +826,6 @@ function applySettingsInputs(settings) {
 function syncPauseUi(settings) {
   const paused = !!(settings && settings.trackingPaused);
   const btn = $('pause-btn');
-  const label = $('pause-label');
   const toggle = $('pause-toggle');
   if (btn) {
     btn.setAttribute('data-paused', paused ? 'on' : 'off');
@@ -834,7 +833,6 @@ function syncPauseUi(settings) {
     btn.title = paused ? 'Resume tracking' : 'Pause tracking';
     btn.setAttribute('aria-label', paused ? 'Resume tracking' : 'Pause tracking');
   }
-  if (label) label.textContent = paused ? 'Resume' : 'Pause';
   if (toggle && document.activeElement !== toggle) toggle.checked = paused;
   document.body.setAttribute('data-paused', paused ? 'on' : 'off');
   const pill = $('source-pill');

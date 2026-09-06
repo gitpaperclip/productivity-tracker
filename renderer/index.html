@@ -36,7 +36,12 @@
         </button>
       </nav>
       <div class="rail-foot">
-        <div id="source-pill" class="status-pill idle">Idle</div>
+        <div class="rail-status-row">
+          <button type="button" id="pause-btn" class="pause-power" data-paused="off" title="Pause tracking" aria-label="Pause tracking" aria-pressed="false">
+            <svg class="pause-power-ico" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M7.5 6.2a7 7 0 1 0 9 0"/></svg>
+          </button>
+          <div id="source-pill" class="status-pill idle">Idle</div>
+        </div>
       </div>
     </aside>
 
@@ -71,16 +76,10 @@
               </div>
             </div>
 
-            <div class="home-top-actions">
-              <button type="button" id="pause-btn" class="pause-btn" data-paused="off" title="Pause tracking" aria-label="Pause tracking" aria-pressed="false">
-                <span class="pause-ico" aria-hidden="true">⏸</span>
-                <span id="pause-label" class="pause-label">Pause</span>
-              </button>
-              <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off" title="~3 min unproductive reminder" aria-label="focusboost">
-                <span class="fb-bolt" aria-hidden="true">⚡</span>
-                <span id="focusboost-label" class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">boost</span></span>
-              </button>
-            </div>
+            <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off" title="~3 min unproductive reminder" aria-label="focusboost">
+              <span class="fb-bolt" aria-hidden="true">⚡</span>
+              <span id="focusboost-label" class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">boost</span></span>
+            </button>
           </div>
 
           <div class="pie-wrap">
