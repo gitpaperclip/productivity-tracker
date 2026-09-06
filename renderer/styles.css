@@ -2028,6 +2028,12 @@ body[data-boost="on"]::after {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.settings-row-2 > .field {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 .settings-textarea {
   min-height: 64px;
