@@ -661,6 +661,14 @@ h4.unprod { color: var(--unprod); }
     max-width: min(1280px, 88%);
   }
 }
+#view-analytics .page-head,
+#view-roundup .page-head {
+  margin-bottom: 4px;
+}
+#view-analytics,
+#view-roundup {
+  gap: 12px;
+}
 
 .analytics-toolbar {
   display: flex;
@@ -843,11 +851,11 @@ h4.unprod { color: var(--unprod); }
   padding: 16px 18px 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   min-height: 108px;
 }
 .day-metric .lf-kicker {
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 .day-metric-value {
   font-size: clamp(20px, 2.4vw, 26px);
@@ -896,6 +904,9 @@ h4.unprod { color: var(--unprod); }
   background: var(--bg-elev);
   border: 1px solid var(--line-strong);
   box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .lf-kicker {
   font-size: 11px;
@@ -903,7 +914,7 @@ h4.unprod { color: var(--unprod); }
   letter-spacing: 0.12em;
   color: var(--muted);
   font-weight: 650;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 .lf-row {
   display: flex;
@@ -1867,7 +1878,7 @@ body[data-boost="on"]::after {
   padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-height: 96px;
   min-width: 0;
 }
