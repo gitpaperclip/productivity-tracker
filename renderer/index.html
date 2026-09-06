@@ -152,11 +152,15 @@
           </div>
         </header>
 
-        <div class="segment-control" role="tablist" aria-label="Analytics views">
-          <button type="button" class="segment-btn active" data-segment="day" role="tab" aria-selected="true">Day</button>
-          <button type="button" class="segment-btn" data-segment="week" role="tab" aria-selected="false">Week</button>
-          <button type="button" class="segment-btn" data-segment="month" role="tab" aria-selected="false">Month</button>
-          <button type="button" class="segment-btn" data-segment="apps" role="tab" aria-selected="false">Apps</button>
+        <div class="analytics-toolbar" role="tablist" aria-label="Analytics views">
+          <div class="segment-control" role="group" aria-label="Time range">
+            <button type="button" class="segment-btn active" data-segment="day" role="tab" aria-selected="true">Day</button>
+            <button type="button" class="segment-btn" data-segment="week" role="tab" aria-selected="false">Week</button>
+            <button type="button" class="segment-btn" data-segment="month" role="tab" aria-selected="false">Month</button>
+          </div>
+          <div class="segment-control segment-control-solo" role="group" aria-label="Apps">
+            <button type="button" class="segment-btn" data-segment="apps" role="tab" aria-selected="false">Apps</button>
+          </div>
         </div>
 
         <div id="panel-day" class="analytics-panel" data-panel="day">
