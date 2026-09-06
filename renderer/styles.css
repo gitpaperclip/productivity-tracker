@@ -309,7 +309,7 @@ h4.unprod { color: var(--unprod); }
   overflow: hidden;
 }
 #view-home .page-head {
-  margin-bottom: clamp(6px, 1.2vh, 14px);
+  margin-bottom: clamp(16px, 2.4vh, 22px);
   flex-shrink: 0;
 }
 #view-home .page-head h1 {
