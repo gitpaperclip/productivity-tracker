@@ -1287,24 +1287,48 @@ function renderRoundup(stats) {
       story.classList.add('muted');
     } else {
       const lines = [];
-      lines.push(
-        'Tracked ' +
-          fmtFriendly(total) +
-          ' today (' +
-          fmtFriendly(prod) +
-          ' productive, ' +
-          fmtFriendly(unp) +
-          ' unproductive' +
-          (oth > 0 ? ', ' + fmtFriendly(oth) + ' other' : '') +
-          ').'
-      );
-      if (topP) lines.push('Most deep work in ' + topP.name + '.');
-      if (topU) lines.push('Most break-time app: ' + topU.name + '.');
-      if (peakProd > 0) lines.push('Peak productive hour: ' + hourLabel(peakHour) + '.');
-      if (hit) lines.push('Daily productivity goal: hit.');
-      else lines.push('Daily productivity goal: ' + fmtGoalShort(left) + ' to go.');
-      story.textContent = lines.join('\n');
-      story.classList.remove('muted');
+      if (topP) {
+        lines.push(
+          'Most of your deep work was in <span class="story-app story-app-prod app-trunc" data-full="' +
+            esc(topP.name) +
+            '">' +
+            esc(topP.name) +
+            '</span>.'
+        );
+      }
+      if (topU) {
+        lines.push(
+          '<span class="story-app story-app-unprod app-trunc" data-full="' +
+            esc(topU.name) +
+            '">' +
+            esc(topU.name) +
+            '</span> led distractions.'
+        );
+      }
+      if (hit) {
+        lines.push(
+          'Daily productivity goal: <span class="story-goal story-goal-hit">cleared</span>.'
+        );
+      } else {
+        const leftRatio = goalSec > 0 ? left / goalSec : 1;
+        let goalTone = 'far';
+        if (leftRatio <= 0.25) goalTone = 'near';
+        else if (leftRatio <= 0.55) goalTone = 'mid';
+        lines.push(
+          'Daily productivity goal: <span class="story-goal story-goal-' +
+            goalTone +
+            '">' +
+            esc(fmtGoalShort(left)) +
+            '</span> to go.'
+        );
+      }
+      if (!lines.length) {
+        story.textContent = 'Keep going — Roundup will fill in as Focus Tags learn your day.';
+        story.classList.add('muted');
+      } else {
+        story.innerHTML = lines.map((l) => '<p class="story-line">' + l + '</p>').join('');
+        story.classList.remove('muted');
+      }
     }
   }
 }

@@ -1758,7 +1758,38 @@ body[data-boost="on"]::after {
   font-size: 14px;
   line-height: 1.55;
   color: var(--text);
-  white-space: pre-line;
+}
+.roundup-story-body .story-line {
+  margin: 0 0 10px;
+}
+.roundup-story-body .story-line:last-child {
+  margin-bottom: 0;
+}
+.story-app.app-trunc {
+  display: inline-block;
+  font-weight: 700;
+  max-width: min(280px, 70%);
+  vertical-align: bottom;
+  cursor: default;
+}
+.story-app-prod {
+  color: var(--accent-2);
+}
+.story-app-unprod {
+  color: #fb923c;
+}
+.story-goal {
+  font-weight: 700;
+}
+.story-goal-hit,
+.story-goal-near {
+  color: var(--prod);
+}
+.story-goal-mid {
+  color: #fbbf24;
+}
+.story-goal-far {
+  color: var(--unprod);
 }
 
 .app-trunc {
