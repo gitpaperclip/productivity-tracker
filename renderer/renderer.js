@@ -14,3 +14,8 @@ $('demo-toggle').addEventListener('change',()=>pushSettings({demoMode:$('demo-to
 $('threshold-min').addEventListener('change',()=>{const min=Number($('threshold-min').value);if(!Number.isFinite(min)||min<=0)return;pushSettings({thresholdSec:Math.round(min*60)})});
 $('threshold-sec').addEventListener('change',()=>{const sec=Number($('threshold-sec').value);if(!Number.isFinite(sec)||sec<=0)return;pushSettings({thresholdSec:Math.round(sec)})});
 function renderRules(rules){if(!rules)return;$('rules-prod').innerHTML=(rules.productive||[]).map(k=>'<li>'+esc(k)+'</li>').join('');$('rules-unprod').innerHTML=(rules.unproductive||[]).map(k=>'<li>'+esc(k)+'</li>').join('')}
+if (api) { api.onUpdate(function (p) { renderNow(p.now); renderStats(p.stats); }); }
+if (api) { api.onReminder(function (p) { $('banner-text').textContent = (p && p.body) || 'Time to refocus.'; $('banner').classList.remove('hidden'); }); }
+if (api) { api.getState().then(function (s) { if (s && s.stats) renderStats(s.stats); if (s && s.now) renderNow(s.now); }).catch(function () {}); }
+if (api) { api.getRules().then(renderRules).catch(function () {}); }
+if (api) { setInterval(function () { api.getState().then(function (s) { if (s && s.stats) renderStats(s.stats); if (s && s.now) renderNow(s.now); }).catch(function () {}); }, 2000); }

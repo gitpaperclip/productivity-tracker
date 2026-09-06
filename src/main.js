@@ -16,6 +16,7 @@ let mainWindow = null;
 let tracker = null;
 let store = null;
 let rules = null;
+let lastPayload = null;
 
 function dataDir() {
   try {
@@ -56,6 +57,7 @@ function startTracker() {
     rules: rules,
     onTick: (payload) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
+        lastPayload = payload;
         mainWindow.webContents.send('tracker:update', payload);
       }
     },
@@ -105,7 +107,7 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('state:get', async () => ({
-  now: null,
+  now: lastPayload ? lastPayload.now : null,
   stats: store ? store.snapshot() : null,
   platform: process.platform
 }));
