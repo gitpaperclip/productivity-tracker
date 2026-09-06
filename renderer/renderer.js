@@ -79,6 +79,8 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     $('view-home').classList.toggle('hidden', tab !== 'home');
     const dayView = $('view-day');
     if (dayView) dayView.classList.toggle('hidden', tab !== 'day');
+    const weekView = $('view-week');
+    if (weekView) weekView.classList.toggle('hidden', tab !== 'week');
     $('view-apps').classList.toggle('hidden', tab !== 'apps');
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
     if (tab === 'settings') loadRulesAndIgnore();
@@ -344,7 +346,7 @@ function renderPie(stats) {
   pie.style.background = g;
 }
 
-function renderWeek(stats) {
+function renderHomeWeekBars(stats) {
   const wrap = $('week-bars');
   if (!wrap) return;
   const week = (stats && stats.week) || [];
@@ -393,6 +395,167 @@ function renderWeek(stats) {
       );
     })
     .join('');
+}
+
+function formatWeekDateLabel(iso) {
+  const raw = String(iso || '');
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return raw.slice(5) || raw || '—';
+  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(dt.getTime())) return raw.slice(5);
+  try {
+    return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch (_) {
+    return raw.slice(5);
+  }
+}
+
+function weekTickLabel(iso) {
+  const raw = String(iso || '');
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return raw.slice(5) || '';
+  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(dt.getTime())) return raw.slice(5);
+  try {
+    return dt.toLocaleDateString(undefined, { weekday: 'short' });
+  } catch (_) {
+    return raw.slice(5);
+  }
+}
+
+function renderWeek(stats) {
+  renderHomeWeekBars(stats);
+  const chart = $('week-chart');
+  if (!chart) return;
+  const week = Array.isArray(stats && stats.week) ? stats.week : [];
+
+  const sub = $('week-subtitle');
+  if (sub) sub.textContent = 'Last 7 days';
+
+  const setMetrics = (bestVal, bestSub, totalVal, totalSub, shareVal, shareSub) => {
+    const bv = $('week-best-value');
+    const bs = $('week-best-sub');
+    const tv = $('week-total');
+    const ts = $('week-total-sub');
+    const sv = $('week-focus-share');
+    const ss = $('week-focus-sub');
+    if (bv) bv.textContent = bestVal;
+    if (bs) bs.textContent = bestSub;
+    if (tv) tv.textContent = totalVal;
+    if (ts) ts.textContent = totalSub;
+    if (sv) sv.textContent = shareVal;
+    if (ss) ss.textContent = shareSub;
+  };
+
+  if (!week.length) {
+    chart.innerHTML = '<div class="week-empty muted">No week data yet</div>';
+    setMetrics('—', 'No productive time yet', '0 min', 'All categories · last 7 days', '—', 'Of productive + unproductive');
+    return;
+  }
+
+  let max = 0;
+  let total = 0;
+  let prodSum = 0;
+  let unpSum = 0;
+  let bestIdx = -1;
+  let bestProd = -1;
+  const days = week.map((d) => {
+    const c = (d && d.byCategory) || {};
+    return {
+      date: (d && d.date) || '',
+      productive: Math.max(0, Number(c.productive) || 0),
+      unproductive: Math.max(0, Number(c.unproductive) || 0),
+      other: Math.max(0, Number(c.other) || 0)
+    };
+  });
+
+  for (let i = 0; i < days.length; i++) {
+    const h = days[i];
+    const sum = h.productive + h.unproductive + h.other;
+    total += sum;
+    prodSum += h.productive;
+    unpSum += h.unproductive;
+    if (sum > max) max = sum;
+    if (h.productive > bestProd) {
+      bestProd = h.productive;
+      bestIdx = i;
+    }
+  }
+  if (max < 1) max = 1;
+
+  chart.innerHTML = days
+    .map((h) => {
+      const sum = h.productive + h.unproductive + h.other;
+      const empty = sum <= 0;
+      const trackPct = empty ? 0 : Math.max(6, Math.round((sum / max) * 100));
+      const pPct = sum ? (h.productive / sum) * 100 : 0;
+      const uPct = sum ? (h.unproductive / sum) * 100 : 0;
+      const oPct = sum ? (h.other / sum) * 100 : 0;
+      const tip =
+        formatWeekDateLabel(h.date) +
+        ' · P ' +
+        fmtFriendly(h.productive) +
+        ' · U ' +
+        fmtFriendly(h.unproductive) +
+        ' · O ' +
+        fmtFriendly(h.other) +
+        ' · Σ ' +
+        fmtFriendly(sum);
+      const tick = weekTickLabel(h.date);
+      const stack = empty
+        ? '<div class="day-stack empty-slot" aria-hidden="true"></div>'
+        : '<div class="day-stack">' +
+          '<div class="day-seg prod" style="height:' +
+          pPct +
+          '%"></div>' +
+          '<div class="day-seg unprod" style="height:' +
+          uPct +
+          '%"></div>' +
+          '<div class="day-seg other" style="height:' +
+          oPct +
+          '%"></div>' +
+          '</div>';
+      return (
+        '<div class="day-col' +
+        (empty ? ' empty' : '') +
+        '" title="' +
+        esc(tip) +
+        '" style="--bar-h:' +
+        trackPct +
+        '%">' +
+        stack +
+        '<span class="day-tick">' +
+        esc(tick) +
+        '</span></div>'
+      );
+    })
+    .join('');
+
+  if (total <= 0) {
+    setMetrics('—', 'No productive time yet', '0 min', 'All categories · last 7 days', '—', 'Of productive + unproductive');
+    return;
+  }
+
+  const bestVal = bestProd > 0 ? fmtFriendly(bestProd) : '—';
+  const bestSub =
+    bestProd > 0 && bestIdx >= 0
+      ? formatWeekDateLabel(days[bestIdx].date)
+      : 'No productive time yet';
+  const focusDenom = prodSum + unpSum;
+  let focusShare = '—';
+  let focusSub = 'Of productive + unproductive';
+  if (focusDenom > 0) {
+    focusShare = Math.round((prodSum / focusDenom) * 100) + '%';
+    focusSub = fmtFriendly(prodSum) + ' productive · ' + fmtFriendly(unpSum) + ' unproductive';
+  }
+  setMetrics(
+    bestVal,
+    bestSub,
+    fmtFriendly(total),
+    'All categories · last 7 days',
+    focusShare,
+    focusSub
+  );
 }
 
 function applySettingsInputs(settings) {

@@ -25,6 +25,9 @@
         <button class="nav-btn" data-tab="day" type="button">
           <span class="nav-ico">▦</span> Day
         </button>
+        <button class="nav-btn" data-tab="week" type="button">
+          <span class="nav-ico">▤</span> Week
+        </button>
         <button class="nav-btn" data-tab="apps" type="button">
           <span class="nav-ico">▣</span> Apps
         </button>
@@ -151,6 +154,44 @@
             <div class="lf-kicker">Focus share</div>
             <div id="day-focus-share" class="day-metric-value">—</div>
             <div id="day-focus-sub" class="day-metric-sub muted">Of productive + unproductive</div>
+          </article>
+        </div>
+      </section>
+
+
+      <!-- WEEK: last 7 days -->
+      <section id="view-week" class="view hidden">
+        <header class="page-head">
+          <div>
+            <h1>Week</h1>
+            <p class="muted" id="week-subtitle">Last 7 days</p>
+          </div>
+        </header>
+
+        <article class="card day-chart-card">
+          <div class="day-legend" aria-hidden="true">
+            <span><span class="swatch prod"></span> Productive</span>
+            <span><span class="swatch unprod"></span> Unproductive</span>
+            <span><span class="swatch other"></span> Other</span>
+          </div>
+          <div id="week-chart" class="day-chart week-chart" role="img" aria-label="Weekly time breakdown"></div>
+        </article>
+
+        <div class="day-metric-grid">
+          <article class="card day-metric">
+            <div class="lf-kicker">Best day</div>
+            <div id="week-best-value" class="day-metric-value">—</div>
+            <div id="week-best-sub" class="day-metric-sub muted">No productive time yet</div>
+          </article>
+          <article class="card day-metric">
+            <div class="lf-kicker">Week total tracked</div>
+            <div id="week-total" class="day-metric-value">0 min</div>
+            <div id="week-total-sub" class="day-metric-sub muted">All categories · last 7 days</div>
+          </article>
+          <article class="card day-metric">
+            <div class="lf-kicker">Focus share</div>
+            <div id="week-focus-share" class="day-metric-value">—</div>
+            <div id="week-focus-sub" class="day-metric-sub muted">Of productive + unproductive</div>
           </article>
         </div>
       </section>

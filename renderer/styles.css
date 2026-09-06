@@ -488,6 +488,34 @@ h4.unprod { color: var(--unprod); }
   .day-stack { transition: none; }
 }
 
+/* —— Week: 7-day stacked bars —— */
+#view-week {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: min(960px, 100%);
+  width: 100%;
+  margin: 0 auto;
+}
+.week-chart {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: clamp(8px, 1.2vw, 16px);
+}
+.week-chart .day-col:not(.empty) .day-stack {
+  max-width: 48px;
+}
+.week-chart .day-tick {
+  font-size: 11px;
+}
+.week-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  font-size: 14px;
+}
+
 .last-focused {
   width: 100%;
   text-align: left;
