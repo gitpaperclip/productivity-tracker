@@ -246,15 +246,13 @@ body.nav-collapsed .pause-power {
 }
 
 .main {
-  padding: clamp(14px, 2.2vh, 28px) clamp(20px, 4vw, 48px) clamp(14px, 2.2vh, 28px);
-  max-width: min(1100px, 100%);
-  margin: 0 auto;
+  padding: clamp(14px, 2.2vh, 28px) clamp(20px, 4vw, 56px) clamp(14px, 2.2vh, 28px);
+  /* Fill the content column so views can center against the full window */
+  max-width: none;
+  margin: 0;
   width: 100%;
   box-sizing: border-box;
   min-height: 100vh;
-}
-@media (min-width: 1100px) {
-  .main { max-width: 1100px; }
 }
 
 .page-head {
@@ -641,13 +639,27 @@ h4.unprod { color: var(--unprod); }
 
 
 /* —— Analytics: Day · Week · Month —— */
-#view-analytics {
+#view-analytics,
+#view-roundup {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-width: min(960px, 100%);
+  max-width: min(980px, 100%);
   width: 100%;
   margin: 0 auto;
+}
+/* Grow + stay centered when maximized / wide */
+@media (min-width: 1200px) {
+  #view-analytics,
+  #view-roundup {
+    max-width: min(1120px, 92%);
+  }
+}
+@media (min-width: 1500px) {
+  #view-analytics,
+  #view-roundup {
+    max-width: min(1280px, 88%);
+  }
 }
 
 .analytics-toolbar {
@@ -655,7 +667,8 @@ h4.unprod { color: var(--unprod); }
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  align-self: flex-start;
+  align-self: stretch;
+  justify-content: flex-start;
   margin-bottom: 2px;
 }
 .segment-control {
@@ -1647,6 +1660,13 @@ body[data-boost="on"]::after {
 }
 @media (max-width: 900px) {
   #view-tags { max-width: 100%; }
+}
+
+/* Settings: readable column, centered in wide windows */
+#view-settings {
+  max-width: min(760px, 100%);
+  width: 100%;
+  margin: 0 auto;
 }
 
 /* Data / privacy / clear */
