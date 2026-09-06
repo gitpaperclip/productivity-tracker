@@ -62,11 +62,11 @@
             <span id="mood-emoji" class="mood-emoji" aria-hidden="true">😐</span>
             <div class="mood-copy">
               <span id="mood-label" class="mood-label">Meh</span>
-              <span class="mood-sub muted tiny">Today’s focus vibe</span>
+              <span class="mood-sub muted tiny">Focus level</span>
             </div>
           </div>
 
-          <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off" onclick="window.__focusflowToggleBoost && window.__focusflowToggleBoost()">
+          <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off">
             <span class="fb-bolt" aria-hidden="true">⚡</span>
             <span id="focusboost-label">FocusBoost</span>
             <span class="fb-sub">~3 min reminder</span>
@@ -94,8 +94,15 @@
               <div class="lf-main">
                 <span id="lf-app" class="lf-app">Waiting for an app…</span>
                 <span id="lf-title" class="lf-title muted"></span>
+                <span id="lf-keyword-hint" class="lf-keyword-hint muted tiny hidden"></span>
               </div>
-              <span id="lf-cat" class="chip other">—</span>
+              <div class="lf-actions">
+                <span id="lf-cat" class="chip other">—</span>
+                <span class="lf-reclass">
+                  <button type="button" id="lf-prod" class="btn-mini prod" title="Mark productive">P</button>
+                  <button type="button" id="lf-unprod" class="btn-mini unprod" title="Mark unproductive">U</button>
+                </span>
+              </div>
             </div>
           </div>
 

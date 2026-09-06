@@ -27,6 +27,8 @@ let applying = false;
 /** Cached rules/ignore for one-click reclassify. */
 let cachedRules = { productive: [], unproductive: [] };
 let cachedIgnore = [];
+/** Last focused window for Home quick-classify (P/U). */
+let lastFocusedCache = null;
 /** Threshold before FocusBoost was armed (seconds). */
 let thresholdBeforeBoost = null;
 const FOCUSBOOST_SEC = 3 * 60;
@@ -88,6 +90,125 @@ function updateSourcePill(now) {
   }
 }
 
+function isBrowserApp(app) {
+  const a = String(app || '').toLowerCase();
+  return /chrome|msedge|\bedge\b|firefox|brave|opera|chromium/.test(a);
+}
+
+const KNOWN_SITE_KEYWORDS = [
+  'github',
+  'gitlab',
+  'bitbucket',
+  'stackoverflow',
+  'stack overflow',
+  'youtube',
+  'reddit',
+  'twitter',
+  'facebook',
+  'instagram',
+  'tiktok',
+  'netflix',
+  'twitch',
+  'discord',
+  'notion',
+  'obsidian',
+  'figma',
+  'linkedin',
+  'gmail',
+  'chatgpt',
+  'openai',
+  'slack',
+  'zoom',
+  'wikipedia',
+  'medium',
+  'hacker news',
+  'x.com',
+  'docs.google',
+  'docs.microsoft',
+  'learn.microsoft'
+];
+
+function stripBrowserSuffix(title) {
+  return String(title || '')
+    .replace(
+      /\s*[-–—|]\s*(Google Chrome|Microsoft Edge|Mozilla Firefox|Brave|Opera|Chromium)\s*$/i,
+      ''
+    )
+    .replace(/\s*[-–—]\s*(Chrome|Edge|Firefox|Brave|Opera)\s*$/i, '')
+    .trim();
+}
+
+/** Extract a title keyword for browser quick-classify — never the process name. */
+function extractBrowserKeyword(title) {
+  const cleaned = stripBrowserSuffix(title);
+  if (!cleaned) return null;
+  const lower = cleaned.toLowerCase();
+
+  for (const site of KNOWN_SITE_KEYWORDS) {
+    if (lower.includes(site)) {
+      if (site === 'stack overflow') return 'stackoverflow';
+      if (site === 'hacker news') return 'hacker news';
+      return site;
+    }
+  }
+
+  const domainMatch = cleaned.match(
+    /\b(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|io|dev|co|app|ai|edu|gov)(?:\.[a-z]{2})?)\b/i
+  );
+  if (domainMatch) {
+    const host = domainMatch[1].toLowerCase().replace(/^www\./, '');
+    const parts = host.split('.');
+    if (parts.length >= 2) {
+      // github.com → github; docs.microsoft.com → microsoft (penultimate)
+      return parts[parts.length - 2];
+    }
+    return host;
+  }
+
+  const segments = cleaned
+    .split(/\s*[-–—|]\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (segments.length) {
+    const last = segments[segments.length - 1];
+    const token = last
+      .toLowerCase()
+      .replace(/[^a-z0-9.\s-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (token) {
+      const words = token.split(' ').filter(Boolean);
+      if (words.length === 1) return words[0];
+      if (words.length === 2) return token;
+      return words[words.length - 1];
+    }
+  }
+  return null;
+}
+
+function keywordForQuickClassify(entry) {
+  if (!entry || !entry.app) return null;
+  if (isBrowserApp(entry.app)) {
+    return extractBrowserKeyword(entry.title || '');
+  }
+  return String(entry.app)
+    .replace(/\.exe$/i, '')
+    .trim() || null;
+}
+
+function updateLfKeywordHint(entry) {
+  const hint = $('lf-keyword-hint');
+  if (!hint) return;
+  const kw = keywordForQuickClassify(entry);
+  if (!kw) {
+    hint.textContent = '';
+    hint.classList.add('hidden');
+    return;
+  }
+  hint.textContent = 'Adds keyword: ' + kw;
+  hint.classList.remove('hidden');
+}
+
 function renderLastFocused(lf, now) {
   const appEl = $('lf-app');
   const titleEl = $('lf-title');
@@ -103,14 +224,21 @@ function renderLastFocused(lf, now) {
 
   const use = lf || (!selfish && now && now.app ? now : null);
   if (!use || !use.app) {
+    lastFocusedCache = null;
     appEl.textContent = 'Waiting for an app…';
     if (titleEl) titleEl.textContent = '';
     if (catEl) {
       catEl.textContent = '—';
       catEl.className = 'chip other';
     }
+    updateLfKeywordHint(null);
     return;
   }
+  lastFocusedCache = {
+    app: use.app,
+    title: use.title || '',
+    category: use.category || 'other'
+  };
   appEl.textContent = use.app;
   if (titleEl) titleEl.textContent = use.title || '';
   if (catEl) {
@@ -118,6 +246,7 @@ function renderLastFocused(lf, now) {
     catEl.textContent = cat;
     catEl.className = 'chip ' + cat;
   }
+  updateLfKeywordHint(lastFocusedCache);
 }
 
 function renderMood(stats) {
@@ -402,19 +531,31 @@ async function toggleFocusBoost() {
       Number(settings.thresholdSec) && Number(settings.thresholdSec) !== FOCUSBOOST_SEC
         ? Number(settings.thresholdSec)
         : thresholdBeforeBoost || 600;
-    playBoostFlash();
-    await pushSettings({
+    const next = await pushSettings({
       focusBoost: true,
       thresholdSec: FOCUSBOOST_SEC,
       focusBoostRestoreSec: thresholdBeforeBoost
     });
+    syncFocusBoostUi(
+      next || {
+        focusBoost: true,
+        thresholdSec: FOCUSBOOST_SEC
+      }
+    );
+    playBoostFlash();
   } else {
     const restore =
       Number(settings.focusBoostRestoreSec) || thresholdBeforeBoost || 600;
-    await pushSettings({
+    const next = await pushSettings({
       focusBoost: false,
       thresholdSec: restore
     });
+    syncFocusBoostUi(
+      next || {
+        focusBoost: false,
+        thresholdSec: restore
+      }
+    );
   }
 }
 
@@ -611,5 +752,50 @@ async function boot() {
 
 boot();
 
-// Expose for inline onclick if needed
-window.__focusflowToggleBoost = toggleFocusBoost;
+const focusBoostBtn = $('focusboost-btn');
+if (focusBoostBtn) {
+  focusBoostBtn.addEventListener('click', toggleFocusBoost);
+}
+
+async function quickClassifyLastFocused(category) {
+  if (!api || !lastFocusedCache) return;
+  const kw = keywordForQuickClassify(lastFocusedCache);
+  if (!kw) return;
+  const prod = (cachedRules.productive || []).slice();
+  const unprod = (cachedRules.unproductive || []).slice();
+  const key = kw.toLowerCase();
+  const strip = (arr) => arr.filter((k) => String(k).toLowerCase() !== key);
+  let nextProd = strip(prod);
+  let nextUnprod = strip(unprod);
+  if (category === 'productive') nextProd.push(kw);
+  else nextUnprod.push(kw);
+  try {
+    const next = await api.setRules({ productive: nextProd, unproductive: nextUnprod });
+    cachedRules = {
+      productive: (next && next.productive) || nextProd,
+      unproductive: (next && next.unproductive) || nextUnprod
+    };
+    fillRulesEditors(
+      next || {
+        productive: nextProd,
+        unproductive: nextUnprod,
+        isCustom: true
+      }
+    );
+    lastFocusedCache.category = category;
+    const catEl = $('lf-cat');
+    if (catEl) {
+      catEl.textContent = category;
+      catEl.className = 'chip ' + category;
+    }
+  } catch (err) {
+    console.warn('quick-classify failed', err);
+  }
+}
+
+if ($('lf-prod')) {
+  $('lf-prod').addEventListener('click', () => quickClassifyLastFocused('productive'));
+}
+if ($('lf-unprod')) {
+  $('lf-unprod').addEventListener('click', () => quickClassifyLastFocused('unproductive'));
+}
