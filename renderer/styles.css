@@ -187,7 +187,42 @@ body {
 }
 .status-pill.real { background: var(--prod-bg); color: var(--prod); }
 .status-pill.demo { background: rgba(129,140,248,0.15); color: #c7d2fe; }
+.status-pill.paused { background: rgba(251,191,36,0.16); color: #fbbf24; }
 .status-pill.idle, .status-pill.fallback-demo { background: rgba(255,255,255,0.06); color: var(--muted); }
+
+.home-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pause-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.pause-btn:hover {
+  color: var(--text);
+  border-color: rgba(251,191,36,0.45);
+  background: rgba(251,191,36,0.08);
+}
+.pause-btn[data-paused="on"] {
+  color: #fbbf24;
+  border-color: rgba(251,191,36,0.55);
+  background: rgba(251,191,36,0.14);
+}
+.pause-ico { font-size: 13px; line-height: 1; }
 
 .main {
   padding: clamp(14px, 2.2vh, 28px) clamp(20px, 4vw, 48px) clamp(14px, 2.2vh, 28px);

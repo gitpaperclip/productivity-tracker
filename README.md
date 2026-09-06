@@ -95,7 +95,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Daily productivity goal: Settings-only (feeds Roundup; off Home)
 - Gentle health insights (short coach notes, no lectures)
 - Privacy mode (strip/hash window titles)
-- **Pause / disable tracking** — not built yet (only demo mode + ignore list). Need a clear Pause that stops logging without quitting the app; show Pausing in status / tray
+- ~~**Pause / disable tracking**~~ **done (v1)**: Home Pause/Resume + Settings toggle; status pill “Paused”; freezes Last focused; no logging/reminders while paused
 - Tray presence + FocusBoost in tray
 - `.exe` packaging + first-run onboarding (primary browser → seed Focus Tags)
   - Intro copy: classification gets better as you tag more apps (P/U/I + Focus Tags) — update tags as you go; no need to rewrite past time
@@ -113,6 +113,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Nav caret polish
 - Electron memory mitigations (see Performance & memory) — fine for 8 GB+ / power PCs as-is; revisit only if measured bloat
 - Roundup daily notification (post-launch): onboarding + Settings time picker; Windows toast with action → Roundup tab
+- **Focus share goal** (later): Settings target % focused vs unfocused; Roundup shows hit/miss alongside productive-hours goal (Analytics already has Focus share)
 
 ### Longer-term: Focus modes (context-aware productivity)
 Named modes that swap what "productive" means for the task you're in — e.g. Resume writing, Coding, Homework, Deep reading.

@@ -245,6 +245,7 @@ function updateSourcePill(now) {
   const labels = {
     real: 'Live tracking',
     demo: 'Demo mode',
+    paused: 'Paused',
     idle: 'Waiting',
     'fallback-demo': 'Fallback'
   };
@@ -817,8 +818,30 @@ function applySettingsInputs(settings) {
   if ($('daily-goal-hours') && document.activeElement !== $('daily-goal-hours')) {
     $('daily-goal-hours').value = hoursVal;
   }
+  syncPauseUi(settings);
   syncFocusBoostUi(settings);
   applying = false;
+}
+
+function syncPauseUi(settings) {
+  const paused = !!(settings && settings.trackingPaused);
+  const btn = $('pause-btn');
+  const label = $('pause-label');
+  const toggle = $('pause-toggle');
+  if (btn) {
+    btn.setAttribute('data-paused', paused ? 'on' : 'off');
+    btn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+    btn.title = paused ? 'Resume tracking' : 'Pause tracking';
+    btn.setAttribute('aria-label', paused ? 'Resume tracking' : 'Pause tracking');
+  }
+  if (label) label.textContent = paused ? 'Resume' : 'Pause';
+  if (toggle && document.activeElement !== toggle) toggle.checked = paused;
+  document.body.setAttribute('data-paused', paused ? 'on' : 'off');
+  const pill = $('source-pill');
+  if (pill && paused) {
+    pill.textContent = 'Paused';
+    pill.className = 'status-pill paused';
+  }
 }
 
 function syncFocusBoostUi(settings) {
@@ -1500,6 +1523,24 @@ async function persistDailyGoalHours(hours) {
 if ($('daily-goal-hours')) {
   $('daily-goal-hours').addEventListener('change', () => {
     persistDailyGoalHours(Number($('daily-goal-hours').value));
+  });
+}
+
+async function setTrackingPaused(paused) {
+  const next = await pushSettings({ trackingPaused: !!paused });
+  syncPauseUi(next || { trackingPaused: !!paused });
+  return next;
+}
+
+if ($('pause-btn')) {
+  $('pause-btn').addEventListener('click', () => {
+    const on = $('pause-btn').getAttribute('data-paused') === 'on';
+    setTrackingPaused(!on);
+  });
+}
+if ($('pause-toggle')) {
+  $('pause-toggle').addEventListener('change', () => {
+    setTrackingPaused($('pause-toggle').checked);
   });
 }
 

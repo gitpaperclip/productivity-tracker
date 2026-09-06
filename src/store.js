@@ -106,6 +106,7 @@ function createStore(dataDir) {
     {
       thresholdSec: defaultThresholdSec(),
       demoMode: false,
+      trackingPaused: false,
       reminderCooldownSec: 90,
       pollMs: 1500,
       focusBoost: false,

@@ -138,9 +138,11 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
       (win && win.title) ||
       (trackingError
         ? trackingError
-        : settings.demoMode
-          ? ''
-          : 'Switch apps to start tracking');
+        : settings.trackingPaused
+          ? 'Tracking paused'
+          : settings.demoMode
+            ? ''
+            : 'Switch apps to start tracking');
 
     const same =
       current.app === app &&
@@ -154,13 +156,20 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
       current.source = source;
     }
 
-    // NEVER count ignored toward totals or streaks
-    if (win && !ignored) {
+    const paused = !!settings.trackingPaused;
+    if (paused) {
+      source = 'paused';
+      current.source = 'paused';
+    }
+
+    // NEVER count ignored toward totals or streaks; never log while paused
+    if (win && !ignored && !paused) {
       store.addSeconds(app, category, elapsed);
     }
 
     // Remember last real focused app (not ignored / not self) for Home "Last focused"
-    if (win && !ignored) {
+    // Freeze lastFocused while paused so the Home bar stays put
+    if (win && !ignored && !paused) {
       lastFocused = {
         app,
         title,
@@ -170,7 +179,13 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, onTick
       };
     }
 
-    if (win && !ignored && store.shouldRemind() && category === 'unproductive') {
+    if (
+      win &&
+      !ignored &&
+      !paused &&
+      store.shouldRemind() &&
+      category === 'unproductive'
+    ) {
       store.markReminder();
       if (onReminder) {
         onReminder({

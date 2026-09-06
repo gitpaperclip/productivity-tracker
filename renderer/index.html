@@ -71,10 +71,16 @@
               </div>
             </div>
 
-            <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off" title="~3 min unproductive reminder" aria-label="focusboost">
-              <span class="fb-bolt" aria-hidden="true">⚡</span>
-              <span id="focusboost-label" class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">boost</span></span>
-            </button>
+            <div class="home-top-actions">
+              <button type="button" id="pause-btn" class="pause-btn" data-paused="off" title="Pause tracking" aria-label="Pause tracking" aria-pressed="false">
+                <span class="pause-ico" aria-hidden="true">⏸</span>
+                <span id="pause-label" class="pause-label">Pause</span>
+              </button>
+              <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off" title="~3 min unproductive reminder" aria-label="focusboost">
+                <span class="fb-bolt" aria-hidden="true">⚡</span>
+                <span id="focusboost-label" class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">boost</span></span>
+              </button>
+            </div>
           </div>
 
           <div class="pie-wrap">
@@ -343,7 +349,14 @@
 
         <article class="card">
           <h3>Tracker</h3>
-<div class="settings-block">
+          <label class="switch-row">
+            <div>
+              <div class="switch-title">Pause tracking</div>
+              <div class="hint">Stops logging time and reminders. App stays open.</div>
+            </div>
+            <input type="checkbox" id="pause-toggle" />
+          </label>
+          <div class="settings-block">
             <div class="settings-block-title">Timing</div>
             <div class="settings-row-2">
               <label class="field">
