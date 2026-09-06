@@ -469,6 +469,67 @@ function keywordForQuickClassify(entry) {
     .trim() || null;
 }
 
+
+function listHasKey(arr, key) {
+  if (key == null || key === '') return false;
+  const k = String(key).toLowerCase();
+  return (arr || []).some((x) => String(x).toLowerCase() === k);
+}
+
+/**
+ * Client-side default category from remaining rules (mimic classifier):
+ * ignore by process name → ignored; unproductive keyword wins, then productive;
+ * bare browser / no match → other (chip may show yellow "browser").
+ */
+function defaultCategoryFromRules(entry, rules, ignore) {
+  if (!entry) return 'other';
+  const r = rules || cachedRules || { productive: [], unproductive: [] };
+  const ign = ignore != null ? ignore : cachedIgnore || [];
+  const pname = processNameForIgnore(entry);
+  if (pname) {
+    const pk = pname.toLowerCase();
+    for (const x of ign) {
+      const k = String(x || '').toLowerCase();
+      if (!k) continue;
+      if (pk === k || pk.includes(k) || k.includes(pk)) return 'ignored';
+    }
+  }
+  const kw = keywordForQuickClassify(entry);
+  if (kw) {
+    const key = kw.toLowerCase();
+    if ((r.unproductive || []).some((x) => String(x).toLowerCase() === key)) {
+      return 'unproductive';
+    }
+    if ((r.productive || []).some((x) => String(x).toLowerCase() === key)) {
+      return 'productive';
+    }
+  }
+  return 'other';
+}
+
+
+function refreshLastFocusedAfterToggle(key) {
+  if (key && lfSessionClass[key]) delete lfSessionClass[key];
+  if (!lastFocusedCache) return;
+  const lfKey = lfOverrideKey(lastFocusedCache);
+  const lfKw = (keywordForQuickClassify(lastFocusedCache) || '').toLowerCase();
+  const lfName = (processNameForIgnore(lastFocusedCache) || '').toLowerCase();
+  if (!(lfKey === key || lfKw === key || lfName === key)) return;
+  if (lfKey) delete lfSessionClass[lfKey];
+  lastFocusedCache.category = defaultCategoryFromRules(
+    lastFocusedCache,
+    cachedRules,
+    cachedIgnore
+  );
+  applyCategoryChip(
+    $('lf-cat'),
+    lastFocusedCache.category,
+    lastFocusedCache.app,
+    lastFocusedCache.browser
+  );
+  applyLfButtonOutlines(lastFocusedCache.category);
+}
+
 function renderLastFocused(lf, now) {
   const appEl = $('lf-app');
   const titleEl = $('lf-title');
@@ -964,11 +1025,23 @@ function applySettingsInputs(settings) {
     $('daily-goal-hours').value = hoursVal;
   }
   syncPauseUi(settings);
+  syncNotifUi(settings);
   syncFocusBoostUi(settings);
   syncFocusBoostScheduleUi(settings);
   syncSessionSettingsUi(settings);
   applying = false;
   applyFocusBoostSchedule(settings).catch(() => {});
+}
+
+function syncNotifUi(settings) {
+  const btn = $('notif-btn');
+  if (!btn) return;
+  const on = settings && settings.notificationsEnabled !== false;
+  btn.setAttribute('data-muted', on ? 'off' : 'on');
+  btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+  btn.title = on ? 'Notifications on' : 'Notifications off (DND)';
+  const lab = btn.querySelector('.notif-label');
+  if (lab) lab.textContent = on ? 'Alerts' : 'DND';
 }
 
 function syncPauseUi(settings) {
@@ -1567,30 +1640,41 @@ $('app-list').addEventListener('click', async (ev) => {
   const appName = decodeURIComponent(wrap.getAttribute('data-app') || '');
   if (!appName) return;
   const action = btn.getAttribute('data-action');
+  const label = appName.trim();
+  const key = label.toLowerCase();
   btn.disabled = true;
   try {
     if (action === 'ignore') {
-      const next = cachedIgnore.slice();
-      const key = appName.trim().toLowerCase();
-      if (!next.map((x) => x.toLowerCase()).includes(key)) next.push(appName.trim());
-      const payload = await api.setIgnore(next);
-      cachedIgnore = (payload && payload.ignore) || next;
+      const prev = cachedIgnore.slice();
+      const already = listHasKey(prev, key);
+      const nextIgnore = already
+        ? prev.filter((x) => String(x).toLowerCase() !== key)
+        : prev.concat([label]);
+      const payload = await api.setIgnore(nextIgnore);
+      cachedIgnore = (payload && payload.ignore) || nextIgnore;
       fillIgnoreEditor({ ignore: cachedIgnore, path: payload && payload.path, isCustom: true });
+      if (already) refreshLastFocusedAfterToggle(key);
     } else if (action === 'productive' || action === 'unproductive') {
       const prod = (cachedRules.productive || []).slice();
       const unprod = (cachedRules.unproductive || []).slice();
-      const key = appName.trim().toLowerCase();
-      const strip = (arr) => arr.filter((k) => k.toLowerCase() !== key);
+      const strip = (arr) => arr.filter((k) => String(k).toLowerCase() !== key);
+      const already =
+        (action === 'productive' && listHasKey(prod, key)) ||
+        (action === 'unproductive' && listHasKey(unprod, key));
       let nextProd = strip(prod);
       let nextUnprod = strip(unprod);
-      if (action === 'productive') nextProd.push(appName.trim());
-      else nextUnprod.push(appName.trim());
+      // Toggle off: strip from both lists; do not re-add
+      if (!already) {
+        if (action === 'productive') nextProd.push(label);
+        else nextUnprod.push(label);
+      }
       const next = await api.setRules({ productive: nextProd, unproductive: nextUnprod });
       cachedRules = {
         productive: (next && next.productive) || nextProd,
         unproductive: (next && next.unproductive) || nextUnprod
       };
       fillRulesEditors(next);
+      if (already) refreshLastFocusedAfterToggle(key);
     }
   } catch (err) {
     console.warn('reclassify failed', err);
@@ -1669,7 +1753,19 @@ if ($('daily-goal-hours')) {
 async function setTrackingPaused(paused) {
   const next = await pushSettings({ trackingPaused: !!paused });
   syncPauseUi(next || { trackingPaused: !!paused });
+  syncNotifUi(next || {});
   return next;
+}
+
+
+if ($('notif-btn')) {
+  $('notif-btn').addEventListener('click', async () => {
+    const muted = $('notif-btn').getAttribute('data-muted') === 'on';
+    // muted on => currently off; click enables. muted off => currently on; click disables.
+    const enable = muted;
+    const next = await pushSettings({ notificationsEnabled: enable });
+    syncNotifUi(next || { notificationsEnabled: enable });
+  });
 }
 
 if ($('pause-btn')) {
@@ -2468,6 +2564,7 @@ function renderSessionLogList(payload) {
           '<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v6M14 11v6"/>' +
           '</svg></button>'
         : '';
+      const distractN = esc(String(s.distractionCount || 0));
       return (
         '<div class="session-log-item" data-open="off" data-status="' +
         esc(s.status || 'stopped') +
@@ -2482,7 +2579,15 @@ function renderSessionLogList(payload) {
         title +
         '</span>' +
         '</span>' +
+        '<span class="session-log-summary-right">' +
         statusChip(s.status) +
+        '<span class="session-log-distract">' +
+        '<span class="session-log-distract-label">Distractions</span>' +
+        '<span class="session-log-distract-count">' +
+        distractN +
+        '</span>' +
+        '</span>' +
+        '</span>' +
         '</button>' +
         delBtn +
         '</div>' +
@@ -2495,9 +2600,6 @@ function renderSessionLogList(payload) {
         (apps
           ? '<div class="session-log-apps">' + apps + '</div>'
           : '<div class="session-log-meta">No app time logged yet</div>') +
-        '<div class="session-log-distract">Distractions: <strong>' +
-        esc(String(s.distractionCount || 0)) +
-        '</strong></div>' +
         '</div>' +
         '</div>'
       );
@@ -2636,10 +2738,17 @@ async function quickClassifyLastFocused(category) {
   const unprod = (cachedRules.unproductive || []).slice();
   const key = kw.toLowerCase();
   const strip = (arr) => arr.filter((k) => String(k).toLowerCase() !== key);
+  const already =
+    lastFocusedCache.category === category ||
+    (category === 'productive' && listHasKey(prod, key)) ||
+    (category === 'unproductive' && listHasKey(unprod, key));
   let nextProd = strip(prod);
   let nextUnprod = strip(unprod);
-  if (category === 'productive') nextProd.push(kw);
-  else nextUnprod.push(kw);
+  // Toggle off: strip from both lists and do not re-add
+  if (!already) {
+    if (category === 'productive') nextProd.push(kw);
+    else nextUnprod.push(kw);
+  }
   try {
     const next = await api.setRules({ productive: nextProd, unproductive: nextUnprod });
     cachedRules = {
@@ -2653,17 +2762,23 @@ async function quickClassifyLastFocused(category) {
         isCustom: true
       }
     );
-    lastFocusedCache.category = category;
     const oKey = lfOverrideKey(lastFocusedCache);
-    if (oKey) lfSessionClass[oKey] = category;
+    let nextCat = category;
+    if (already) {
+      if (oKey) delete lfSessionClass[oKey];
+      nextCat = defaultCategoryFromRules(lastFocusedCache, cachedRules, cachedIgnore);
+    } else if (oKey) {
+      lfSessionClass[oKey] = category;
+    }
+    lastFocusedCache.category = nextCat;
     const catEl = $('lf-cat');
     applyCategoryChip(
       catEl,
-      category,
+      nextCat,
       lastFocusedCache.app,
       lastFocusedCache.browser
     );
-    applyLfButtonOutlines(category);
+    applyLfButtonOutlines(nextCat);
   } catch (err) {
     console.warn('quick-classify failed', err);
   }
@@ -2683,9 +2798,17 @@ async function ignoreLastFocused() {
   if (!api || !lastFocusedCache) return;
   const name = processNameForIgnore(lastFocusedCache);
   if (!name) return;
-  const next = cachedIgnore.slice();
+  const prev = cachedIgnore.slice();
   const key = name.toLowerCase();
-  if (!next.map((x) => String(x).toLowerCase()).includes(key)) next.push(name);
+  const already =
+    lastFocusedCache.category === 'ignored' || listHasKey(prev, key);
+  let next;
+  if (already) {
+    next = prev.filter((x) => String(x).toLowerCase() !== key);
+  } else {
+    next = prev.slice();
+    if (!listHasKey(next, key)) next.push(name);
+  }
   try {
     const payload = await api.setIgnore(next);
     cachedIgnore = (payload && payload.ignore) || next;
@@ -2694,15 +2817,23 @@ async function ignoreLastFocused() {
       path: payload && payload.path,
       isCustom: true
     });
-    lastFocusedCache.category = 'ignored';
     const oKey = lfOverrideKey(lastFocusedCache);
-    if (oKey) lfSessionClass[oKey] = 'ignored';
-    const catEl = $('lf-cat');
-    if (catEl) {
-      catEl.textContent = 'ignored';
-      catEl.className = 'chip ignored';
+    let nextCat = 'ignored';
+    if (already) {
+      if (oKey) delete lfSessionClass[oKey];
+      nextCat = defaultCategoryFromRules(lastFocusedCache, cachedRules, cachedIgnore);
+    } else if (oKey) {
+      lfSessionClass[oKey] = 'ignored';
     }
-    applyLfButtonOutlines('ignored');
+    lastFocusedCache.category = nextCat;
+    const catEl = $('lf-cat');
+    applyCategoryChip(
+      catEl,
+      nextCat,
+      lastFocusedCache.app,
+      lastFocusedCache.browser
+    );
+    applyLfButtonOutlines(nextCat);
   } catch (err) {
     console.warn('ignore last-focused failed', err);
   }

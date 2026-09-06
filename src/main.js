@@ -163,6 +163,10 @@ function formatReminderBody(template, payload) {
 
 function fireReminder(payload) {
   const settings = (store && store.getSettings && store.getSettings()) || {};
+  // DND / notifications toggle — skip OS toast + in-app banner
+  if (settings.notificationsEnabled === false) {
+    return;
+  }
   const boostOn = !!settings.focusBoost;
   const boostTemplate =
     settings.focusBoostReminderMessage ||

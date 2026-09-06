@@ -119,7 +119,8 @@ function createStore(dataDir) {
       focusBoostReminderMessage: "Hey! focusboost is enabled. Maybe it's time to refocus?",
       dailyGoalSec: 7200,
       sessionHistoryEnabled: true,
-      sessionCustomMin: 45
+      sessionCustomMin: 45,
+      notificationsEnabled: true
     },
     loadJson(settingsPath) || {}
   );

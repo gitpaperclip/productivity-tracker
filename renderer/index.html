@@ -39,6 +39,11 @@
         </button>
       </nav>
       <div class="rail-foot">
+        <button type="button" id="notif-btn" class="notif-toggle" data-muted="off" title="Notifications on" aria-label="Toggle notifications" aria-pressed="false">
+          <svg class="notif-ico notif-ico-on" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+          <svg class="notif-ico notif-ico-off" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7"/><path d="M10 19a2 2 0 0 0 4 0"/><path d="M4 4l16 16"/></svg>
+          <span class="notif-label">Alerts</span>
+        </button>
         <div class="rail-status-row">
           <button type="button" id="pause-btn" class="pause-power" data-paused="off" title="Pause tracking" aria-label="Pause tracking" aria-pressed="false">
             <svg class="pause-power-ico" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M7.5 6.2a7 7 0 1 0 9 0"/></svg>
@@ -310,23 +315,24 @@
         <header class="page-head">
           <div>
             <h1>Sessions</h1>
-            <p class="muted">Pomodoro, Deep work, or custom — timer first, log below</p>
           </div>
         </header>
 
         <article class="card session-timer-card" id="session-timer-card" data-running="off">
-          <div class="segment-control session-mode-control" role="group" aria-label="Session mode">
-            <button type="button" class="segment-btn active" data-session-mode="pomodoro">Pomodoro</button>
-            <button type="button" class="segment-btn" data-session-mode="deep">Deep</button>
-            <button type="button" class="segment-btn" data-session-mode="custom">Custom</button>
+          <div class="session-timer-top">
+            <div class="segment-control session-mode-control" role="group" aria-label="Session mode">
+              <button type="button" class="segment-btn active" data-session-mode="pomodoro">Pomodoro</button>
+              <button type="button" class="segment-btn" data-session-mode="deep">Deep</button>
+              <button type="button" class="segment-btn" data-session-mode="custom">Custom</button>
+            </div>
+            <div class="session-custom-row hidden" id="session-custom-row">
+              <input type="number" id="session-custom-min" class="session-custom-input" min="1" max="1440" step="1" value="45" aria-label="Custom minutes" />
+            </div>
           </div>
 
           <div class="session-alarm-row">
             <div class="session-alarm-left">
               <span class="session-mode-label-sr" id="session-timer-mode-label">Pomodoro</span>
-              <div class="session-custom-row hidden" id="session-custom-row">
-                <input type="number" id="session-custom-min" class="session-custom-input" min="1" max="1440" step="1" value="45" aria-label="Custom minutes" />
-              </div>
               <div id="session-timer-display" class="session-timer-display" aria-live="polite">25:00</div>
             </div>
             <div class="session-timer-actions">
@@ -362,7 +368,6 @@
         <header class="page-head">
           <div>
             <h1>Focus Tags</h1>
-            <p class="muted tags-lead">Tags match process names, window title, and URL. For browsers, only <strong>window title / URL keywords</strong> count — not the browser app name. A bare browser stays the yellow <strong>browser</strong> chip until a keyword hits.</p>
           </div>
         </header>
 
@@ -428,6 +433,7 @@
 
         <article class="card">
           <h3>Tracker</h3>
+          <!-- Toggles first -->
           <div class="switch-row pause-settings-row">
             <div>
               <div class="switch-title">Pause tracking</div>
@@ -437,6 +443,32 @@
               <svg class="pause-power-ico" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M7.5 6.2a7 7 0 1 0 9 0"/></svg>
             </button>
           </div>
+          <label class="switch-row" id="fb-schedule-row">
+            <div>
+              <div class="switch-title">focusboost Schedule</div>
+              <div class="hint">Enable a focusboost schedule. Focusboost will automatically enable and disable based on this window.</div>
+            </div>
+            <input type="checkbox" id="fb-schedule-toggle" />
+          </label>
+          <div class="settings-row-2 fb-schedule-times" id="fb-schedule-times">
+            <label class="field">
+              <span>Starts</span>
+              <input type="time" id="fb-schedule-start" value="09:00" />
+            </label>
+            <label class="field">
+              <span>Ends</span>
+              <input type="time" id="fb-schedule-end" value="17:00" />
+            </label>
+          </div>
+          <label class="switch-row" id="session-history-row">
+            <div>
+              <div class="switch-title">Keep session history</div>
+              <div class="hint">Off keeps only the most recent session.</div>
+            </div>
+            <input type="checkbox" id="session-history-toggle" checked />
+          </label>
+
+          <!-- Timing fields -->
           <div class="settings-block">
             <div class="settings-block-title">Timing</div>
             <div class="settings-row-2">
@@ -449,24 +481,7 @@
                 <input type="number" id="focusboost-min" min="0.1" step="0.1" value="3" />
               </label>
             </div>
-            <label class="switch-row" id="fb-schedule-row">
-              <div>
-                <div class="switch-title">focusboost Schedule</div>
-                <div class="hint">Enable a focusboost schedule. Focusboost will automatically enable and disable based on this window.</div>
-              </div>
-              <input type="checkbox" id="fb-schedule-toggle" />
-            </label>
-            <div class="settings-row-2 fb-schedule-times" id="fb-schedule-times">
-              <label class="field">
-                <span>Starts</span>
-                <input type="time" id="fb-schedule-start" value="09:00" />
-              </label>
-              <label class="field">
-                <span>Ends</span>
-                <input type="time" id="fb-schedule-end" value="17:00" />
-              </label>
-            </div>
-            <label class="field settings-goal-after-schedule">
+            <label class="field settings-goal-field">
               <div class="field-label-row">
                 <span>Daily Productivity Goal (hours)</span>
                 <span class="settings-token muted tiny">Used in Roundup</span>
@@ -475,14 +490,8 @@
             </label>
           </div>
 
+          <!-- Reminder notification text -->
           <div class="settings-block settings-block-reminders">
-            <label class="switch-row" id="session-history-row">
-              <div>
-                <div class="switch-title">Keep session history</div>
-                <div class="hint">On: per-day Focus session logs (capped like day history). Off: only the most recent session is kept and shown on the Sessions tab.</div>
-              </div>
-              <input type="checkbox" id="session-history-toggle" checked />
-            </label>
             <label class="field">
               <div class="field-label-row">
                 <span>Standard Reminder Notification</span>
@@ -495,7 +504,7 @@
               <textarea id="focusboost-message" class="rules-textarea settings-textarea" rows="2" spellcheck="true" placeholder="Hey! focusboost is enabled..."></textarea>
             </label>
           </div>
-<p class="settings-meta muted tiny">Data: <code id="data-path">./data</code></p>
+          <p class="settings-meta muted tiny">Data: <code id="data-path">./data</code></p>
         </article>
 
         <article class="card data-card">
