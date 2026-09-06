@@ -2,6 +2,8 @@
 
 Desktop productivity tracker for Windows. Watches the foreground window, classifies time as productive, unproductive, or other, and nudges you on long unproductive streaks.
 
+**Working title:** FocusFlow is not final — other apps already use that name. Renaming should lean into “last focused window” / focus-aware tracking. Keep package ids / `.focusflow` backup format stable until a rename ships; treat UI strings as soft.
+
 ## What you get
 
 - Last focused bar: last real app (never FocusFlow itself)
@@ -80,9 +82,16 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - Home daily goal chip (shipped; polish as needed)
 - Gentle health insights (short coach notes, no lectures)
 - Privacy mode (strip/hash window titles)
+- **Pause / disable tracking** — not built yet (only demo mode + ignore list). Need a clear Pause that stops logging without quitting the app; show Pausing in status / tray
 - Tray presence + FocusBoost in tray
 - `.exe` packaging + first-run onboarding (primary browser → seed Focus Tags)
 - Disk usage display with privacy/Data
+
+### Tray stage (shelved until tray)
+- Tray menu: pick **Focus mode** quickly (Coding, Resume writing, Homework, …)
+- **Downtime mode**: don’t treat (or don’t log) unproductive apps — evenings / breaks without guilt or noise; still optional light presence
+- Tray: Pause tracking, arm/disarm FocusBoost, open Roundup / Home
+- Tray icon state reflects mode (active / downtime / paused)
 
 ### Shelved polish
 - Themes: Sand, Coral, Night, Starlight
@@ -95,6 +104,7 @@ Named modes that swap what "productive" means for the task you're in — e.g. Re
 - Example: in Coding, Stack Overflow / docs are productive; Netflix still isn't
 - UI: quick mode picker on Home (and later tray); mode name shown on Last focused / Roundup
 - Adaptive angle (later): suggest mode from recent apps, or warn when current apps fight the active mode
+- **Downtime** mode: pause unproductive scoring / reminders (and optionally skip logging U apps) without full app quit — pairs with tray
 - Keep fully local; modes live in settings/rules files, exportable in `.focusflow`
 
 ### Explicit non-goals (for now)
