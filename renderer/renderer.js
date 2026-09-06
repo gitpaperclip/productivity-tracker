@@ -2063,6 +2063,44 @@ if ($('data-import')) {
   });
 }
 
+
+if ($('profile-export')) {
+  $('profile-export').addEventListener('click', async () => {
+    if (!api || !api.exportProfilePack) return;
+    $('profile-status').textContent = 'Exporting profile…';
+    try {
+      const res = await api.exportProfilePack({});
+      if (res && res.canceled) $('profile-status').textContent = 'Export canceled';
+      else if (res && res.ok) $('profile-status').textContent = 'Profile pack exported';
+      else $('profile-status').textContent = (res && res.error) || 'Export failed';
+    } catch (err) {
+      $('profile-status').textContent = 'Export failed';
+    }
+  });
+}
+
+if ($('profile-import')) {
+  $('profile-import').addEventListener('click', async () => {
+    if (!api || !api.importProfilePack) return;
+    $('profile-status').textContent = 'Importing profile…';
+    try {
+      const res = await api.importProfilePack();
+      if (res && res.canceled) $('profile-status').textContent = 'Import canceled';
+      else if (res && res.ok) {
+        const bits = [];
+        if (res.name) bits.push(res.name);
+        bits.push((res.productive || 0) + ' productive');
+        bits.push((res.unproductive || 0) + ' unproductive');
+        bits.push((res.ignore || 0) + ' ignore');
+        $('profile-status').textContent = 'Imported: ' + bits.join(', ');
+        await loadRulesAndIgnore();
+      } else $('profile-status').textContent = (res && res.error) || 'Import failed';
+    } catch (err) {
+      $('profile-status').textContent = 'Import failed';
+    }
+  });
+}
+
 if ($('data-clear-today')) {
   $('data-clear-today').addEventListener('click', async () => {
     if (!api || !api.clearToday) return;

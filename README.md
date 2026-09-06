@@ -11,7 +11,7 @@ Desktop productivity tracker for Windows. Watches the foreground window, classif
 - Analytics: Day · Week · Month · Apps (top apps P / U / Ign)
 - Roundup: daily wrap + goal payoff (headline, goal bar, highlights, story)
 - Focus Tags: productive / unproductive keywords + ignore list
-- Settings: default + FocusBoost reminder timing, FocusBoost schedule + Pause, daily productivity goal (for Roundup), portable `.focusflow` backup
+- Settings: default + FocusBoost reminder timing, FocusBoost schedule + Pause, daily productivity goal (for Roundup), portable `.focusflow` backup, Focus profile pack (`.focusflow-profile`) export/import for current tags
 - Fully local — no cloud sync, no account
 
 ## Windows: install and start
@@ -65,6 +65,26 @@ Settings > Data > Export writes a local JSON file (format focusflow-backup, sche
 Privacy: exports can include app names and window titles - treat the file like a diary. There is no cloud sync; only you choose where to save/open or copy the file between your PCs.
 
 Import merges by default. Clear today / Clear all history are permanent and ask for confirmation.
+
+
+## Focus profile pack (.focusflow-profile)
+
+Portable **tag lists only** — productive, unproductive, and ignore keywords. Separate from the `.focusflow` history backup (`format: focusflow-backup`).
+
+**Format choice:** single JSON file with extension `.focusflow-profile` (not zip). Node builtins give zlib/gzip but not a zip archive writer without extra dependencies; JSON stays simple and human-readable for v1.
+
+| Field | Notes |
+|-------|--------|
+| `format` | `focusflow-profile` |
+| `schemaVersion` | `1` |
+| `exportedAt` | ISO timestamp |
+| `appVersion` | from package.json |
+| `name` | optional string |
+| `productive` / `unproductive` / `ignore` | string arrays |
+
+**Available now:** Settings → Data → **Export profile pack** / **Import profile pack** writes or replaces the active rules + ignore lists (classifier picks them up immediately). Import does **not** touch day history or app settings.
+
+**Later (not built yet):** up to ~5 named Focus profiles and a Home hotswitch — this pack format is the infrastructure for that.
 
 ## FocusBoost
 

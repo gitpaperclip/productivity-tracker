@@ -20,6 +20,11 @@ const {
   writeBackupFile,
   readBackupFile
 } = require('./backup');
+const {
+  buildProfilePack,
+  writeProfilePackFile,
+  readProfilePackFile
+} = require('./profile-pack');
 
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu');
@@ -384,6 +389,81 @@ ipcMain.handle('data:import', async (_e, opts) => {
     }
   });
   return { ...imported, path: result.filePaths[0] };
+});
+
+
+ipcMain.handle('profile:export', async (_e, opts) => {
+  if (!mainWindow) return { ok: false, error: 'not ready' };
+  const options = opts || {};
+  const baseName = (typeof options.name === 'string' && options.name.trim())
+    ? options.name.trim().replace(/[^\w\-]+/g, '-').replace(/^-|-$/g, '') || 'focus'
+    : 'focus';
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export Focus profile pack',
+    defaultPath: `${baseName}-profile.focusflow-profile`,
+    filters: [
+      { name: 'FocusFlow profile', extensions: ['focusflow-profile', 'json'] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+
+  const pack = buildProfilePack({
+    name: typeof options.name === 'string' ? options.name : undefined,
+    productive: (rulesHolder.rules && rulesHolder.rules.productive) || [],
+    unproductive: (rulesHolder.rules && rulesHolder.rules.unproductive) || [],
+    ignore: ignoreHolder.ignore || []
+  });
+  writeProfilePackFile(result.filePath, pack);
+  return { ok: true, path: result.filePath, name: pack.name || null };
+});
+
+ipcMain.handle('profile:import', async () => {
+  if (!mainWindow) return { ok: false, error: 'not ready' };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Import Focus profile pack',
+    properties: ['openFile'],
+    filters: [
+      { name: 'FocusFlow profile', extensions: ['focusflow-profile', 'json'] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled || !result.filePaths || !result.filePaths[0]) {
+    return { ok: false, canceled: true };
+  }
+
+  let pack;
+  try {
+    pack = readProfilePackFile(result.filePaths[0]);
+  } catch (err) {
+    return { ok: false, error: err.message || 'Failed to read profile pack' };
+  }
+
+  // Replace active productive / unproductive / ignore tags; tracker holds
+  // mutable refs so classification picks up the new lists immediately.
+  const rulesDest = userRulesPath();
+  rulesHolder.rules = saveRules(rulesDest, {
+    productive: pack.productive,
+    unproductive: pack.unproductive
+  });
+  rulesFilePath = rulesDest;
+  rulesIsCustom = true;
+
+  const ignoreDest = userIgnorePath();
+  ignoreHolder.ignore = saveIgnore(ignoreDest, pack.ignore);
+  ignoreFilePath = ignoreDest;
+  ignoreIsCustom = true;
+
+  return {
+    ok: true,
+    path: result.filePaths[0],
+    name: pack.name || null,
+    productive: pack.productive.length,
+    unproductive: pack.unproductive.length,
+    ignore: pack.ignore.length,
+    rules: rulesPayload(),
+    ignoreList: ignorePayload()
+  };
 });
 
 ipcMain.handle('data:clearToday', async () => {

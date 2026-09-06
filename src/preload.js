@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('focusflow', {
   updateSettings: (partial) => ipcRenderer.invoke('settings:update', partial),
   exportData: (opts) => ipcRenderer.invoke('data:export', opts || {}),
   importData: (opts) => ipcRenderer.invoke('data:import', opts || {}),
+  exportProfilePack: (opts) => ipcRenderer.invoke('profile:export', opts || {}),
+  importProfilePack: () => ipcRenderer.invoke('profile:import'),
   clearToday: () => ipcRenderer.invoke('data:clearToday'),
   clearAllHistory: () => ipcRenderer.invoke('data:clearAll')
 });
