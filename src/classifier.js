@@ -6,7 +6,7 @@ const path = require('path');
 const DEFAULT_RULES_PATH = path.join(__dirname, 'rules.json');
 const DEFAULT_IGNORE_PATH = path.join(__dirname, 'ignore.json');
 
-/** Known browser process-name fragments — classify by title/URL, never by bare browser name. */
+/** Known browser process-name fragments — bare browsers default to productive. */
 const BROWSER_PROCESSES = [
   'chrome',
   'msedge',
@@ -87,8 +87,8 @@ function saveIgnore(filePath, ignoreList) {
 
 /**
  * Build lowercase haystack from process name + window title + url + path.
- * Browsers (Chrome/Edge/Firefox) are classified via title/URL keywords
- * (e.g. title containing "YouTube" → unproductive), not by browser name.
+ * Browsers (Chrome/Edge/Firefox) use title/URL keywords when available
+ * (e.g. title containing "YouTube" → unproductive), with bare browsers productive.
  */
 function haystack(win) {
   if (!win) return '';
@@ -150,7 +150,7 @@ function isIgnored(win, ignoreList) {
 /**
  * Unproductive wins on overlap (e.g. Chrome title "YouTube" or youtube.com URL).
  * Match is case-insensitive substring on process name + window title + url + path.
- * Known browsers without keyword hits → other (do not classify by bare browser name).
+ * Known browsers without keyword hits → productive; explicit unproductive keywords win above.
  */
 function classify(win, rules) {
   const hay = haystack(win);
@@ -166,8 +166,8 @@ function classify(win, rules) {
       return 'productive';
     }
   }
-  // Bare browser with no title/url keyword → other
-  if (isBrowserProcess(win)) return 'other';
+  // Browsers are productive by default; unproductive keyword hits win above.
+  if (isBrowserProcess(win)) return 'productive';
   return 'other';
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "sydtrack",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop productivity tracker — active window time, classification, and focus reminders",
   "main": "src/main.js",
   "author": "SydTrack",

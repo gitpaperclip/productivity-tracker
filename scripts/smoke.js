@@ -69,16 +69,16 @@ assert(
   'github is productive'
 );
 assert(
-  classify({ title: 'New Tab', owner: { name: 'Google Chrome' }, url: 'chrome://newtab' }, rules) === 'other',
-  'bare chrome stays other (title decides)'
+  classify({ title: 'New Tab', owner: { name: 'Google Chrome' }, url: 'chrome://newtab' }, rules) === 'productive',
+  'bare chrome is productive by default'
 );
 assert(
-  classify({ title: 'New Tab', owner: { name: 'msedge' } }, rules) === 'other',
-  'bare msedge stays other'
+  classify({ title: 'New Tab', owner: { name: 'msedge' } }, rules) === 'productive',
+  'bare msedge is productive by default'
 );
 assert(
-  classify({ title: 'Mozilla Firefox', owner: { name: 'firefox' } }, rules) === 'other',
-  'bare firefox stays other'
+  classify({ title: 'Mozilla Firefox', owner: { name: 'firefox' } }, rules) === 'productive',
+  'bare firefox is productive by default'
 );
 assert(
   classify({ title: 'YouTube', owner: { name: 'brave' } }, rules) === 'unproductive',
@@ -164,6 +164,26 @@ store.addSeconds('Code', 'productive', 2);
 assert(store.snapshot().unproductiveStreak === 0, 'productive switch resets streak');
 assert(store.snapshot().byCategory.productive >= 2, 'productive seconds stored');
 assert(store.snapshot().byCategory.unproductive >= 35, 'unproductive seconds stored');
+
+// Browser tabs share an app name, but category totals must retain each tab's history.
+store.addSeconds('Google Chrome', 'productive', 10);
+const mixedBrowser = store.snapshot();
+assert(mixedBrowser.byCategory.unproductive >= 35, 'browser unproductive history is retained');
+assert(mixedBrowser.byCategory.productive >= 12, 'browser productive history is retained');
+assert(
+  mixedBrowser.topApps.some((a) => a.name === 'Google Chrome' && a.category === 'productive'),
+  'browser appears in productive apps'
+);
+assert(
+  mixedBrowser.topApps.some((a) => a.name === 'Google Chrome' && a.category === 'unproductive'),
+  'browser appears in unproductive apps'
+);
+store.addSeconds('GitHub Desktop', 'productive', 2);
+store.addSeconds('GitHub Desktop', 'productive', 3);
+const groupedApps = store.snapshot().topApps.filter(
+  (a) => a.name === 'GitHub Desktop' && a.category === 'productive'
+);
+assert(groupedApps.length === 1 && groupedApps[0].seconds >= 5, 'same app/category entries are grouped');
 
 // ignored category must not be stored / must not grow streak
 store.addSeconds('Explorer', 'ignored', 50);

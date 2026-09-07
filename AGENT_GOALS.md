@@ -52,7 +52,7 @@ Artifact names look like `sydtrack-1.0.0-win-x64.exe` (installer / portable). Bu
 
 ## Classification
 
-Keywords match process name, window title, and URL. Unproductive wins on overlap. For browsers, tags match **window title / URL keywords**, not the browser app name — a bare browser stays `other` in data and shows a yellow **browser** chip in the UI (Last focused + Apps list) until a keyword hits. Edit under Focus Tags or use P/U/I on Analytics → Apps / Last focused.
+Keywords match process name, window title, and URL. Unproductive wins on overlap. For browsers, tags match **window title / URL keywords**, not the browser app name — a bare browser is `productive` by default, while an unproductive keyword such as YouTube overrides it. Edit under Focus Tags or use P/U/I on Analytics → Apps / Last focused.
 
 ## Ignore list
 

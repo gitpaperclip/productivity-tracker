@@ -350,7 +350,7 @@ function isBrowserApp(app) {
 
 /**
  * Display label/class for category chips.
- * Bare browser + category "other" → yellow "browser" chip (data stays "other").
+ * Historical bare-browser "other" entries → yellow "browser" chip.
  */
 function chipDisplay(category, app, browserFlag) {
   const cat = category || 'other';
@@ -479,7 +479,7 @@ function listHasKey(arr, key) {
 /**
  * Client-side default category from remaining rules (mimic classifier):
  * ignore by process name → ignored; unproductive keyword wins, then productive;
- * bare browser / no match → other (chip may show yellow "browser").
+ * bare browser → productive; no match → other.
  */
 function defaultCategoryFromRules(entry, rules, ignore) {
   if (!entry) return 'other';
@@ -504,6 +504,7 @@ function defaultCategoryFromRules(entry, rules, ignore) {
       return 'productive';
     }
   }
+  if (isBrowserApp(entry.app)) return 'productive';
   return 'other';
 }
 
@@ -591,6 +592,68 @@ function renderMood(stats) {
 
 /** Latest Home pie slice geometry + apps for hover tip. */
 let pieHoverState = { total: 0, ends: [0, 0, 0], appsByCat: { productive: [], unproductive: [], other: [] } };
+let liveStats = null;
+let liveCategory = 'other';
+let liveDisplayCategories = null;
+let liveLastAt = 0;
+let liveDisplaySignature = '';
+
+function advanceLiveTotals(at) {
+  if (!liveDisplayCategories || !liveLastAt) return;
+  const elapsed = Math.max(0, (at - liveLastAt) / 1000);
+  liveDisplayCategories[liveCategory] += elapsed;
+  liveLastAt = at;
+}
+
+function setLiveStats(stats, now) {
+  const at = Date.now();
+  advanceLiveTotals(at);
+  liveStats = stats || null;
+  liveCategory =
+    now && (now.category === 'productive' || now.category === 'unproductive')
+      ? now.category
+      : 'other';
+  const incoming = Object.assign(
+    { productive: 0, unproductive: 0, other: 0 },
+    (stats && stats.byCategory) || {}
+  );
+  if (!liveDisplayCategories) {
+    liveDisplayCategories = incoming;
+  } else {
+    for (const category of ['productive', 'unproductive', 'other']) {
+      if (incoming[category] + 1 < liveDisplayCategories[category]) {
+        liveDisplayCategories[category] = incoming[category];
+      } else {
+        liveDisplayCategories[category] = Math.max(
+          liveDisplayCategories[category],
+          incoming[category]
+        );
+      }
+    }
+  }
+  liveLastAt = at;
+}
+
+function renderLiveTotals() {
+  if (!liveStats || !liveDisplayCategories) return;
+  const at = Date.now();
+  advanceLiveTotals(at);
+  const byCategory = liveDisplayCategories;
+  const signature = ['productive', 'unproductive', 'other']
+    .map((category) => Math.floor(byCategory[category]))
+    .join(':');
+  if (signature === liveDisplaySignature) return;
+  liveDisplaySignature = signature;
+  renderPie(Object.assign({}, liveStats, { byCategory }));
+  if ($('streak')) {
+    const streak = liveCategory === 'unproductive'
+      ? (Number(liveStats.unproductiveStreak) || 0) + Math.max(0, byCategory.unproductive - Number(liveStats.byCategory.unproductive || 0))
+      : liveCategory === 'productive'
+        ? 0
+        : Number(liveStats.unproductiveStreak) || 0;
+    $('streak').textContent = fmt(streak);
+  }
+}
 
 function appsForCategory(stats, category) {
   const apps = (stats && stats.topApps) || [];
@@ -1151,15 +1214,33 @@ function hourLabel(h) {
 function topAppsFromByApp(byApp, limit) {
   const lim = limit || 3;
   if (!byApp || typeof byApp !== 'object') return [];
-  return Object.entries(byApp)
-    .map(([name, info]) => ({
-      name,
+  const merged = new Map();
+  Object.entries(byApp)
+    .map(([key, info]) => ({
+      name: appEntryNameFromKey(key),
       seconds: Math.max(0, Number(info && info.seconds) || 0),
       category: (info && info.category) || 'other'
     }))
     .filter((e) => e.seconds > 0 && e.category !== 'ignored')
+    .forEach((entry) => {
+      const key = entry.name + '\u0000' + entry.category;
+      const current = merged.get(key);
+      if (current) current.seconds += entry.seconds;
+      else merged.set(key, entry);
+    });
+  return Array.from(merged.values())
     .sort((a, b) => b.seconds - a.seconds)
     .slice(0, lim);
+}
+
+function appEntryNameFromKey(key) {
+  const text = String(key);
+  const marker = text.lastIndexOf('::');
+  if (marker < 0) return text;
+  const suffix = text.slice(marker + 2);
+  return suffix === 'productive' || suffix === 'unproductive'
+    ? text.slice(0, marker)
+    : text;
 }
 
 function normalizeByHour(raw) {
@@ -2358,9 +2439,9 @@ function updateIdleCountdownDisplay() {
 
 function remainingFromSession(session) {
   if (!session) return 0;
-  if (typeof session.remainingSec === 'number') return session.remainingSec;
-  if (typeof session.remainingMs === 'number') return Math.ceil(session.remainingMs / 1000);
   if (session.endsAt) return Math.max(0, Math.ceil((Number(session.endsAt) - Date.now()) / 1000));
+  if (typeof session.remainingMs === 'number') return Math.ceil(session.remainingMs / 1000);
+  if (typeof session.remainingSec === 'number') return session.remainingSec;
   return 0;
 }
 
@@ -2691,6 +2772,7 @@ async function boot() {
     if (state) {
       updateSourcePill(state.now);
       renderLastFocused(state.lastFocused, state.now);
+      setLiveStats(state.stats, state.now);
       renderStats(state.stats);
       if (state.session) renderActiveSession(state.session);
       else if (api.getActiveSession) {
@@ -2704,6 +2786,7 @@ async function boot() {
   api.onUpdate((payload) => {
     updateSourcePill(payload.now);
     renderLastFocused(payload.lastFocused, payload.now);
+    setLiveStats(payload.stats, payload.now);
     renderStats(payload.stats);
     if (payload.session !== undefined) {
       renderActiveSession(payload.session);
@@ -2718,6 +2801,11 @@ async function boot() {
 }
 
 boot();
+function runLiveTotalsTicker() {
+  renderLiveTotals();
+  window.requestAnimationFrame(runLiveTotalsTicker);
+}
+runLiveTotalsTicker();
 
 const focusBoostBtn = $('focusboost-btn');
 if (focusBoostBtn) {

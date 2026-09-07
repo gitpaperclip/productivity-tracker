@@ -92,6 +92,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   const real = createRealBackend();
   const demo = createDemoBackend();
   let timer = null;
+  let pollInFlight = false;
   let lastTick = Date.now();
   let current = {
     window: null,
@@ -104,7 +105,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   /** Last non-ignored, non-SydTrack window — survives while user looks at SydTrack. */
   let lastFocused = null;
 
-  async function poll() {
+  async function pollOnce() {
     const now = Date.now();
     const elapsed = Math.min(5, Math.max(0, (now - lastTick) / 1000));
     lastTick = now;
@@ -231,6 +232,16 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
         session: activeSession,
         sessionCompleted: (sessionInfo && sessionInfo.completed) || null
       });
+    }
+  }
+
+  async function poll() {
+    if (pollInFlight) return;
+    pollInFlight = true;
+    try {
+      await pollOnce();
+    } finally {
+      pollInFlight = false;
     }
   }
 

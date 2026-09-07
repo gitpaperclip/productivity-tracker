@@ -21,6 +21,41 @@ function emptyByHour() {
   return Array.from({ length: 24 }, () => emptyHour());
 }
 
+function appCategoryKey(app, category) {
+  if (category === 'productive' || category === 'unproductive') {
+    return String(app) + '::' + category;
+  }
+  return String(app);
+}
+
+function appEntryName(key) {
+  const text = String(key);
+  const marker = text.lastIndexOf('::');
+  if (marker < 0) return text;
+  const suffix = text.slice(marker + 2);
+  return suffix === 'productive' || suffix === 'unproductive'
+    ? text.slice(0, marker)
+    : text;
+}
+
+function mergeAppEntries(entries) {
+  const merged = new Map();
+  for (const entry of entries || []) {
+    const category =
+      entry.category === 'productive' || entry.category === 'unproductive'
+        ? entry.category
+        : 'other';
+    const key = entry.name + '\u0000' + category;
+    const current = merged.get(key);
+    if (current) {
+      current.seconds += entry.seconds;
+    } else {
+      merged.set(key, { name: entry.name, seconds: entry.seconds, category });
+    }
+  }
+  return Array.from(merged.values());
+}
+
 function emptyDay(date) {
   return {
     date: date || todayKey(),
@@ -108,7 +143,7 @@ function createStore(dataDir) {
       demoMode: false,
       trackingPaused: false,
       reminderCooldownSec: 90,
-      pollMs: 1500,
+      pollMs: 750,
       focusBoost: false,
       focusBoostRestoreSec: null,
       focusBoostSec: 180,
@@ -188,14 +223,14 @@ function createStore(dataDir) {
     // Never persist ignored category into totals
     if (category === 'ignored') return state;
 
-    if (!state.byApp[app]) {
-      state.byApp[app] = { seconds: 0, category };
-    }
-    state.byApp[app].seconds += sec;
-    state.byApp[app].category = category;
-
     const cat =
       category === 'productive' || category === 'unproductive' ? category : 'other';
+    const entryKey = appCategoryKey(app, cat);
+    if (!state.byApp[entryKey]) {
+      state.byApp[entryKey] = { seconds: 0, category: cat };
+    }
+    state.byApp[entryKey].seconds += sec;
+    state.byApp[entryKey].category = cat;
     if (!state.byCategory[cat]) state.byCategory[cat] = 0;
     state.byCategory[cat] += sec;
 
@@ -209,11 +244,11 @@ function createStore(dataDir) {
     if (!state.byHour[hour].byApp || typeof state.byHour[hour].byApp !== 'object') {
       state.byHour[hour].byApp = {};
     }
-    if (!state.byHour[hour].byApp[app]) {
-      state.byHour[hour].byApp[app] = { seconds: 0, category };
+    if (!state.byHour[hour].byApp[entryKey]) {
+      state.byHour[hour].byApp[entryKey] = { seconds: 0, category: cat };
     }
-    state.byHour[hour].byApp[app].seconds += sec;
-    state.byHour[hour].byApp[app].category = category;
+    state.byHour[hour].byApp[entryKey].seconds += sec;
+    state.byHour[hour].byApp[entryKey].category = cat;
 
     if (category === 'unproductive') {
       state.unproductiveStreak += sec;
@@ -299,12 +334,11 @@ function createStore(dataDir) {
       }
       let topApps = [];
       if (dayObj && dayObj.byApp && typeof dayObj.byApp === 'object') {
-        topApps = Object.entries(dayObj.byApp)
-          .map(([name, info]) => ({
-            name,
+        topApps = mergeAppEntries(Object.entries(dayObj.byApp).map(([name, info]) => ({
+            name: appEntryName(name),
             seconds: (info && info.seconds) || 0,
             category: (info && info.category) || 'other'
-          }))
+          })))
           .filter((e) => e.category !== 'ignored' && e.seconds > 0)
           .sort((a, b) => b.seconds - a.seconds)
           .slice(0, 3);
@@ -324,28 +358,35 @@ function createStore(dataDir) {
   }
 
   /**
-   * @param {string[]|null} ignoreList optional — filter ignored process names out of topApps
-   *   and recompute byCategory display totals excluding those apps. History kept on disk.
+  * @param {string[]|null} ignoreList optional — filter ignored process names out of topApps
+  *   and subtract their stored totals. Other category totals remain authoritative so a browser
+  *   tab switch cannot reclassify history.
    */
   function snapshot(ignoreList) {
     rollIfNeeded();
     const { appMatchesIgnore } = require('./classifier');
     const ignore = ignoreList || [];
 
-    const entries = Object.entries(state.byApp).map(([name, info]) => ({
-      name,
+    const entries = mergeAppEntries(Object.entries(state.byApp).map(([name, info]) => ({
+      name: appEntryName(name),
       seconds: info.seconds,
       category: info.category
-    }));
+    })));
 
-    const visible = ignore.length
-      ? entries.filter((e) => !appMatchesIgnore(e.name, ignore) && e.category !== 'ignored')
-      : entries.filter((e) => e.category !== 'ignored');
+    const ignoredEntries = ignore.length
+      ? entries.filter((e) => appMatchesIgnore(e.name, ignore))
+      : [];
+    const visible = entries.filter(
+      (e) => e.category !== 'ignored' && !ignoredEntries.includes(e)
+    );
 
-    const byCategory = { productive: 0, unproductive: 0, other: 0 };
-    for (const e of visible) {
+    const byCategory = Object.assign(
+      { productive: 0, unproductive: 0, other: 0 },
+      state.byCategory || {}
+    );
+    for (const e of ignoredEntries) {
       const cat = e.category === 'productive' || e.category === 'unproductive' ? e.category : 'other';
-      byCategory[cat] = (byCategory[cat] || 0) + e.seconds;
+      byCategory[cat] = Math.max(0, (byCategory[cat] || 0) - e.seconds);
     }
 
     const topApps = visible.sort((a, b) => b.seconds - a.seconds).slice(0, 40);
