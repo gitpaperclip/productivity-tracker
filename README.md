@@ -78,4 +78,4 @@ Settings can export:
 
 SydTrack is an actively developed Windows desktop application. Browser tracking is intentionally rudimentary: it uses the active browser window title and URL rather than browser extensions or tab APIs. This keeps the application local and lightweight while leaving room for deeper browser integration later.
 
-[![License: GPL v3](https://shields.io)](https://gnu.org)
+License: GPL v3
