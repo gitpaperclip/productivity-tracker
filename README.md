@@ -1,24 +1,24 @@
-# FocusFlow
+# sydtrack
 
 Desktop productivity tracker for Windows. Watches the foreground window, classifies time as productive, unproductive, or other, and nudges you on long unproductive streaks.
 
 # Known issues
-If you don't explicitly close your instance of focusflow, there is a duplicate focus issue
+If you don't explicitly close your instance of sydtrack, there is a duplicate focus issue
 Browser tracking isn't perfect and definitely the target here, we need better browser integration
 Some issues with the pie chart updating properly
 Timers don't update second by second , impl needs to be optimized
 
-**Working title:** FocusFlow is not final — other apps already use that name. Renaming should lean into “last focused window” / focus-aware tracking. Keep package ids / `.focusflow` backup format stable until a rename ships; treat UI strings as soft.
+**Name update will be shipped in v0.9.1**
 
 ## What you get
 
-- Last focused bar: last real app (never FocusFlow itself)
+- Last focused bar: last real app (never sydtrack itself)
 - Home: mood, pie, FocusBoost (~3 min reminder), Last focused P/U/I
 - Analytics: Day · Week · Month · Apps (top apps P / U / Ign)
 - Roundup: daily wrap + goal payoff (headline, goal bar, highlights, story)
 - Sessions: Pomodoro (25m) / Deep work (90m) / Custom — big countdown on the Sessions tab; compact Start/Stop on Home; per-day session log (top 3 apps + distraction count)
 - Focus Tags: productive / unproductive keywords + ignore list
-- Settings: default + FocusBoost reminder timing, FocusBoost schedule + Pause, daily productivity goal (for Roundup), session history toggle, portable `.focusflow` backup, Focus profile pack (`.focusflow-profile`) export/import for current tags
+- Settings: default + FocusBoost reminder timing, FocusBoost schedule + Pause, daily productivity goal (for Roundup), session history toggle, portable `.sydtrack` backup, Focus profile pack (`.sydtrack-profile`) export/import for current tags
 - Fully local — no cloud sync, no account
 
 ## Windows: install and start
@@ -41,13 +41,13 @@ On a Windows machine with Node 18+:
 3. `npm run pack` — unpacked `dist/win-unpacked` for a quick smoke run (no installer)
 4. `npm run dist:portable` — portable only
 
-Artifact names look like `FocusFlow-1.0.0-win-x64.exe` (installer / portable). Builds are **unsigned**, so Windows SmartScreen may warn on first open — that is expected until a code-signing cert is added. Packaged data lives in Electron `userData` (not `./data/`); see **Data location**.
+Artifact names look like `sydtrack-1.0.0-win-x64.exe` (installer / portable). Builds are **unsigned**, so Windows SmartScreen may warn on first open — that is expected until a code-signing cert is added. Packaged data lives in Electron `userData` (not `./data/`); see **Data location**.
 
 ## First open
 
 1. Tabs: Home | Analytics | Roundup | Sessions | Focus Tags | Settings. (Apps lives under Analytics. Sessions sits between Roundup and Focus Tags.)
-2. Switch to another app; FocusFlow logs that time.
-3. Home shows pie, mood, and Last focused (the app before you opened FocusFlow).
+2. Switch to another app; sydtrack logs that time.
+3. Home shows pie, mood, and Last focused (the app before you opened sydtrack).
 4. Default reminder at 10 minutes. FocusBoost arms a ~3 minute threshold (CSS BOOST punch, then armed glow).
 
 ## Classification
@@ -56,7 +56,7 @@ Keywords match process name, window title, and URL. Unproductive wins on overlap
 
 ## Ignore list
 
-Ignored processes show in status but are not logged. Defaults cover Explorer, shell hosts, and FocusFlow/Electron self.
+Ignored processes show in status but are not logged. Defaults cover Explorer, shell hosts, and sydtrack/Electron self.
 
 ## Data location
 
@@ -67,24 +67,24 @@ Today stays in stats.json. On local date change, the completed day is archived u
 
 Focus sessions persist completed entries under `sessions/YYYY-MM-DD.json` (same 90-day-style prune as day history). An in-progress session is mirrored to `active-session.json` so a restart can resume or finalize it. When **Keep session history** is off, disk is pruned to the single most recent session.
 
-## Portable backup (.focusflow) -- no cloud sync
+## Portable backup (.sydtrack) -- no cloud sync
 
-Settings > Data > Export writes a local JSON file (format focusflow-backup, schemaVersion 1, days, optional settings/rules/ignore).
+Settings > Data > Export writes a local JSON file (format sydtrack-backup, schemaVersion 1, days, optional settings/rules/ignore).
 
 Privacy: exports can include app names and window titles - treat the file like a diary. There is no cloud sync; only you choose where to save/open or copy the file between your PCs.
 
 Import merges by default. Clear today / Clear all history are permanent and ask for confirmation.
 
 
-## Focus profile pack (.focusflow-profile)
+## Focus profile pack (.sydtrack-profile)
 
-Portable **tag lists only** — productive, unproductive, and ignore keywords. Separate from the `.focusflow` history backup (`format: focusflow-backup`).
+Portable **tag lists only** — productive, unproductive, and ignore keywords. Separate from the `.sydtrack` history backup (`format: sydtrack-backup`).
 
-**Format choice:** single JSON file with extension `.focusflow-profile` (not zip). Node builtins give zlib/gzip but not a zip archive writer without extra dependencies; JSON stays simple and human-readable for v1.
+**Format choice:** single JSON file with extension `.sydtrack-profile` (not zip). Node builtins give zlib/gzip but not a zip archive writer without extra dependencies; JSON stays simple and human-readable for v1.
 
 | Field | Notes |
 |-------|--------|
-| `format` | `focusflow-profile` |
+| `format` | `sydtrack-profile` |
 | `schemaVersion` | `1` |
 | `exportedAt` | ISO timestamp |
 | `appVersion` | from package.json |
@@ -113,7 +113,7 @@ Shipped on the **Sessions** tab (nav between Roundup and Focus Tags) with a larg
 
 **Session log** (below the timer): entries per day with mode, planned duration, start/end (or elapsed), status (`completed` / `stopped early` / `running`), **top 3 apps** by time during the session, and **distraction count**.
 
-**Distraction definition:** while a session is active, each time classification moves **into unproductive** counts as +1 distraction (edge-triggered: other or productive → unproductive). Transitions that stay unproductive do not re-count. Ignore-list apps and FocusFlow itself never count (they also do not update the previous category used for the edge). Same hint appears under the timer on the Sessions tab.
+**Distraction definition:** while a session is active, each time classification moves **into unproductive** counts as +1 distraction (edge-triggered: other or productive → unproductive). Transitions that stay unproductive do not re-count. Ignore-list apps and sydtrack itself never count (they also do not update the previous category used for the edge). Same hint appears under the timer on the Sessions tab.
 
 **Keep session history** (Settings): on (default) keeps per-day session files (pruned like day history, ~90 days). Off keeps/shows only the most recent session (disk pruned to one entry on save).
 
@@ -147,7 +147,7 @@ Tracking backends TBD. UI and store run; live capture may use active-win or demo
 
 Actionable pending work (parked or not started). Shipped notes live under **Roadmap history** below.
 
-- **Named Focus profiles + Home hotswitch** (<=5 profiles; switch active P/U/Ign lists; `.focusflow-profile` pack format already exists — build multi-profile UI + Home switcher, not just export/import of the current lists)
+- **Named Focus profiles + Home hotswitch** (<=5 profiles; switch active P/U/Ign lists; `.sydtrack-profile` pack format already exists — build multi-profile UI + Home switcher, not just export/import of the current lists)
 - **Crash / error local log**: on uncaught main/renderer errors or crash, write a local log under userData (or `./data` in dev) so debug is not screenshot-only. Fully local — no upload.
 - **Tray + Downtime** (next after first `.exe` packaging pass): tray presence + FocusBoost in tray; tray menu (Pause, Boost, open Roundup/Home, pick Focus profile); **Downtime mode** (do not treat / do not log unproductive apps for evenings/breaks); tray icon state (active / downtime / paused)
 - **Nudges / FocusBoost analytics**: Analytics solo segment pill (right of toolbar) for reminder history — each toast logged (app, streak, time); counts; average time-to-refocus when measurable
@@ -162,7 +162,7 @@ Actionable pending work (parked or not started). Shipped notes live under **Road
   - Notification toggle above sidebar power + status
   - Settings: iOS-style switches instead of checkboxes
   - Onboarding: Quick start + Custom configuration (same deferred gate as To-dos — after Focus profiles)
-  - **Rebrand to "what the focus"** — **shelved / lowest priority — ship last**. Rename would touch many custom surfaces (package ids, `.focusflow` / `.focusflow-profile` formats, appId, paths, UI strings, etc.). Keep FocusFlow + package / `.focusflow` ids stable until a dedicated rename ship; do not start rename work now.
+  - **Rebrand to "what the focus"** — **shelved / lowest priority — ship last**. Rename would touch many custom surfaces (package ids, `.sydtrack` / `.sydtrack-profile` formats, appId, paths, UI strings, etc.). Keep sydtrack + package / `.sydtrack` ids stable until a dedicated rename ship; do not start rename work now.
 
 
 ## Roadmap / ideas (survive memory wipes)
