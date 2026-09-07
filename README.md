@@ -2,6 +2,12 @@
 
 Desktop productivity tracker for Windows. Watches the foreground window, classifies time as productive, unproductive, or other, and nudges you on long unproductive streaks.
 
+# Known issues
+If you don't explicitly close your instance of focusflow, there is a duplicate focus issue
+Browser tracking isn't perfect and definitely the target here, we need better browser integration
+Some issues with the pie chart updating properly
+Timers don't update second by second , impl needs to be optimized
+
 **Working title:** FocusFlow is not final — other apps already use that name. Renaming should lean into “last focused window” / focus-aware tracking. Keep package ids / `.focusflow` backup format stable until a rename ships; treat UI strings as soft.
 
 ## What you get
