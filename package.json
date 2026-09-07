@@ -4,7 +4,7 @@
   "description": "Desktop productivity tracker — active window time, classification, and focus reminders",
   "main": "src/main.js",
   "author": "SydTrack",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "scripts": {
     "start": "node scripts/start.js",
     "start:electron": "electron . --no-sandbox --disable-gpu",
