@@ -3,7 +3,7 @@
 const path = require('path');
 const { Tray, Menu, nativeImage } = require('electron');
 
-const LOGO_PATH = path.join(__dirname, '..', 'renderer', 'assets', 'logo-mark.png');
+const LOGO_PATH = path.join(__dirname, '..', 'renderer', 'assets', 'logo-wordmark.png');
 
 function focusBoostSecFromSettings(settings) {
   const n = Number(settings && settings.focusBoostSec);
@@ -38,7 +38,7 @@ function createAppTray(deps) {
 
   let image = nativeImage.createFromPath(LOGO_PATH);
   if (!image.isEmpty()) {
-    image = image.resize({ width: 16, height: 16 });
+    image = image.resize({ width: 24, height: 24 });
   }
   const tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image);
   tray.setToolTip('SydTrack');

@@ -108,14 +108,23 @@ body {
   transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1), padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.logo { display: flex; gap: 12px; align-items: center; padding: 4px 8px; }
-.logo > div {
+.logo { display: flex; gap: 12px; align-items: center; padding: 4px 8px; font-family: "Red Hat Display", "Inter", sans-serif; font-weight: 700; }
+.logo-copy {
   overflow: hidden;
   max-width: 160px;
   opacity: 1;
-  white-space: nowrap;
   transition: opacity 180ms ease, max-width 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+.logo-word {
+  overflow: hidden;
+  width: 132px;
+  white-space: nowrap;
+  font-size: 17px;
+  line-height: 1.1;
+}
+.logo-syd { font-weight: 700; }
+.logo-track { font-weight: 400; font-style: italic; }
+.logo-sub { color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0.02em; }
 .nav-label {
   display: inline-block;
   max-width: 140px;
@@ -131,26 +140,14 @@ body {
   opacity: 1;
   transition: opacity 160ms ease, max-height 240ms ease;
 }
-.logo-mark-ff {
-  width: 34px; height: 34px; border-radius: 12px;
-  display: flex; align-items: baseline; justify-content: center;
-  flex-shrink: 0; gap: 0;
-  font-size: 22px; line-height: 1; letter-spacing: -0.08em;
-  background: var(--panel-2);
-  box-shadow: 0 8px 24px rgba(129,140,248,0.25), inset 0 0 0 1px var(--line);
-  padding-top: 4px;
+.logo-mark {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(129,140,248,0.25);
 }
-.wm-f1 { font-weight: 700; font-style: normal; font-family: "Inter", system-ui, sans-serif; }
-.wm-f2 { font-weight: 400; font-style: italic; font-family: "Inter", system-ui, sans-serif; }
-.logo-word {
-  display: flex; align-items: baseline; gap: 0;
-  letter-spacing: -0.04em; line-height: 1.1;
-  font-size: 17px;
-  font-family: "Inter", system-ui, sans-serif;
-}
-.wm-focus { font-weight: 700; font-style: normal; }
-.wm-flow { font-weight: 400; font-style: italic; }
-.logo-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.02em; }
 
 .nav {
   display: flex;
@@ -1433,7 +1430,7 @@ body.nav-collapsed .nav-btn .nav-ico {
 body.nav-collapsed .nav-btn.active {
   box-shadow: inset 0 0 0 1.5px var(--line-strong);
 }
-body.nav-collapsed .logo > div {
+body.nav-collapsed .logo-copy {
   max-width: 0;
   opacity: 0;
   pointer-events: none;

@@ -16,10 +16,10 @@
     "dist:portable": "electron-builder --win portable"
   },
   "dependencies": {
-    "active-win": "^8.1.1",
-    "electron": "^28.3.3"
+    "active-win": "^8.1.1"
   },
   "devDependencies": {
+    "electron": "^28.3.3",
     "electron-builder": "^24.13.3"
   },
   "build": {
@@ -36,6 +36,8 @@
     ],
     "asar": true,
     "win": {
+      "icon": "renderer/assets/logo-wordmark.png",
+      "signAndEditExecutable": false,
       "target": [
         {
           "target": "nsis",

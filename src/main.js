@@ -134,7 +134,7 @@ function createWindow() {
     }
   };
   if (process.platform === 'win32' || process.platform === 'linux') {
-    winOpts.icon = path.join(__dirname, '..', 'renderer', 'assets', 'logo-mark.png');
+    winOpts.icon = path.join(__dirname, '..', 'renderer', 'assets', 'logo-wordmark.png');
   }
   mainWindow = new BrowserWindow(winOpts);
 
@@ -190,7 +190,7 @@ function fireReminder(payload) {
     body = formatReminderBody(standardTemplate, payload);
   }
 
-  const iconPath = path.join(__dirname, '..', 'renderer', 'assets', 'logo-mark.png');
+  const iconPath = path.join(__dirname, '..', 'renderer', 'assets', 'logo-wordmark.png');
 
   // OS toast — the real light nudge (works even when SydTrack is in the background).
   if (Notification.isSupported()) {
