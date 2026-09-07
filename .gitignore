@@ -5,6 +5,6 @@ data/rules.json
 data/ignore.json
 data/history/
 *.log
-*.focusflow
+*.sydtrack
 dist/
 *.exe

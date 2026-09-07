@@ -6,18 +6,18 @@
  */
 const SEQUENCE = [
   {
-    title: 'main.js — focusflow — Visual Studio Code',
+    title: 'main.js — sydtrack — Visual Studio Code',
     owner: { name: 'Code', path: '/usr/share/code/code' },
     dwellMs: 8000
   },
   {
-    title: 'cursor/focusflow: Pull Request #12 — GitHub',
+    title: 'cursor/sydtrack: Pull Request #12 — GitHub',
     owner: { name: 'Google Chrome', path: '/usr/bin/google-chrome' },
-    url: 'https://github.com/acme/focusflow/pull/12',
+    url: 'https://github.com/acme/sydtrack/pull/12',
     dwellMs: 7000
   },
   {
-    title: 'FocusFlow — Notion',
+    title: 'SydTrack — Notion',
     owner: { name: 'Notion', path: '/usr/bin/notion' },
     dwellMs: 6000
   },
@@ -28,7 +28,7 @@ const SEQUENCE = [
     dwellMs: 38000
   },
   {
-    title: 'src/tracker.js — focusflow — Cursor',
+    title: 'src/tracker.js — sydtrack — Cursor',
     owner: { name: 'Cursor', path: '/usr/bin/cursor' },
     dwellMs: 8000
   },
@@ -39,7 +39,7 @@ const SEQUENCE = [
     dwellMs: 36000
   },
   {
-    title: 'box@cursor: ~/focusflow — Terminal',
+    title: 'box@cursor: ~/sydtrack — Terminal',
     owner: { name: 'gnome-terminal', path: '/usr/bin/gnome-terminal' },
     dwellMs: 7000
   },

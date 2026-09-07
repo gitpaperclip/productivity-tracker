@@ -1,9 +1,9 @@
 {
-  "name": "focusflow",
+  "name": "sydtrack",
   "version": "1.0.0",
   "description": "Desktop productivity tracker — active window time, classification, and focus reminders",
   "main": "src/main.js",
-  "author": "FocusFlow",
+  "author": "SydTrack",
   "license": "MIT",
   "scripts": {
     "start": "node scripts/start.js",
@@ -23,8 +23,8 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.gitpaperclip.focusflow",
-    "productName": "FocusFlow",
+    "appId": "com.gitpaperclip.sydtrack",
+    "productName": "SydTrack",
     "directories": {
       "output": "dist",
       "buildResources": "build"

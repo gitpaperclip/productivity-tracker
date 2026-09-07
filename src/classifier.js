@@ -116,9 +116,9 @@ function isBrowserProcess(win) {
 
 /**
  * True if process name / app label matches an ignore keyword (case-insensitive).
- * Also: electron process with FocusFlow in the title → ignored (self).
+ * Also: electron process with SydTrack in the title → ignored (self).
  * Match against owner.name, path basename, and app label — not arbitrary title text
- * (except the FocusFlow self-exclusion rule).
+ * (except the SydTrack self-exclusion rule).
  */
 function isIgnored(win, ignoreList) {
   if (!win) return false;
@@ -128,11 +128,11 @@ function isIgnored(win, ignoreList) {
   const nameHay = `${owner} ${base} ${baseNoExt} ${label}`;
 
   // Self: Electron shell running this app
-  if (/electron/i.test(nameHay) && /focusflow/i.test(title)) {
+  if (/electron/i.test(nameHay) && /sydtrack/i.test(title)) {
     return true;
   }
-  // Self: packaged / named FocusFlow process
-  if (/\bfocusflow\b/i.test(owner) || /\bfocusflow\b/i.test(baseNoExt) || /\bfocusflow\b/i.test(label)) {
+  // Self: packaged / named SydTrack process
+  if (/\bsydtrack\b/i.test(owner) || /\bsydtrack\b/i.test(baseNoExt) || /\bsydtrack\b/i.test(label)) {
     return true;
   }
 
@@ -183,7 +183,7 @@ function appMatchesIgnore(appName, ignoreList) {
   for (const keyword of ignoreList) {
     if (keyword && name.includes(String(keyword).toLowerCase())) return true;
   }
-  if (/\bfocusflow\b/i.test(name)) return true;
+  if (/\bsydtrack\b/i.test(name)) return true;
   return false;
 }
 

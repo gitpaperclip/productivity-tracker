@@ -125,12 +125,12 @@ function createStore(dataDir) {
     loadJson(settingsPath) || {}
   );
 
-  if (process.env.FOCUSFLOW_THRESHOLD_SEC) {
-    settings.thresholdSec = Number(process.env.FOCUSFLOW_THRESHOLD_SEC);
+  if (process.env.SYDTRACK_THRESHOLD_SEC) {
+    settings.thresholdSec = Number(process.env.SYDTRACK_THRESHOLD_SEC);
   }
-  if (process.env.FOCUSFLOW_DEMO === '1' || process.env.FOCUSFLOW_DEMO === 'true') {
+  if (process.env.SYDTRACK_DEMO === '1' || process.env.SYDTRACK_DEMO === 'true') {
     settings.demoMode = true;
-  } else if (process.env.FOCUSFLOW_DEMO === '0' || process.env.FOCUSFLOW_DEMO === 'false') {
+  } else if (process.env.SYDTRACK_DEMO === '0' || process.env.SYDTRACK_DEMO === 'false') {
     settings.demoMode = false;
   }
 
@@ -138,8 +138,8 @@ function createStore(dataDir) {
   if (
     process.platform === 'linux' &&
     !process.env.DISPLAY &&
-    process.env.FOCUSFLOW_FORCE_REAL !== '1' &&
-    process.env.FOCUSFLOW_DEMO == null
+    process.env.SYDTRACK_FORCE_REAL !== '1' &&
+    process.env.SYDTRACK_DEMO == null
   ) {
     settings.demoMode = true;
   }
@@ -373,8 +373,8 @@ function createStore(dataDir) {
 
   function updateSettings(partial) {
     Object.assign(settings, partial);
-    if (process.env.FOCUSFLOW_THRESHOLD_SEC && partial.thresholdSec == null) {
-      settings.thresholdSec = Number(process.env.FOCUSFLOW_THRESHOLD_SEC);
+    if (process.env.SYDTRACK_THRESHOLD_SEC && partial.thresholdSec == null) {
+      settings.thresholdSec = Number(process.env.SYDTRACK_THRESHOLD_SEC);
     }
     persistSettings();
     return { ...settings };
@@ -466,8 +466,8 @@ function createStore(dataDir) {
 }
 
 function defaultThresholdSec() {
-  if (process.env.FOCUSFLOW_THRESHOLD_SEC) {
-    return Number(process.env.FOCUSFLOW_THRESHOLD_SEC);
+  if (process.env.SYDTRACK_THRESHOLD_SEC) {
+    return Number(process.env.SYDTRACK_THRESHOLD_SEC);
   }
   return 10 * 60;
 }

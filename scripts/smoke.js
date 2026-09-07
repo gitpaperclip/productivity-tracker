@@ -60,9 +60,9 @@ assert(
 assert(
   classify(
     {
-      title: 'cursor/focusflow: Pull Request — GitHub',
+      title: 'cursor/sydtrack: Pull Request — GitHub',
       owner: { name: 'Google Chrome' },
-      url: 'https://github.com/acme/focusflow'
+      url: 'https://github.com/acme/sydtrack'
     },
     rules
   ) === 'productive',
@@ -108,20 +108,20 @@ assert(
   'Code editor is not ignored'
 );
 assert(
-  isIgnored({ owner: { name: 'electron' }, title: 'FocusFlow' }, ignore) === true,
-  'electron + FocusFlow title is ignored (self)'
+  isIgnored({ owner: { name: 'electron' }, title: 'SydTrack' }, ignore) === true,
+  'electron + SydTrack title is ignored (self)'
 );
 assert(
-  isIgnored({ owner: { name: 'Electron' }, title: 'focusflow — Today' }, ignore) === true,
-  'Electron + focusflow title case-insensitive ignored'
+  isIgnored({ owner: { name: 'Electron' }, title: 'sydtrack — Today' }, ignore) === true,
+  'Electron + sydtrack title case-insensitive ignored'
 );
 assert(
   isIgnored({ owner: { name: 'electron' }, title: 'Some Other App' }, ignore) === false,
-  'electron without FocusFlow title is NOT ignored'
+  'electron without SydTrack title is NOT ignored'
 );
 assert(
-  isIgnored({ owner: { name: 'FocusFlow' }, title: 'Today' }, ignore) === true,
-  'focusflow process name is ignored'
+  isIgnored({ owner: { name: 'SydTrack' }, title: 'Today' }, ignore) === true,
+  'sydtrack process name is ignored'
 );
 
 // Browsers must not be in productive defaults
@@ -130,7 +130,7 @@ for (const b of ['chrome', 'msedge', 'firefox', 'brave', 'opera', 'chromium']) {
 }
 
 // save/load rules roundtrip
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-rules-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-rules-'));
 const rulesPath = path.join(tmp, 'rules.json');
 const saved = saveRules(rulesPath, {
   productive: ['GitHub', 'github', '  Cursor  '],
@@ -145,7 +145,7 @@ const ignorePath = path.join(tmp, 'ignore.json');
 const savedIgn = saveIgnore(ignorePath, ['Explorer', 'explorer', '  dwm  ']);
 assert(savedIgn.join(',') === 'explorer,dwm', 'saveIgnore normalizes');
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-'));
 const store = createStore(dir);
 assert(store.getSettings().dailyGoalSec === 7200, 'default dailyGoalSec === 7200');
 store.updateSettings({ dailyGoalSec: 3600 });
@@ -187,10 +187,10 @@ assert(rules.productive.includes('devenv') || rules.productive.includes('visual 
 assert(rules.unproductive.includes('youtube'), 'youtube still in unproductive defaults');
 assert(ignore.includes('explorer'), 'ignore defaults include explorer');
 assert(ignore.includes('shellexperiencehost'), 'ignore defaults include shellexperiencehost');
-assert(ignore.includes('focusflow'), 'ignore defaults include focusflow');
+assert(ignore.includes('sydtrack'), 'ignore defaults include sydtrack');
 
 // ——— byHour increments ———
-const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-hour-'));
+const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-hour-'));
 const store2 = createStore(dir2);
 const hour = new Date().getHours();
 store2.addSeconds('Code', 'productive', 10);
@@ -211,7 +211,7 @@ assert(
 );
 
 // ——— archive on roll (simulate date change) ———
-const dir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-roll-'));
+const dir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-roll-'));
 const store3 = createStore(dir3);
 store3.addSeconds('Code', 'productive', 42);
 const yesterday = (() => {
@@ -253,7 +253,7 @@ const yEntry = snapWeek.week.find((d) => d.date === yesterday);
 assert(yEntry && yEntry.byCategory.productive === 42, 'week includes archived yesterday');
 
 // ——— export schema roundtrip ———
-const dir4 = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-bak-'));
+const dir4 = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-bak-'));
 const store4 = createStore(dir4);
 store4.addSeconds('Code', 'productive', 7);
 store4.updateSettings({ thresholdSec: 120, focusBoost: true });
@@ -264,7 +264,7 @@ const payload = buildExport(store4, {
   rules: { productive: ['code'], unproductive: ['youtube'] },
   ignore: ['explorer']
 });
-assert(payload.format === 'focusflow-backup', 'export format focusflow-backup');
+assert(payload.format === 'sydtrack-backup', 'export format sydtrack-backup');
 assert(payload.schemaVersion === 1, 'export schemaVersion 1');
 assert(typeof payload.exportedAt === 'string' && payload.exportedAt.includes('T'), 'export exportedAt ISO');
 assert(typeof payload.appVersion === 'string', 'export appVersion present');
@@ -276,12 +276,12 @@ assert(payloadGoal.settings && payloadGoal.settings.dailyGoalSec === 5400, 'expo
 assert(payload.rules && payload.rules.productive.includes('code'), 'export includes rules');
 assert(Array.isArray(payload.ignore) && payload.ignore.includes('explorer'), 'export includes ignore');
 
-const bakPath = path.join(dir4, 'test.focusflow');
+const bakPath = path.join(dir4, 'test.sydtrack');
 writeBackupFile(bakPath, payload);
 const round = readBackupFile(bakPath);
-assert(round.format === 'focusflow-backup', 'backup file roundtrip format');
+assert(round.format === 'sydtrack-backup', 'backup file roundtrip format');
 
-const dir5 = fs.mkdtempSync(path.join(os.tmpdir(), 'focusflow-imp-'));
+const dir5 = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-imp-'));
 const store5 = createStore(dir5);
 const imp = importBackup(store5, round, { mode: 'replace' });
 assert(imp.ok, 'importBackup ok');
@@ -319,7 +319,7 @@ assert(store4.snapshot().byCategory.productive === 0, 'clearToday resets today')
 // ——— history retention cap ———
 const { MAX_HISTORY_DAYS } = require("../src/store");
 assert(MAX_HISTORY_DAYS === 90, "MAX_HISTORY_DAYS is 90");
-const dirPrune = fs.mkdtempSync(path.join(os.tmpdir(), "focusflow-prune-"));
+const dirPrune = fs.mkdtempSync(path.join(os.tmpdir(), "sydtrack-prune-"));
 const storePrune = createStore(dirPrune);
 const histDir = path.join(dirPrune, "history");
 fs.mkdirSync(histDir, { recursive: true });

@@ -101,7 +101,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
     since: Date.now(),
     source: 'idle'
   };
-  /** Last non-ignored, non-FocusFlow window — survives while user looks at FocusFlow. */
+  /** Last non-ignored, non-SydTrack window — survives while user looks at SydTrack. */
   let lastFocused = null;
 
   async function poll() {

@@ -19,7 +19,7 @@ function formatRemaining(sec) {
 }
 
 /**
- * Minimal FocusFlow tray (v1).
+ * Minimal SydTrack tray (v1).
  * @param {object} deps
  * @param {() => import('electron').BrowserWindow|null} deps.getMainWindow
  * @param {() => object|null} deps.getStore
@@ -41,7 +41,7 @@ function createAppTray(deps) {
     image = image.resize({ width: 16, height: 16 });
   }
   const tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image);
-  tray.setToolTip('FocusFlow');
+  tray.setToolTip('SydTrack');
 
   function settings() {
     const store = getStore();
@@ -154,7 +154,7 @@ function createAppTray(deps) {
         parts.push(label);
       }
     }
-    return 'FocusFlow — ' + parts.join(' · ');
+    return 'SydTrack — ' + parts.join(' · ');
   }
 
   function buildMenu() {
@@ -162,7 +162,7 @@ function createAppTray(deps) {
     const alertsOn = s.notificationsEnabled !== false;
     return Menu.buildFromTemplate([
       {
-        label: 'Open FocusFlow',
+        label: 'Open SydTrack',
         click: () => showWindow()
       },
       { type: 'separator' },

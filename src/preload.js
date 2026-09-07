@@ -2,7 +2,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('focusflow', {
+contextBridge.exposeInMainWorld('sydtrack', {
   onUpdate: (cb) => {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on('tracker:update', handler);

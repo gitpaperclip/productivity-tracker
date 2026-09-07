@@ -14,7 +14,7 @@ function appVersion() {
 }
 
 /**
- * Build a portable .focusflow backup object from a store + optional rules/ignore.
+ * Build a portable .sydtrack backup object from a store + optional rules/ignore.
  */
 function buildExport(store, opts) {
   const options = opts || {};
@@ -23,7 +23,7 @@ function buildExport(store, opts) {
   const includeIgnore = !!options.includeIgnore;
 
   const payload = {
-    format: 'focusflow-backup',
+    format: 'sydtrack-backup',
     schemaVersion: 1,
     exportedAt: new Date().toISOString(),
     appVersion: appVersion(),
@@ -49,7 +49,7 @@ function buildExport(store, opts) {
 }
 
 /**
- * Import a .focusflow backup into store.
+ * Import a .sydtrack backup into store.
  * mode: 'merge' | 'replace'
  * Returns { ok, daysImported, appliedSettings, appliedRules, appliedIgnore, error? }
  */
@@ -64,8 +64,8 @@ function importBackup(store, obj, opts) {
     appliedIgnore: false
   };
 
-  if (!obj || obj.format !== 'focusflow-backup') {
-    result.error = 'Invalid backup: missing format focusflow-backup';
+  if (!obj || obj.format !== 'sydtrack-backup') {
+    result.error = 'Invalid backup: missing format sydtrack-backup';
     return result;
   }
   if (Number(obj.schemaVersion) !== 1) {

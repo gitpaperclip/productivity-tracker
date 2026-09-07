@@ -1,25 +1,25 @@
 $ErrorActionPreference = "Stop"
-if (-not ("FocusFlowWin" -as [type])) {
+if (-not ("SydTrackWin" -as [type])) {
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
-public class FocusFlowWin {
+public class SydTrackWin {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 }
 "@
 }
-$hwnd = [FocusFlowWin]::GetForegroundWindow()
+$hwnd = [SydTrackWin]::GetForegroundWindow()
 if ($hwnd -eq [IntPtr]::Zero) {
   Write-Output '{"window":null,"error":null}'
   exit 0
 }
 $sb = New-Object System.Text.StringBuilder 1024
-[void][FocusFlowWin]::GetWindowText($hwnd, $sb, $sb.Capacity)
+[void][SydTrackWin]::GetWindowText($hwnd, $sb, $sb.Capacity)
 $procId = [uint32]0
-[void][FocusFlowWin]::GetWindowThreadProcessId($hwnd, [ref]$procId)
+[void][SydTrackWin]::GetWindowThreadProcessId($hwnd, [ref]$procId)
 $name = ""
 $path = ""
 $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue

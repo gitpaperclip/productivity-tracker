@@ -111,7 +111,7 @@ function showNameTip(ev) {
 }
 
 
-const api = window.focusflow;
+const api = window.sydtrack;
 let applying = false;
 /** Cached rules/ignore for one-click reclassify. */
 let cachedRules = { productive: [], unproductive: [] };
@@ -536,12 +536,12 @@ function renderLastFocused(lf, now) {
   const catEl = $('lf-cat');
   if (!appEl) return;
 
-  // Prefer lastFocused (survives while FocusFlow is foreground); never show self as last focused
+  // Prefer lastFocused (survives while SydTrack is foreground); never show self as last focused
   const selfish =
     now &&
     (now.ignored ||
-      /focusflow/i.test(now.app || '') ||
-      (/electron/i.test(now.app || '') && /focusflow/i.test(now.title || '')));
+      /sydtrack/i.test(now.app || '') ||
+      (/electron/i.test(now.app || '') && /sydtrack/i.test(now.title || '')));
 
   const use = lf || (!selfish && now && now.app ? now : null);
   if (!use || !use.app) {

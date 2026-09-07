@@ -34,7 +34,7 @@ app.commandLine.appendSwitch('disable-dev-shm-usage');
 
 // Required on Windows so Electron toasts show under a real app identity (dev + packaged).
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.gitpaperclip.focusflow');
+  app.setAppUserModelId('com.gitpaperclip.sydtrack');
 }
 
 let mainWindow = null;
@@ -122,7 +122,7 @@ function createWindow() {
     height: 760,
     minWidth: 800,
     minHeight: 600,
-    title: 'FocusFlow',
+    title: 'SydTrack',
     backgroundColor: '#0b0d12',
     autoHideMenuBar: true,
     show: false,
@@ -192,7 +192,7 @@ function fireReminder(payload) {
 
   const iconPath = path.join(__dirname, '..', 'renderer', 'assets', 'logo-mark.png');
 
-  // OS toast — the real light nudge (works even when FocusFlow is in the background).
+  // OS toast — the real light nudge (works even when SydTrack is in the background).
   if (Notification.isSupported()) {
     try {
       const n = new Notification({
@@ -246,7 +246,7 @@ function startServices() {
   });
 
   // Force real tracking on Windows/macOS unless user opted into demo
-  if ((process.platform === 'win32' || process.platform === 'darwin') && process.env.FOCUSFLOW_DEMO == null) {
+  if ((process.platform === 'win32' || process.platform === 'darwin') && process.env.SYDTRACK_DEMO == null) {
     const s = store.getSettings();
     if (s.demoMode) {
       store.updateSettings({ demoMode: false });
@@ -409,10 +409,10 @@ ipcMain.handle('data:export', async (_e, opts) => {
   if (!store || !mainWindow) return { ok: false, error: 'not ready' };
   const options = opts || {};
   const result = await dialog.showSaveDialog(mainWindow, {
-    title: 'Export FocusFlow backup',
-    defaultPath: `focusflow-backup-${new Date().toISOString().slice(0, 10)}.focusflow`,
+    title: 'Export SydTrack backup',
+    defaultPath: `sydtrack-backup-${new Date().toISOString().slice(0, 10)}.sydtrack`,
     filters: [
-      { name: 'FocusFlow backup', extensions: ['focusflow', 'json'] },
+      { name: 'SydTrack backup', extensions: ['sydtrack', 'json'] },
       { name: 'All files', extensions: ['*'] }
     ]
   });
@@ -433,10 +433,10 @@ ipcMain.handle('data:import', async (_e, opts) => {
   if (!store || !mainWindow) return { ok: false, error: 'not ready' };
   const options = opts || {};
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Import FocusFlow backup',
+    title: 'Import SydTrack backup',
     properties: ['openFile'],
     filters: [
-      { name: 'FocusFlow backup', extensions: ['focusflow', 'json'] },
+      { name: 'SydTrack backup', extensions: ['sydtrack', 'json'] },
       { name: 'All files', extensions: ['*'] }
     ]
   });
@@ -478,9 +478,9 @@ ipcMain.handle('profile:export', async (_e, opts) => {
     : 'focus';
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Export Focus profile pack',
-    defaultPath: `${baseName}-profile.focusflow-profile`,
+    defaultPath: `${baseName}-profile.sydtrack-profile`,
     filters: [
-      { name: 'FocusFlow profile', extensions: ['focusflow-profile', 'json'] },
+      { name: 'SydTrack profile', extensions: ['sydtrack-profile', 'json'] },
       { name: 'All files', extensions: ['*'] }
     ]
   });
@@ -502,7 +502,7 @@ ipcMain.handle('profile:import', async () => {
     title: 'Import Focus profile pack',
     properties: ['openFile'],
     filters: [
-      { name: 'FocusFlow profile', extensions: ['focusflow-profile', 'json'] },
+      { name: 'SydTrack profile', extensions: ['sydtrack-profile', 'json'] },
       { name: 'All files', extensions: ['*'] }
     ]
   });

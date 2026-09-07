@@ -4,15 +4,15 @@ const path = require('path');
 
 /**
  * Focus profile pack — tag lists only (productive / unproductive / ignore).
- * Separate from .focusflow backups (format: focusflow-backup).
+ * Separate from .sydtrack backups (format: sydtrack-backup).
  *
- * Format choice: single JSON file with extension .focusflow-profile.
+ * Format choice: single JSON file with extension .sydtrack-profile.
  * Zip was considered but skipped — Node builtins provide zlib (gzip) but not
  * a zip archive writer without extra deps; a single JSON pack stays simple
  * and readable for v1 profile infra.
  */
 
-const FORMAT_ID = 'focusflow-profile';
+const FORMAT_ID = 'sydtrack-profile';
 const SCHEMA_VERSION = 1;
 
 function appVersion() {

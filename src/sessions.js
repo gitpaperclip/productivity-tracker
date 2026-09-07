@@ -92,7 +92,7 @@ function publicActive(session) {
  *
  * Distraction: edge-triggered when classification moves into unproductive
  * while a session is active (other/productive → unproductive = +1).
- * Ignored / FocusFlow self windows do not count and do not update lastCategory.
+ * Ignored / SydTrack self windows do not count and do not update lastCategory.
  */
 function createSessionManager({ dataDir, getSettings }) {
   const sessionsDir = path.join(dataDir, 'sessions');
@@ -334,7 +334,7 @@ function createSessionManager({ dataDir, getSettings }) {
     const app = tick && tick.app;
     const elapsed = Math.max(0, Number(tick && tick.elapsedSec) || 0);
 
-    // Ignored / FocusFlow self: do not count time or distractions; freeze lastCategory
+    // Ignored / SydTrack self: do not count time or distractions; freeze lastCategory
     if (!category || category === 'ignored' || !app) {
       persistActive();
       return { completed, active: publicActive(active) };
