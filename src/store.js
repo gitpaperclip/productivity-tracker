@@ -56,6 +56,19 @@ function mergeAppEntries(entries) {
   return Array.from(merged.values());
 }
 
+function categoryForStoredApp(name, current, rules) {
+  const text = String(name || '').toLowerCase();
+  const unproductive = (rules && rules.unproductive) || [];
+  const productive = (rules && rules.productive) || [];
+  if (unproductive.some((keyword) => text.includes(String(keyword).toLowerCase()))) {
+    return 'unproductive';
+  }
+  if (productive.some((keyword) => text.includes(String(keyword).toLowerCase()))) {
+    return 'productive';
+  }
+  return current === 'productive' || current === 'unproductive' ? current : 'other';
+}
+
 function emptyDay(date) {
   return {
     date: date || todayKey(),
@@ -256,6 +269,53 @@ function createStore(dataDir) {
       state.unproductiveStreak = 0;
     }
 
+    persistStats();
+    return state;
+  }
+
+  function reclassifyStoredApps(rules) {
+    rollIfNeeded();
+    const nextByApp = {};
+    const categoryDelta = { productive: 0, unproductive: 0, other: 0 };
+    for (const [key, info] of Object.entries(state.byApp || {})) {
+      const name = appEntryName(key);
+      const current = info && info.category ? info.category : 'other';
+      const next = categoryForStoredApp(name, current, rules);
+      const seconds = Math.max(0, Number(info && info.seconds) || 0);
+      const nextKey = appCategoryKey(name, next);
+      if (!nextByApp[nextKey]) nextByApp[nextKey] = { seconds: 0, category: next };
+      nextByApp[nextKey].seconds += seconds;
+      categoryDelta[current === 'productive' || current === 'unproductive' ? current : 'other'] -= seconds;
+      categoryDelta[next] += seconds;
+    }
+    state.byApp = nextByApp;
+    for (const category of ['productive', 'unproductive', 'other']) {
+      state.byCategory[category] = Math.max(
+        0,
+        (Number(state.byCategory[category]) || 0) + categoryDelta[category]
+      );
+    for (const hour of state.byHour || []) {
+      if (!hour || !hour.byApp) continue;
+      const nextByHourApp = {};
+      const hourDelta = { productive: 0, unproductive: 0, other: 0 };
+      for (const [key, info] of Object.entries(hour.byApp)) {
+        const name = appEntryName(key);
+        const current = info && info.category ? info.category : 'other';
+        const next = categoryForStoredApp(name, current, rules);
+        const seconds = Math.max(0, Number(info && info.seconds) || 0);
+        const nextKey = appCategoryKey(name, next);
+        if (!nextByHourApp[nextKey]) nextByHourApp[nextKey] = { seconds: 0, category: next };
+        nextByHourApp[nextKey].seconds += seconds;
+        const oldCat = current === 'productive' || current === 'unproductive' ? current : 'other';
+        hourDelta[oldCat] -= seconds;
+        hourDelta[next] += seconds;
+      }
+      hour.byApp = nextByHourApp;
+      for (const category of ['productive', 'unproductive', 'other']) {
+        hour[category] = Math.max(0, (Number(hour[category]) || 0) + hourDelta[category]);
+      }
+    }
+    }
     persistStats();
     return state;
   }
@@ -484,6 +544,7 @@ function createStore(dataDir) {
 
   return {
     addSeconds,
+    reclassifyStoredApps,
     markReminder,
     shouldRemind,
     snapshot,

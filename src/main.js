@@ -34,6 +34,7 @@ app.commandLine.appendSwitch('disable-dev-shm-usage');
 
 // Required on Windows so Electron toasts show under a real app identity (dev + packaged).
 if (process.platform === 'win32') {
+  app.setName('sydtrack');
   app.setAppUserModelId('com.gitpaperclip.sydtrack');
 }
 
@@ -138,9 +139,14 @@ function createWindow() {
   }
   mainWindow = new BrowserWindow(winOpts);
 
-  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html')).catch((err) => {
+    console.error('[main] renderer failed to load:', err && err.message ? err.message : err);
+  });
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('[main] renderer did-fail-load:', errorCode, errorDescription, validatedURL);
+  });
+  mainWindow.show();
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
     // Start tracker after window is visible
     ensureTrackerStarted();
   });
@@ -345,6 +351,7 @@ ipcMain.handle('rules:get', async () => rulesPayload());
 ipcMain.handle('rules:set', async (_e, next) => {
   const dest = userRulesPath();
   rulesHolder.rules = saveRules(dest, next || {});
+  if (store && store.reclassifyStoredApps) store.reclassifyStoredApps(rulesHolder.rules);
   rulesFilePath = dest;
   rulesIsCustom = true;
   return rulesPayload();
@@ -358,6 +365,7 @@ ipcMain.handle('rules:reset', async () => {
     console.warn('[main] could not remove custom rules', err.message);
   }
   rulesHolder.rules = loadRulesFrom(DEFAULT_RULES_PATH);
+  if (store && store.reclassifyStoredApps) store.reclassifyStoredApps(rulesHolder.rules);
   rulesFilePath = DEFAULT_RULES_PATH;
   rulesIsCustom = false;
   return rulesPayload();

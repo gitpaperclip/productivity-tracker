@@ -24,7 +24,7 @@
   },
   "build": {
     "appId": "com.gitpaperclip.sydtrack",
-    "productName": "SydTrack",
+    "productName": "sydtrack",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -52,7 +52,7 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+      "artifactName": "${productName}.${ext}"
     },
     "nsis": {
       "oneClick": false,

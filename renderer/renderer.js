@@ -599,7 +599,14 @@ let liveLastAt = 0;
 let liveDisplaySignature = '';
 
 function advanceLiveTotals(at) {
-  if (!liveDisplayCategories || !liveLastAt) return;
+  if (
+    !liveDisplayCategories ||
+    !liveLastAt ||
+    (liveCategory !== 'productive' && liveCategory !== 'unproductive')
+  ) {
+    liveLastAt = at;
+    return;
+  }
   const elapsed = Math.max(0, (at - liveLastAt) / 1000);
   liveDisplayCategories[liveCategory] += elapsed;
   liveLastAt = at;
@@ -612,7 +619,7 @@ function setLiveStats(stats, now) {
   liveCategory =
     now && (now.category === 'productive' || now.category === 'unproductive')
       ? now.category
-      : 'other';
+      : null;
   const incoming = Object.assign(
     { productive: 0, unproductive: 0, other: 0 },
     (stats && stats.byCategory) || {}
@@ -1657,7 +1664,11 @@ function renderRoundup(stats) {
 function renderStats(stats) {
   if (!stats) return;
   renderMood(stats);
-  renderPie(stats);
+  renderPie(
+    liveDisplayCategories
+      ? Object.assign({}, stats, { byCategory: liveDisplayCategories })
+      : stats
+  );
   renderWeek(stats);
   renderDay(stats);
   renderRoundup(stats);

@@ -104,6 +104,16 @@ assert(
   'ShellExperienceHost is ignored'
 );
 assert(
+  isIgnored({ owner: { name: 'SearchHost.exe' }, path: 'C:\\Windows\\System32\\SearchHost.exe' }, ignore) === true,
+  'SearchHost.exe is ignored'
+);
+assert(
+  isIgnored({ owner: { name: 'SnippingTool.exe' } }, ignore) === true,
+  'SnippingTool.exe is ignored'
+);
+assert(isIgnored({ owner: { name: 'ScreenClippingHost.exe' } }, ignore) === true, 'ScreenClippingHost is ignored');
+assert(isIgnored({ owner: { name: 'RuntimeBroker.exe' } }, ignore) === true, 'RuntimeBroker is ignored');
+assert(
   isIgnored({ owner: { name: 'Code' }, title: 'app.js' }, ignore) === false,
   'Code editor is not ignored'
 );
@@ -164,6 +174,17 @@ store.addSeconds('Code', 'productive', 2);
 assert(store.snapshot().unproductiveStreak === 0, 'productive switch resets streak');
 assert(store.snapshot().byCategory.productive >= 2, 'productive seconds stored');
 assert(store.snapshot().byCategory.unproductive >= 35, 'unproductive seconds stored');
+
+store.addSeconds('Visual Studio Code', 'unproductive', 12);
+store.reclassifyStoredApps(rules);
+assert(
+  !store.snapshot().topApps.some((a) => a.name === 'Visual Studio Code' && a.category === 'unproductive'),
+  'tag changes reclassify stored app history'
+);
+assert(
+  store.snapshot().topApps.some((a) => a.name === 'Visual Studio Code' && a.category === 'productive'),
+  'reclassified history appears under productive'
+);
 
 // Browser tabs share an app name, but category totals must retain each tab's history.
 store.addSeconds('Google Chrome', 'productive', 10);
