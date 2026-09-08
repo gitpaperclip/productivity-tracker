@@ -116,6 +116,7 @@ let applying = false;
 /** Cached rules/ignore for one-click reclassify. */
 let cachedRules = { productive: [], unproductive: [] };
 let cachedIgnore = [];
+const settingsOverrides = Object.create(null);
 /** Last focused window for Home quick-classify (P/U). */
 let lastFocusedCache = null;
 /** Session overrides so Last focused chip/buttons don't snap back before tracker reclassifies. */
@@ -1075,14 +1076,18 @@ function renderWeek(stats) {
 function applySettingsInputs(settings) {
   if (applying) return;
   applying = true;
+  settings = Object.assign({}, settings || {}, settingsOverrides);
   const sec = Number(settings.thresholdSec) || 600;
-  if ($('threshold-min')) $('threshold-min').value = Math.round((sec / 60) * 10) / 10;
+  if ($('threshold-min') && document.activeElement !== $('threshold-min')) {
+    $('threshold-min').value = Math.round((sec / 60) * 10) / 10;
+  }
   const fbSec = focusBoostSecFromSettings(settings);
   if ($('focusboost-min') && document.activeElement !== $('focusboost-min')) {
     $('focusboost-min').value = Math.round((fbSec / 60) * 10) / 10;
   }
   if ($('idle-timeout-min') && document.activeElement !== $('idle-timeout-min')) {
-    $('idle-timeout-min').value = Math.round(((Number(settings.idleTimeoutSec) || 300) / 60) * 10) / 10;
+    const idleSec = Number(settings.idleTimeoutSec);
+    $('idle-timeout-min').value = Math.round(((Number.isFinite(idleSec) ? idleSec : 300) / 60) * 10) / 10;
   }
   if ($('reminder-message') && document.activeElement !== $('reminder-message')) {
     $('reminder-message').value = settings.reminderMessage || "You've been on {app} for a while... maybe it's time to get back?";
@@ -1780,11 +1785,19 @@ $('app-list').addEventListener('click', async (ev) => {
 
 async function pushSettings(partial) {
   if (!api) return;
+  Object.assign(settingsOverrides, partial || {});
   applying = true;
-  const next = await api.updateSettings(partial);
-  applySettingsInputs(next);
-  applying = false;
-  return next;
+  try {
+    const next = await api.updateSettings(partial);
+    Object.assign(settingsOverrides, next || {});
+    applySettingsInputs(next);
+    return next;
+  } catch (err) {
+    for (const key of Object.keys(partial || {})) delete settingsOverrides[key];
+    throw err;
+  } finally {
+    applying = false;
+  }
 }
 
 if ($('threshold-min')) {
@@ -1815,7 +1828,6 @@ if ($('idle-timeout-min')) {
     pushSettings({ idleTimeoutSec: Math.round(minutes * 60) });
   };
   $('idle-timeout-min').addEventListener('change', saveIdleTimeout);
-  $('idle-timeout-min').addEventListener('blur', saveIdleTimeout);
 }
 if ($('reminder-message')) {
   const saveReminderMsg = () => {
@@ -1823,7 +1835,6 @@ if ($('reminder-message')) {
     pushSettings({ reminderMessage: text });
   };
   $('reminder-message').addEventListener('change', saveReminderMsg);
-  $('reminder-message').addEventListener('blur', saveReminderMsg);
 }
 if ($('focusboost-message')) {
   const saveBoostMsg = () => {
@@ -1832,7 +1843,6 @@ if ($('focusboost-message')) {
     pushSettings({ focusBoostReminderMessage: text });
   };
   $('focusboost-message').addEventListener('change', saveBoostMsg);
-  $('focusboost-message').addEventListener('blur', saveBoostMsg);
 }
 
 function clampGoalHours(h) {
