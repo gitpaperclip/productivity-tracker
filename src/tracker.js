@@ -93,6 +93,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   const demo = createDemoBackend();
   let timer = null;
   let pollInFlight = false;
+  let idleCorrectionApplied = 0;
   let lastTick = Date.now();
   let current = {
     window: null,
@@ -114,6 +115,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
     let win = null;
     let source = 'idle';
     let trackingError = null;
+    let idleSec = 0;
 
     if (settings.demoMode) {
       win = demo.getActiveWindow();
@@ -123,11 +125,19 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       // Real mode only — do not silently fall back to demo
       const result = await real.getActiveWindow();
       win = result.window;
+      idleSec = Math.max(0, Number(result.idleSec) || 0);
       trackingError = result.error || null;
       source = win ? 'real' : 'idle';
     }
 
     const ignored = win ? isIgnored(win, iHolder.ignore || []) : false;
+    const idleTimeoutSec = Math.max(0, Number(settings.idleTimeoutSec) || 0);
+    const idle = !settings.demoMode && idleTimeoutSec > 0 && idleSec >= idleTimeoutSec;
+    const idleCorrection = idle ? Math.max(0, idleSec - idleTimeoutSec) : 0;
+    if (idle && win && !ignored && !settings.trackingPaused && idleCorrection > idleCorrectionApplied) {
+      store.removeSeconds(appLabel(win), classify(win, rHolder.rules), idleCorrection - idleCorrectionApplied);
+    }
+    idleCorrectionApplied = idle ? idleCorrection : 0;
     // Show in Now viewing; do not log time or affect streaks when ignored
     const category = !win ? 'other' : ignored ? 'ignored' : classify(win, rHolder.rules);
     const app = win
@@ -162,10 +172,13 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
     if (paused) {
       source = 'paused';
       current.source = 'paused';
+    } else if (idle) {
+      source = 'idle';
+      current.source = 'idle';
     }
 
     // NEVER count ignored toward totals or streaks; never log while paused
-    if (win && !ignored && !paused) {
+    if (win && !ignored && !paused && !idle) {
       store.addSeconds(app, category, elapsed);
     }
 
@@ -175,13 +188,13 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       sessionInfo = sessionManager.onTrackerTick({
         app,
         category,
-        elapsedSec: win && !ignored && !paused ? elapsed : 0
+        elapsedSec: win && !ignored && !paused && !idle ? elapsed : 0
       });
     }
 
     // Remember last real focused app (not ignored / not self) for Home "Last focused"
     // Freeze lastFocused while paused so the Home bar stays put
-    if (win && !ignored && !paused) {
+    if (win && !ignored && !paused && !idle) {
       lastFocused = {
         app,
         title,
@@ -196,6 +209,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       win &&
       !ignored &&
       !paused &&
+      !idle &&
       store.shouldRemind() &&
       category === 'unproductive'
     ) {
@@ -223,6 +237,8 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
           browser,
           source,
           ignored,
+          idle,
+          idleSec,
           url: (win && win.url) || '',
           elapsedSec: Math.round((now - current.since) / 1000),
           trackingError

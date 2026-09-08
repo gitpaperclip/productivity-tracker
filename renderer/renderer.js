@@ -1081,6 +1081,9 @@ function applySettingsInputs(settings) {
   if ($('focusboost-min') && document.activeElement !== $('focusboost-min')) {
     $('focusboost-min').value = Math.round((fbSec / 60) * 10) / 10;
   }
+  if ($('idle-timeout-min') && document.activeElement !== $('idle-timeout-min')) {
+    $('idle-timeout-min').value = Math.round(((Number(settings.idleTimeoutSec) || 300) / 60) * 10) / 10;
+  }
   if ($('reminder-message') && document.activeElement !== $('reminder-message')) {
     $('reminder-message').value = settings.reminderMessage || "You've been on {app} for a while... maybe it's time to get back?";
   }
@@ -1804,6 +1807,15 @@ if ($('focusboost-min')) {
     const next = await pushSettings(partial);
     syncFocusBoostUi(next || Object.assign({}, settings, partial));
   });
+}
+
+if ($('idle-timeout-min')) {
+  const saveIdleTimeout = () => {
+    const minutes = Math.max(0, Number($('idle-timeout-min').value) || 0);
+    pushSettings({ idleTimeoutSec: Math.round(minutes * 60) });
+  };
+  $('idle-timeout-min').addEventListener('change', saveIdleTimeout);
+  $('idle-timeout-min').addEventListener('blur', saveIdleTimeout);
 }
 if ($('reminder-message')) {
   const saveReminderMsg = () => {

@@ -156,6 +156,7 @@ function createStore(dataDir) {
       demoMode: false,
       trackingPaused: false,
       reminderCooldownSec: 90,
+      idleTimeoutSec: 300,
       pollMs: 750,
       focusBoost: false,
       focusBoostRestoreSec: null,
@@ -269,6 +270,32 @@ function createStore(dataDir) {
       state.unproductiveStreak = 0;
     }
 
+    persistStats();
+    return state;
+  }
+
+  function removeSeconds(app, category, seconds) {
+    rollIfNeeded();
+    let remaining = Math.max(0, Number(seconds) || 0);
+    if (!remaining || category === 'ignored') return state;
+    const cat = category === 'productive' || category === 'unproductive' ? category : 'other';
+    const key = appCategoryKey(app, cat);
+    const entry = state.byApp && state.byApp[key];
+    const removed = Math.min(remaining, Number(entry && entry.seconds) || 0);
+    if (!removed) return state;
+    entry.seconds -= removed;
+    state.byCategory[cat] = Math.max(0, (Number(state.byCategory[cat]) || 0) - removed);
+    remaining = removed;
+    for (let hourIndex = new Date().getHours(); hourIndex >= 0 && remaining > 0; hourIndex -= 1) {
+      const hour = state.byHour && state.byHour[hourIndex];
+      const hourEntry = hour && hour.byApp && hour.byApp[key];
+      const take = Math.min(remaining, Number(hourEntry && hourEntry.seconds) || 0);
+      if (!take) continue;
+      hourEntry.seconds -= take;
+      hour[cat] = Math.max(0, (Number(hour[cat]) || 0) - take);
+      remaining -= take;
+    }
+    if (category === 'unproductive') state.unproductiveStreak = 0;
     persistStats();
     return state;
   }
@@ -544,6 +571,7 @@ function createStore(dataDir) {
 
   return {
     addSeconds,
+    removeSeconds,
     reclassifyStoredApps,
     markReminder,
     shouldRemind,

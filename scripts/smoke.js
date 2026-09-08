@@ -174,6 +174,8 @@ store.addSeconds('Code', 'productive', 2);
 assert(store.snapshot().unproductiveStreak === 0, 'productive switch resets streak');
 assert(store.snapshot().byCategory.productive >= 2, 'productive seconds stored');
 assert(store.snapshot().byCategory.unproductive >= 35, 'unproductive seconds stored');
+store.removeSeconds('Google Chrome', 'unproductive', 5);
+assert(store.snapshot().byCategory.unproductive >= 30, 'idle correction removes stored time');
 
 store.addSeconds('Visual Studio Code', 'unproductive', 12);
 store.reclassifyStoredApps(rules);
@@ -189,7 +191,7 @@ assert(
 // Browser tabs share an app name, but category totals must retain each tab's history.
 store.addSeconds('Google Chrome', 'productive', 10);
 const mixedBrowser = store.snapshot();
-assert(mixedBrowser.byCategory.unproductive >= 35, 'browser unproductive history is retained');
+assert(mixedBrowser.byCategory.unproductive >= 30, 'browser unproductive history is retained');
 assert(mixedBrowser.byCategory.productive >= 12, 'browser productive history is retained');
 assert(
   mixedBrowser.topApps.some((a) => a.name === 'Google Chrome' && a.category === 'productive'),

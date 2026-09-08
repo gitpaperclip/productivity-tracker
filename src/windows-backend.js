@@ -35,7 +35,7 @@ function createWindowsBackend() {
           if (brace >= 0) jsonText = text.slice(brace);
           try {
             const parsed = JSON.parse(jsonText);
-            resolve({ window: parsed.window || null, error: parsed.error || null });
+            resolve({ window: parsed.window || null, idleSec: Number(parsed.idleSec) || 0, error: parsed.error || null });
           } catch (parseErr) {
             resolve({
               window: null,
