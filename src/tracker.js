@@ -94,7 +94,9 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   let timer = null;
   let pollInFlight = false;
   let generation = 0;
+  let systemInactive = false;
   let lastTick = clock();
+  let lastHeartbeat = lastTick;
   let current = {
     window: null,
     app: '—',
@@ -106,10 +108,30 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   /** Last non-ignored, non-SydTrack window — survives while user looks at SydTrack. */
   let lastFocused = null;
 
+  function resetStreakSafely() {
+    try { if (store.resetStreak) store.resetStreak(); }
+    catch (err) { console.error('[tracker] could not persist streak reset:', err.message); }
+  }
+
+  function checkContinuity() {
+    const at = clock();
+    const gap = at - lastHeartbeat;
+    const tolerance = Math.max(5000, (Number(store.getSettings().pollMs) || 1500) * 3);
+    lastHeartbeat = at;
+    if (gap < 0 || gap > tolerance) {
+      generation += 1;
+      lastTick = at;
+      current.since = at;
+      resetStreakSafely();
+    }
+  }
+
   async function pollOnce() {
+    if (systemInactive) return;
     const pollGeneration = generation;
     const now = clock();
-    let elapsed = Math.min(5, Math.max(0, (now - lastTick) / 1000));
+    const intervalStart = lastTick;
+    let elapsed = Math.max(0, (now - intervalStart) / 1000);
     lastTick = now;
 
     let settings = store.getSettings();
@@ -133,7 +155,8 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       source = win ? 'real' : 'idle';
     }
 
-    if (pollGeneration !== generation) return;
+    checkContinuity();
+    if (pollGeneration !== generation || systemInactive) return;
     settings = store.getSettings();
     if (!!settings.demoMode !== startedDemo) return;
     if (startedPaused) elapsed = 0;
@@ -182,7 +205,8 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
 
     // NEVER count ignored toward totals or streaks; never log while paused
     if (win && !ignored && !paused && !idle) {
-      store.addSeconds(app, category, elapsed);
+      if (store.addInterval && elapsed > 0) store.addInterval(app, category, intervalStart, now);
+      else store.addSeconds(app, category, elapsed);
     } else if (store.resetStreak) {
       store.resetStreak();
     }
@@ -223,7 +247,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       store.markReminder();
       if (onReminder) {
         onReminder({
-          streak: store.snapshot(iHolder.ignore || []).unproductiveStreak,
+          streak: store.snapshot(iHolder.ignore || [], { includeWeek: false }).unproductiveStreak,
           threshold: settings.thresholdSec,
           app,
           title
@@ -251,7 +275,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
           trackingError
         },
         lastFocused,
-        stats: store.snapshot(iHolder.ignore || []),
+        stats: store.snapshot(iHolder.ignore || [], { includeWeek: false }),
         session: activeSession,
         sessionCompleted: (sessionInfo && sessionInfo.completed) || null
       });
@@ -259,6 +283,8 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   }
 
   async function poll() {
+    // Keep observing timer continuity even while a slow backend request is pending.
+    checkContinuity();
     if (pollInFlight) return;
     pollInFlight = true;
     try {
@@ -270,7 +296,9 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
 
   function start() {
     if (timer) return; // idempotent
+    resetStreakSafely();
     lastTick = clock();
+    lastHeartbeat = lastTick;
     const run = () => poll().catch((err) => console.error('[tracker] poll failed:', err.message));
     run();
     const ms = store.getSettings().pollMs || 1500;
@@ -290,7 +318,17 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
     return lastFocused;
   }
 
-  return { start, stop, poll, getLastFocused };
+  function setSystemInactive(inactive) {
+    if (systemInactive === !!inactive) return;
+    systemInactive = !!inactive;
+    generation += 1;
+    lastTick = clock();
+    lastHeartbeat = lastTick;
+    current.since = lastTick;
+    resetStreakSafely();
+  }
+
+  return { start, stop, poll, getLastFocused, setSystemInactive };
 }
 
 module.exports = { createTracker, createRealBackend };

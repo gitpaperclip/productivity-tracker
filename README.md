@@ -89,6 +89,10 @@ Browser activity is stored by category, so switching from a productive GitHub ta
 
 Idle tracking pauses at the configured timeout and retains time earned before that timeout. Paused or idle ticks do not add session distractions. Sessions that expire while the app is closed finish at their original deadline.
 
+System sleep and screen lock suspend capture independently of your idle timeout. Waking while still locked keeps capture suspended, and waking never changes a manual tracking pause. Interrupted probes are discarded; sleep, lock, and tracker startup clear old reminder streaks. Focus sessions keep their wall-clock deadlines, but away time is not added to their app totals.
+
+Slow foreground probes retain elapsed time while regular timer callbacks continue. A gap in those callbacks (over five seconds at the default polling rate), a backward clock change, or a sleep/lock event invalidates uncertain time. Activity intervals split across local hour/day boundaries, including fractional seconds and samples arriving after the day was archived. A failed reminder-streak write is logged without escaping the sleep/lock handler; the in-memory streak still resets. Lifecycle behavior has automated simulation coverage; physical Windows sleep/lock acceptance testing remains outstanding. See the [manual validation guide](docs/manual-lifecycle-validation.md).
+
 Pause takes effect even while a foreground-window check is pending. Reading the session timer from the tray or UI does not consume its completion event, and tray settings changes do not replay completed events.
 
 ## Data
@@ -97,10 +101,14 @@ During development, SydTrack stores local data under `data/`. Packaged builds us
 
 Settings can export:
 
-- `.sydtrack` history backups, optionally including settings, rules, and ignore lists.
+- `.sydtrack` backups containing activity, session history/checkpoints, settings, rules, ignore lists, and app identities.
 - `.sydtrack-profile` files containing portable focus tags only.
 
-Backup merge is additive: importing the same backup again adds its time again. Imports validate day data before replacing history and preserve hourly app/category breakdowns. Backups currently exclude sessions and custom app identities; copy those separately when moving all configuration. Daily statistics, settings, and session writes replace complete JSON files to reduce the risk of truncation. Malformed stored statistics are preserved and reported rather than silently reset.
+Activity backup merge is additive: importing the same backup again adds its activity time again. Session IDs are deduplicated; completed records supersede stopped checkpoints, and later records of the same status supersede earlier ones. An active session is exported as a stopped checkpoint without stopping the source timer; importing never starts a timer or replaces the target's active session. Older schema-1 backups remain accepted; absent session/identity fields leave those local data intact. Older app versions ignore these additional fields. Validation covers all imported sections before any replacement, but multi-file imports are not transactional on disk failure. Daily statistics, settings, app identities, and session writes replace complete JSON files to reduce truncation risk. Malformed stored statistics are preserved and reported rather than silently reset.
+
+Live snapshots contain today's data only. Week and Last 30 Days summaries load on demand in Analytics, with loading/error text. Archived summaries are cached until history changes or the local date rolls over. Existing per-day storage remains unchanged, with reads bounded to 90 days; manually edited archive files require an app restart to refresh the cache.
+
+Warnings, errors, fatal main-process errors, renderer console errors, and renderer exits are recorded locally in `logs/errors.log` under the Data location shown in Settings. Rotation retains one previous file, approximately 256 KB per file. Errors may contain private paths or text; review logs before sharing. They are never uploaded or included in backups. Logging failures are contained. Startup failures before logging is installed may still require the terminal output.
 
 Imported settings apply the same behavior as Settings controls. In particular, importing **Keep session history: off** retains only the latest local session. That retained entry is saved successfully before older session files are removed.
 

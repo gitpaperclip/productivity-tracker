@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { writeJson } = require('./json-file');
 const { classifyBrowser, browserNames, isBrowserName } = require('./browser-rules');
 
 const DEFAULT_RULES_PATH = path.join(__dirname, 'rules.json');
@@ -92,7 +93,7 @@ function loadAppIdentities(filePath) {
 function saveAppIdentities(filePath, identities) {
   const normalized = normalizeAppIdentities(identities || {});
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(normalized, null, 2) + '\n', 'utf8');
+  writeJson(filePath, normalized);
   return normalized;
 }
 

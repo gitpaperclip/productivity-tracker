@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { writeJson, validDateKey, readRecoverableJson } = require('./json-file');
 
-function todayKey() {
-  const d = new Date();
+function todayKey(at) {
+  const d = at === undefined ? new Date() : new Date(at);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -162,6 +162,7 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
   fs.mkdirSync(historyDir, { recursive: true });
   const filePath = path.join(dataDir, 'stats.json');
   const settingsPath = path.join(dataDir, 'settings.json');
+  const summaryCache = new Map();
 
   let state = migrateDay(loadJson(filePath) || emptyDay());
   if (state.date !== todayKey()) {
@@ -223,6 +224,7 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
   }
 
   function archiveDay(day) {
+    summaryCache.clear();
     if (!day || !validDateKey(day.date)) throw new Error('Invalid history date');
     try {
       fs.mkdirSync(historyDir, { recursive: true });
@@ -264,6 +266,13 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
 
   function addSeconds(app, category, seconds) {
     rollIfNeeded();
+    if (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || category === 'ignored') return state;
+    addToDay(state, app, category, seconds, new Date().getHours());
+    persistStats();
+    return state;
+  }
+
+  function addToDay(state, app, category, seconds, hour) {
     const sec = Number.isFinite(Number(seconds)) ? Math.max(0, Number(seconds)) : 0;
     if (sec === 0) return state;
     // Never persist ignored category into totals
@@ -284,7 +293,6 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
     if (!Array.isArray(state.byHour) || state.byHour.length !== 24) {
       state.byHour = emptyByHour();
     }
-    const hour = new Date().getHours();
     if (!state.byHour[hour]) state.byHour[hour] = emptyHour();
     state.byHour[hour][cat] = (state.byHour[hour][cat] || 0) + sec;
     if (!state.byHour[hour].byApp || typeof state.byHour[hour].byApp !== 'object') {
@@ -302,8 +310,29 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
       state.unproductiveStreak = 0;
     }
 
-    persistStats();
     return state;
+  }
+
+  // A delayed sample may arrive after snapshot() has already rolled the day.
+  // Load that archive before adding, so existing history is never replaced by a fragment.
+  function addInterval(app, category, startedAt, endedAt) {
+    if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt <= startedAt) return;
+    if (category === 'ignored') return;
+    rollIfNeeded();
+    const days = new Map();
+    for (let at = startedAt; at < endedAt;) {
+      const date = new Date(at);
+      const key = todayKey(at);
+      const next = Math.min(endedAt, at + 3600000 -
+        (date.getMinutes() * 60000 + date.getSeconds() * 1000 + date.getMilliseconds()));
+      if (!days.has(key)) days.set(key, key === state.date ? state : loadHistoryDay(key) || emptyDay(key));
+      addToDay(days.get(key), app, category, (next - at) / 1000, date.getHours());
+      at = next;
+    }
+    for (const [key, day] of days) {
+      if (key === state.date) persistStats();
+      else archiveDay(day);
+    }
   }
 
   function removeSeconds(app, category, seconds) {
@@ -407,6 +436,7 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
 
 
   function pruneOldHistory() {
+    summaryCache.clear();
     try {
       const dates = listHistoryDates();
       const cutoff = new Date();
@@ -442,15 +472,19 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
   }
 
   /** Last 7 calendar days including today, oldest → newest. */
-  function weekSummary() {
+  function weekSummary(count = 7) {
     const days = [];
     const now = new Date();
-    for (let i = 6; i >= 0; i--) {
+    for (let i = count - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       const key = `${y}-${m}-${day}`;
+      if (key !== state.date && summaryCache.has(key)) {
+        days.push(structuredClone(summaryCache.get(key)));
+        continue;
+      }
       let dayObj = null;
       if (key === state.date) {
         dayObj = state;
@@ -478,6 +512,7 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
           : { productive: 0, unproductive: 0, other: 0 },
         topApps
       });
+      if (key !== state.date) summaryCache.set(key, structuredClone(days[days.length - 1]));
     }
     return days;
   }
@@ -487,7 +522,7 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
   *   and subtract their stored totals. Other category totals remain authoritative so a browser
   *   tab switch cannot reclassify history.
    */
-  function snapshot(ignoreList) {
+  function snapshot(ignoreList, { includeWeek = false } = {}) {
     rollIfNeeded();
     const { appMatchesIgnore } = require('./classifier');
     const ignore = ignoreList || [];
@@ -527,7 +562,7 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
           src.byApp && typeof src.byApp === 'object' ? { ...src.byApp } : {};
         return Object.assign(emptyHour(), src, { byApp });
       }),
-      week: weekSummary(),
+      ...(includeWeek ? { week: weekSummary() } : {}),
       unproductiveStreak: state.unproductiveStreak,
       lastReminderAt: state.lastReminderAt,
       mood,
@@ -568,6 +603,7 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
   }
 
   function clearAllHistory() {
+    summaryCache.clear();
     try {
       if (fs.existsSync(historyDir)) {
         for (const f of fs.readdirSync(historyDir)) {
@@ -609,12 +645,17 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
 
   return {
     addSeconds,
+    addInterval,
     removeSeconds,
     reclassifyStoredApps,
     markReminder,
     resetStreak,
     shouldRemind,
     snapshot,
+    historySummary: (count = 7) => {
+      rollIfNeeded();
+      return weekSummary(Math.min(90, Math.max(1, Math.floor(Number(count) || 7))));
+    },
     updateSettings,
     getSettings,
     getState,

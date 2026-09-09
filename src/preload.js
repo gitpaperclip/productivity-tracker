@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('sydtrack', {
     return () => ipcRenderer.removeListener('reminder:fired', handler);
   },
   getState: () => ipcRenderer.invoke('state:get'),
+  getHistorySummary: (days) => ipcRenderer.invoke('history:summary', days),
   getRules: () => ipcRenderer.invoke('rules:get'),
   setRules: (rules) => ipcRenderer.invoke('rules:set', rules),
   resetRules: () => ipcRenderer.invoke('rules:reset'),

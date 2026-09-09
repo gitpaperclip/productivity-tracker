@@ -46,6 +46,8 @@ function buildExport(store, opts) {
       : (options.ignore.ignore || []).slice();
   }
 
+  if (options.sessionManager) payload.sessions = options.sessionManager.exportHistory();
+  if (options.identities) payload.identities = structuredClone(options.identities);
   return payload;
 }
 
@@ -124,6 +126,11 @@ function importBackup(store, obj, opts) {
     result.appliedIgnore = true;
   }
 
+  if (obj.identities && options.onIdentities) {
+    options.onIdentities(obj.identities);
+    result.appliedIdentities = true;
+  }
+  if (obj.sessions && options.sessionManager) result.sessionsImported = options.sessionManager.importHistory(obj.sessions, mode);
   result.ok = true;
   store.pruneOldHistory();
   return result;
@@ -168,6 +175,25 @@ function validateBackup(obj) {
     tags(obj.rules.productive); tags(obj.rules.unproductive);
   }
   if (obj.ignore != null) tags(Array.isArray(obj.ignore) ? obj.ignore : obj.ignore.ignore);
+  if (obj.identities != null) {
+    if (!record(obj.identities)) fail('invalid identities');
+    for (const key of ['productiveApps', 'ignoredApps']) tags(obj.identities[key]);
+    if (obj.identities.browserApps != null) tags(obj.identities.browserApps);
+  }
+  if (obj.sessions != null) {
+    if (!record(obj.sessions)) fail('invalid sessions');
+    const ids = new Set();
+    for (const [date, entries] of Object.entries(obj.sessions)) {
+      if (!validDateKey(date) || !Array.isArray(entries)) fail('invalid session day');
+      for (const entry of entries) {
+        if (!record(entry) || typeof entry.id !== 'string' || !entry.id || ids.has(entry.id) || entry.date !== date ||
+          !['completed', 'stopped'].includes(entry.status) || !number(entry.startedAt) || !number(entry.endedAt) || entry.endedAt < entry.startedAt ||
+          !number(entry.plannedSec) || !number(entry.elapsedSec) || !number(entry.distractionCount) || !Array.isArray(entry.topApps)) fail('invalid session');
+        ids.add(entry.id);
+        for (const app of entry.topApps) if (!record(app) || typeof app.name !== 'string' || !number(app.seconds) || !['productive', 'unproductive', 'other', 'ignored'].includes(app.category)) fail('invalid session app');
+      }
+    }
+  }
   // Reject prototype setters even in optional settings before Object.assign.
   const inspect = (value) => {
     if (!value || typeof value !== 'object') return;

@@ -2,7 +2,10 @@
 
 const path = require('path');
 const fs = require('fs');
-const { app, BrowserWindow, ipcMain, Notification, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, dialog, powerMonitor } = require('electron');
+const { bindTrackingLifecycle } = require('./tracking-lifecycle');
+const { createErrorLog, installErrorLogging } = require('./error-log');
+let errorLog;
 const { createAppTray } = require('./tray');
 const { validateSiteTags } = require('./browser-rules');
 
@@ -165,6 +168,12 @@ function createWindow() {
     winOpts.icon = path.join(__dirname, '..', 'renderer', 'assets', 'logo-wordmark.png');
   }
   mainWindow = new BrowserWindow(winOpts);
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (errorLog) errorLog.write('renderer-exit', `${details.reason} (${details.exitCode})`);
+  });
+  mainWindow.webContents.on('console-message', (_event, level, message) => {
+    if (errorLog && level >= 2) errorLog.write('renderer', message);
+  });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html')).catch((err) => {
     console.error('[main] renderer failed to load:', err && err.message ? err.message : err);
@@ -322,6 +331,7 @@ function ensureTrackerStarted() {
     },
     onReminder: fireReminder
   });
+  bindTrackingLifecycle(powerMonitor, tracker);
   tracker.start();
 }
 
@@ -364,6 +374,8 @@ app.on('second-instance', () => {
 
 app.whenReady().then(() => {
   if (!ownsInstance) return;
+  errorLog = createErrorLog(dataDir());
+  installErrorLogging(errorLog);
   startServices();
   createWindow();
   createTray();
@@ -395,10 +407,12 @@ app.on('before-quit', () => {
 ipcMain.handle('state:get', async () => ({
   now: lastPayload.now || null,
   lastFocused: lastPayload.lastFocused || (tracker && tracker.getLastFocused && tracker.getLastFocused()) || null,
-  stats: store ? store.snapshot(ignoreHolder.ignore || []) : lastPayload.stats,
+  stats: store ? store.snapshot(ignoreHolder.ignore || [], { includeWeek: false }) : lastPayload.stats,
   session: sessionManager ? sessionManager.getActiveSession() : lastPayload.session || null,
   platform: process.platform
 }));
+
+ipcMain.handle('history:summary', async (_event, days) => store ? store.historySummary(days) : []);
 
 ipcMain.handle('rules:get', async () => rulesPayload());
 
@@ -479,7 +493,9 @@ ipcMain.handle('data:export', async (_e, opts) => {
     includeRules: options.includeRules !== false,
     includeIgnore: options.includeIgnore !== false,
     rules: rulesHolder.rules,
-    ignore: ignoreHolder.ignore
+    ignore: ignoreHolder.ignore,
+    sessionManager,
+    identities: identitiesHolder.identities
   });
   writeBackupFile(result.filePath, payload);
   return { ok: true, path: result.filePath };
@@ -508,6 +524,11 @@ ipcMain.handle('data:import', async (_e, opts) => {
   }
 
   const imported = importBackup(store, obj, {
+    sessionManager,
+    onIdentities: (identities) => {
+      identitiesHolder.identities = saveAppIdentities(userAppIdentitiesPath(), identities);
+      attachAppIdentities(rulesHolder.rules);
+    },
     mode: options.mode === 'replace' ? 'replace' : 'merge',
     onSettings: applySettings,
     onRules: (rules) => {

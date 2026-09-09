@@ -303,7 +303,7 @@ assert(archived.byCategory.productive === 42, 'archived day keeps productive sec
 assert(store3b.getState().date === todayKey(), 'after roll today is emptyDay date');
 assert(store3b.getState().byCategory.productive === 0, 'today starts empty after roll');
 
-const snapWeek = store3b.snapshot();
+const snapWeek = store3b.snapshot(null, { includeWeek: true });
 assert(Array.isArray(snapWeek.week) && snapWeek.week.length === 7, 'snapshot week has 7 days');
 const yEntry = snapWeek.week.find((d) => d.date === yesterday);
 assert(yEntry && yEntry.byCategory.productive === 42, 'week includes archived yesterday');
@@ -462,7 +462,7 @@ async function regressionChecks() {
     classList: { toggle(_name, value) { modeButton.active = value; } }, setAttribute() {}, addEventListener(_name, fn) { this.click = fn; } };
   const weekButton = { active: false, getAttribute: () => 'week',
     classList: { toggle(_name, value) { weekButton.active = value; } }, setAttribute() {}, addEventListener(_name, fn) { this.click = fn; } };
-  const segmentContext = vm.createContext({ $: () => null, hideChartTip() {}, analyticsSegment: 'day', ANALYTICS_SUBTITLES: {},
+  const segmentContext = vm.createContext({ $: () => null, hideChartTip() {}, historyRequest: 0, loadAnalyticsHistory() {}, analyticsSegment: 'day', ANALYTICS_SUBTITLES: {},
     document: { querySelectorAll(selector) {
       if (selector === '.segment-btn[data-segment]') return [weekButton];
       if (selector === '.segment-btn') return [weekButton, modeButton];
@@ -646,13 +646,13 @@ async function regressionChecks() {
   const idleStore = createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-idle-regression-')));
   idleStore.updateSettings({ demoMode: false, idleTimeoutSec: 5 });
   idleStore.addSeconds('Code', 'productive', 120);
-  let clock = 10000;
+  let clock = new Date().setHours(12, 0, 0, 0);
   let idleSec = 6;
   const { createTracker } = require('../src/tracker');
   const raceStore = createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-pause-race-')));
   raceStore.updateSettings({ demoMode: false, thresholdSec: 1, idleTimeoutSec: 0 });
   let resolveProbe;
-  let raceClock = 10000;
+  let raceClock = new Date().setHours(12, 0, 0, 0);
   let reminders = 0;
   let ticks = 0;
   let sessionElapsed;
@@ -730,7 +730,7 @@ async function browserProbeChecks() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-sites-'));
   const siteStore = createStore(dir);
   siteStore.updateSettings({ demoMode: false, idleTimeoutSec: 0 });
-  let clock = 10000, url = 'https://learn.youtube.com';
+  let clock = new Date().setHours(12, 0, 0, 0), url = 'https://learn.youtube.com';
   const tracker = createTracker({ store: siteStore, rules: siteRules, now: () => clock,
     backend: { getActiveWindow: async () => ({ window: browserWindow(url), idleSec: 0 }) } });
   clock += 1000; await tracker.poll();
@@ -768,7 +768,263 @@ async function browserProbeChecks() {
   }
 }
 
-regressionChecks().then(browserProbeChecks).then(() => {
+async function lifecycleChecks() {
+  const { EventEmitter } = require('events');
+  const { createTracker } = require('../src/tracker');
+  const { createSessionManager } = require('../src/sessions');
+  const { bindTrackingLifecycle } = require('../src/tracking-lifecycle');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-lifecycle-'));
+  const RealDate = Date;
+  let time = new RealDate(2026, 8, 9, 12, 0, 0).getTime();
+  global.Date = class extends RealDate {
+    constructor(...args) { super(...(args.length ? args : [time])); }
+    static now() { return time; }
+  };
+  let tracker;
+  let unbind;
+  try {
+    const store = createStore(root);
+    store.updateSettings({ demoMode: false, idleTimeoutSec: 0, thresholdSec: 3 });
+    const sessions = createSessionManager({ dataDir: root });
+    const power = new EventEmitter();
+    let idleState = 'active';
+    power.getSystemIdleState = () => idleState;
+    let probes = 0;
+    let notifications = 0;
+    let completed = 0;
+    let pending = false;
+    let resolveProbe;
+    const sample = { window: { owner: { name: 'chrome' }, title: 'YouTube' } };
+    tracker = createTracker({ store, rules, sessionManager: sessions,
+      backend: { getActiveWindow() {
+        probes++;
+        return pending ? new Promise(resolve => { resolveProbe = resolve; }) : Promise.resolve(sample);
+      } }, onReminder: () => notifications++,
+      onTick: (tick) => { if (tick.sessionCompleted) completed++; }
+    });
+    unbind = bindTrackingLifecycle(power, tracker);
+    const tick = async (ms = 1000) => { time += ms; await tracker.poll(); };
+    const running = sessions.startSession({ mode: 'custom', customMin: 1 });
+    await tick();
+    assert(store.snapshot().byCategory.unproductive === 1, 'lifecycle baseline records foreground activity');
+    pending = true;
+    time += 1000;
+    const interrupted = tracker.poll();
+    power.emit('lock-screen');
+    power.emit('suspend');
+    resolveProbe(sample);
+    await interrupted;
+    const before = probes;
+    await tick(120000);
+    assert(probes === before && store.snapshot().byCategory.unproductive === 1, 'lock/sleep suppress probes and discard in-flight activity');
+    idleState = 'locked';
+    power.emit('resume');
+    await tick();
+    assert(probes === before, 'resume while locked does not restart capture');
+    idleState = 'active';
+    power.emit('unlock-screen');
+    pending = false;
+    await tracker.poll();
+    assert(store.snapshot().byCategory.unproductive === 1 && notifications === 0, 'unlock excludes away time and clears stale reminder streak');
+    const entry = sessions.getMostRecentSession();
+    assert(entry.endedAt === running.endsAt && entry.elapsedSec === 60 && entry.topApps[0].seconds === 1, 'session crossing sleep keeps its deadline without adding away activity');
+    await tick();
+    assert(completed === 1, 'session completion is delivered once after waking');
+    store.updateSettings({ trackingPaused: true });
+    power.emit('suspend');
+    time += 30000;
+    power.emit('resume');
+    await tick();
+    assert(store.getSettings().trackingPaused && store.snapshot().byCategory.unproductive === 2, 'wake preserves manual tracking pause');
+    store.updateSettings({ trackingPaused: false });
+    power.emit('suspend');
+    power.emit('unlock-screen');
+    const beforeSleep = probes;
+    await tick();
+    assert(probes === beforeSleep, 'unlock cannot clear an outstanding sleep state');
+    power.emit('resume');
+    await tick();
+    const earned = store.snapshot().byCategory.unproductive;
+    const nudges = notifications;
+    await tick(3600000);
+    assert(store.snapshot().byCategory.unproductive === earned && notifications === nudges, 'unreported long gaps add no time or stale reminders');
+    await tick(-10000);
+    assert(store.snapshot().byCategory.unproductive === earned, 'backward clock jumps add no time');
+    pending = true;
+    time += 1000;
+    const stalled = tracker.poll();
+    time += 60000;
+    resolveProbe(sample);
+    await stalled;
+    assert(store.snapshot().byCategory.unproductive === earned, 'probe spanning an unreported sleep is discarded');
+    pending = false;
+    time = new RealDate(2026, 8, 9, 23, 59, 58).getTime();
+    await tracker.poll();
+    await tick();
+    const yesterdayTotal = store.snapshot().byCategory.unproductive;
+    await tick(2000);
+    const nextDay = store.snapshot();
+    const yesterday = JSON.parse(fs.readFileSync(path.join(root, 'history', '2026-09-09.json'), 'utf8'));
+    assert(nextDay.date === '2026-09-10' && nextDay.byCategory.unproductive === 1 && yesterday.byCategory.unproductive === yesterdayTotal + 1, 'midnight splits the complete interval between both days');
+    await tick();
+    assert(store.snapshot().byHour[0].unproductive === 2, 'post-midnight activity belongs to the new day and hour');
+    // Slow requests still have timer heartbeats: latency alone must not lose activity.
+    const beforeSlow = store.snapshot().byCategory.unproductive;
+    for (let i = 0; i < 2; i++) {
+      pending = true;
+      time += 1000;
+      const slow = tracker.poll();
+      for (let second = 0; second < 8; second++) { time += 1000; await tracker.poll(); }
+      resolveProbe(sample);
+      await slow;
+    }
+    pending = false;
+    await tick();
+    assert(store.snapshot().byCategory.unproductive === beforeSlow + 19, 'repeated eight-second probes retain all continuously observed time');
+    const hourEnd = new RealDate(2026, 8, 10, 1, 0, 1).getTime();
+    const previousHour = store.snapshot().byHour[0].productive;
+    store.addInterval('Code', 'productive', hourEnd - 2000, hourEnd);
+    assert(store.snapshot().byHour[0].productive === previousHour + 1 && store.snapshot().byHour[1].productive === 1, 'hour boundary splits seconds without dropping or duplicating time');
+    const midnight = new RealDate(2026, 8, 10, 0, 0, 0).getTime();
+    const priorArchive = JSON.parse(fs.readFileSync(path.join(root, 'history', '2026-09-09.json'), 'utf8'));
+    store.addInterval('Code', 'productive', midnight - 500, midnight + 500);
+    const updatedArchive = JSON.parse(fs.readFileSync(path.join(root, 'history', '2026-09-09.json'), 'utf8'));
+    assert(updatedArchive.byCategory.productive === priorArchive.byCategory.productive + 0.5 && updatedArchive.byCategory.unproductive === priorArchive.byCategory.unproductive, 'late sample merges into an already archived day without overwriting history');
+    assert(store.snapshot().byHour[0].productive === previousHour + 1.5, 'fractional boundary seconds are conserved');
+    store.addSeconds('Chrome', 'unproductive', 10);
+    const statsBeforeFailure = fs.readFileSync(store.filePath, 'utf8');
+    const originalRename = fs.renameSync;
+    let eventThrew = false;
+    try {
+      fs.renameSync = () => { throw new Error('simulated disk failure'); };
+      power.emit('lock-screen');
+    } catch (_) { eventThrew = true; }
+    finally { fs.renameSync = originalRename; }
+    const failureProbes = probes;
+    await tick();
+    assert(!eventThrew && probes === failureProbes && fs.readFileSync(store.filePath, 'utf8') === statsBeforeFailure, 'streak write failure cannot escape a lock event, resume capture, or truncate history');
+    power.emit('unlock-screen');
+    await tick();
+    assert(store.snapshot().unproductiveStreak === 1, 'tracking recovers after disk access returns without restoring the stale streak');
+    unbind();
+    assert(power.listenerCount('suspend') === 0 && power.listenerCount('unlock-screen') === 0, 'lifecycle listeners can be removed cleanly');
+    idleState = 'locked';
+    unbind = bindTrackingLifecycle(power, tracker);
+    const lockedProbes = probes;
+    await tick();
+    assert(probes === lockedProbes, 'starting while locked suppresses tracking');
+    idleState = 'active';
+    power.emit('unlock-screen');
+    store.addSeconds('Chrome', 'unproductive', 100);
+    tracker.start();
+    await tracker.poll();
+    tracker.stop();
+    assert(store.snapshot().unproductiveStreak === 0, 'tracker start clears the previous run reminder streak');
+  } finally {
+    if (unbind) unbind();
+    if (tracker) tracker.stop();
+    global.Date = RealDate;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function infrastructureChecks() {
+  const { createSessionManager } = require('../src/sessions');
+  const { createErrorLog } = require('../src/error-log');
+  const { emptyDay } = require('../src/store');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-infrastructure-'));
+  try {
+    const store = createStore(path.join(root, 'source'));
+    for (let i = 1; i <= 90; i++) {
+      const date = new Date(); date.setDate(date.getDate() - i);
+      const day = emptyDay(todayKey(date.getTime())); day.byCategory.productive = i;
+      store.writeHistoryDay(day);
+    }
+    let historyReads = 0;
+    const originalRead = fs.readFileSync;
+    try {
+      fs.readFileSync = (file, ...args) => { if (String(file).includes(`${path.sep}history${path.sep}`)) historyReads++; return originalRead(file, ...args); };
+      for (let i = 0; i < 20; i++) store.snapshot();
+      assert(historyReads === 0, '#9 live snapshots read no archived files with 90 days present');
+      const week = store.historySummary(7);
+      assert(historyReads === 6 && week.length === 7, '#9 week request reads only its six archived days');
+      week[0].byCategory.productive = 99999;
+      store.historySummary(7);
+      assert(historyReads === 6 && store.historySummary(7)[0].byCategory.productive !== 99999, '#9 summaries are cached and callers cannot mutate the cache');
+      assert(store.historySummary(900).length === 90 && historyReads === 89, '#9 history requests are bounded to 90 days');
+    } finally { fs.readFileSync = originalRead; }
+    const previous = new Date(); previous.setDate(previous.getDate() - 1);
+    const changed = emptyDay(todayKey(previous.getTime())); changed.byCategory.productive = 987;
+    store.writeHistoryDay(changed);
+    assert(store.historySummary(7)[5].byCategory.productive === 987, '#9 history writes invalidate cached summaries');
+    const sessions = createSessionManager({ dataDir: store.dataDir });
+    sessions.startSession({ mode: 'custom', customMin: 1 }); sessions.stopSession();
+    sessions.startSession({ mode: 'custom', customMin: 1 });
+    const payload = buildExport(store, { sessionManager: sessions, identities, includeSettings: true });
+    assert(payload.sessions[todayKey()].length === 2 && sessions.getActiveSession(), 'backup captures running session as a stopped checkpoint without stopping it');
+    const dest = createStore(path.join(root, 'destination'));
+    const targetSessions = createSessionManager({ dataDir: dest.dataDir, getSettings: () => dest.getSettings() });
+    const local = targetSessions.startSession({ mode: 'custom', customMin: 1 });
+    let restoredIdentities;
+    const result = importBackup(dest, payload, { sessionManager: targetSessions, onIdentities: value => { restoredIdentities = value; } });
+    if (!result.ok) console.error('Backup regression error:', result.error);
+    assert(result.ok && result.sessionsImported === 2 && restoredIdentities.productiveApps.length, 'backup imports session history and custom identities');
+    assert(targetSessions.getActiveSession().id === local.id, 'import never replaces or starts the local active timer');
+    importBackup(dest, payload, { sessionManager: targetSessions });
+    assert(targetSessions.getSessionsForDay(todayKey()).length === 2, 'repeated imports deduplicate sessions by ID');
+    const completedBackup = structuredClone(payload);
+    completedBackup.sessions[todayKey()][1].status = 'completed';
+    importBackup(dest, completedBackup, { sessionManager: targetSessions });
+    assert(targetSessions.getSessionsForDay(todayKey()).some(entry => entry.id === completedBackup.sessions[todayKey()][1].id && entry.status === 'completed'), 'completed backup supersedes an earlier stopped checkpoint');
+    importBackup(dest, payload, { sessionManager: targetSessions });
+    assert(targetSessions.getSessionsForDay(todayKey()).some(entry => entry.id === completedBackup.sessions[todayKey()][1].id && entry.status === 'completed'), 'older checkpoint cannot downgrade a completed session');
+    const before = JSON.stringify(dest.getState());
+    const invalid = structuredClone(payload); invalid.sessions[todayKey()][0].endedAt = -1;
+    assert(!importBackup(dest, invalid, { mode: 'replace', sessionManager: targetSessions }).ok && JSON.stringify(dest.getState()) === before, 'invalid sessions reject the entire backup before replace');
+    const badIdentity = structuredClone(payload); badIdentity.identities.browserApps = [42];
+    assert(!importBackup(dest, badIdentity, { mode: 'replace' }).ok, 'invalid identity lists reject backup import');
+    importBackup(dest, { format: 'sydtrack-backup', schemaVersion: 1, days: {} }, { mode: 'replace', sessionManager: targetSessions });
+    assert(targetSessions.getSessionsForDay(todayKey()).length === 2, 'legacy backups without sessions leave session history intact');
+    dest.updateSettings({ sessionHistoryEnabled: false });
+    importBackup(dest, payload, { applySettings: false, sessionManager: targetSessions });
+    assert(targetSessions.getSessionsForDay(todayKey()).length === 1, 'session import respects disabled session history');
+    store.clearAllHistory();
+    assert(store.historySummary(7).every(day => day.byCategory.productive === 0), '#9 clearing history invalidates summaries');
+    const log = createErrorLog(root, { maxBytes: 1024 });
+    const writes = Array.from({ length: 30 }, () => log.write('test', 'x'.repeat(100)));
+    assert(writes.every(Boolean), 'local log writes succeed');
+    assert(fs.readdirSync(log.directory).length === 2 && fs.statSync(log.filePath).size <= 1024, 'local error logs rotate into two bounded files');
+    const append = fs.appendFileSync;
+    try {
+      fs.appendFileSync = () => { throw new Error('disk full'); };
+      assert(log.write('failure', 'test') === false, 'logging failure is contained without recursion');
+    } finally { fs.appendFileSync = append; }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+}
+
+async function historyLoadingChecks() {
+  const vm = require('vm');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'renderer/renderer.js'), 'utf8');
+  const targets = { 'week-chart': {}, 'month-history': {} };
+  const requests = [];
+  let rendered = 0;
+  const context = vm.createContext({ historyRequest: 0, historicalWeek: null, analyticsSegment: 'week',
+    $: id => targets[id], renderWeek: () => rendered++, esc: value => String(value).replaceAll('<', '&lt;'), fmtFriendly: String,
+    api: { getHistorySummary: days => new Promise((resolve, reject) => requests.push({ days, resolve, reject })) } });
+  vm.runInContext(source.slice(source.indexOf('async function loadAnalyticsHistory'), source.indexOf('const ANALYTICS_SUBTITLES')), context);
+  const first = context.loadAnalyticsHistory();
+  assert(targets['week-chart'].textContent === 'Loading history…' && requests[0].days === 7, '#9 week loading is visible and requests only seven days');
+  context.analyticsSegment = 'month';
+  const second = context.loadAnalyticsHistory();
+  requests[0].resolve([]); await first;
+  assert(rendered === 0, '#9 late week responses cannot overwrite a newer segment');
+  requests[1].resolve([{ date: '<test>', byCategory: { productive: 1, unproductive: 2, other: 3 } }]); await second;
+  assert(requests[1].days === 30 && targets['month-history'].innerHTML.includes('&lt;test>'), '#9 month requests 30 days and escapes history text');
+  const error = context.loadAnalyticsHistory(); requests[2].reject(new Error('test')); await error;
+  assert(targets['month-history'].textContent.includes('retry'), '#9 history failures show a retry instruction');
+}
+
+regressionChecks().then(lifecycleChecks).then(infrastructureChecks).then(historyLoadingChecks).then(browserProbeChecks).then(() => {
   console.log(failed ? `\n${failed} failed` : '\nall smoke checks passed');
   process.exitCode = failed ? 1 : 0;
 }).catch((err) => { console.error(err); process.exitCode = 1; });

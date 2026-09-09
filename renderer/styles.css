@@ -2790,3 +2790,7 @@ body[data-boost="on"]::after {
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
+.history-summary { padding: 20px; }
+.history-row { display: grid; grid-template-columns: minmax(90px, 1fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; font-size: 13px; }
+.history-row span:not(:first-child) { text-align: right; overflow-wrap: anywhere; }
+.history-head { margin-top: 12px; font-weight: 600; }

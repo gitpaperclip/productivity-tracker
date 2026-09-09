@@ -137,12 +137,26 @@ app.whenReady().then(async () => {
     return results;
   })()`);
   console.log('Stationary hover checks:', JSON.stringify(hoverChecks));
+  const historyChecks = await win.webContents.executeJavaScript(`(async () => {
+    document.querySelector('[data-tab="analytics"]').click();
+    setAnalyticsSegment('month');
+    await loadAnalyticsHistory(async count => Array.from({length: count}, (_, i) => ({
+      date: '2026-08-' + String(i + 1).padStart(2, '0'),
+      byCategory: {productive: 3600, unproductive: 1200, other: 600}
+    })));
+    const panel = document.getElementById('month-history');
+    return { rows: panel.children.length, visible: !document.getElementById('panel-month').classList.contains('hidden'),
+      overflow: panel.scrollWidth > panel.clientWidth + 1 };
+  })()`);
+  console.log('History checks:', JSON.stringify(historyChecks));
+  await win.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-history.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   const screenshot = await win.webContents.capturePage();
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-home.png'), screenshot.toPNG());
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-results.json'), JSON.stringify(results.flat(), null, 2));
   const failed = results.flat().some((r) => r.overflow || !r.timeInside) || !tagChecks.loaded || !tagChecks.removed || hoverChecks.some(r => !r.stayedVisible || !r.leftHidden) || !segmentChecks.analyticsPreserved || !segmentChecks.sessionPreserved;
-  app.exit(failed || layoutChecks.some(r => !r.sidebarAligned || !r.mobileRail || !r.customAligned || !r.controlsInside) ? 1 : 0);
+  app.exit(failed || historyChecks.rows !== 30 || !historyChecks.visible || historyChecks.overflow || layoutChecks.some(r => !r.sidebarAligned || !r.mobileRail || !r.customAligned || !r.controlsInside) ? 1 : 0);
 }).catch((error) => { console.error(error); app.exit(1); });
 
 setTimeout(() => { console.error('UI checks timed out'); app.exit(1); }, 20000).unref();

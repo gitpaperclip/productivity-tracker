@@ -286,9 +286,10 @@
 
         <div id="panel-month" class="analytics-panel hidden" data-panel="month">
           <article class="card month-empty-card">
-            <div class="month-empty">
-              <div class="month-empty-title">Month view coming soon</div>
-              <p class="muted month-empty-note">History builds over time as you track — up to 90 days are kept. Check back once more days are on file.</p>
+            <div class="history-summary">
+              <div class="month-empty-title">Last 30 days</div>
+              <div class="history-row history-head"><span>Date</span><span>Productive</span><span>Unproductive</span><span>Other</span></div>
+              <div id="month-history" class="muted" aria-live="polite"></div>
             </div>
           </article>
         </div>
@@ -520,7 +521,8 @@
             <strong>Privacy warning</strong>
             <p>Exports include app names, window titles, and time history. Treat a <code>.sydtrack</code> file like a personal diary. There is <em>no cloud sync</em> — only you choose where to save or open a backup on this machine (or copy the file yourself between PCs).</p>
           </div>
-          <p class="hint">Portable backup for moving history between your own computers. Import merges by default.</p>
+          <p class="hint">Includes activity, sessions, settings, Focus Tags, and app identities. Import adds activity totals; matching session IDs are kept once. A running session is exported as a stopped checkpoint and never auto-started on import.</p>
+          <p class="hint">Local error logs are kept in the <code>logs</code> folder inside the Data location above (two files, approximately 256 KB each). Logs are never uploaded or included in backups.</p>
           <div class="rules-actions data-actions">
             <button type="button" id="data-export" class="btn primary">Export backup…</button>
             <button type="button" id="data-import" class="btn">Import backup…</button>

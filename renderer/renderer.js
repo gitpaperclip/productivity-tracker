@@ -248,11 +248,28 @@ const reduceMotion =
 
 /** Session-only Analytics segment (day | week | month | apps). */
 let analyticsSegment = 'day';
+let historyRequest = 0;
+let historicalWeek = null;
+async function loadAnalyticsHistory(fetchHistory = api && api.getHistorySummary) {
+  if (!fetchHistory || !['week', 'month'].includes(analyticsSegment)) return;
+  const request = ++historyRequest;
+  const segment = analyticsSegment;
+  const target = segment === 'week' ? $('week-chart') : $('month-history');
+  if (target) target.textContent = 'Loading history…';
+  try {
+    const days = await fetchHistory(segment === 'week' ? 7 : 30);
+    if (request !== historyRequest || analyticsSegment !== segment) return;
+    if (segment === 'week') { historicalWeek = days; renderWeek({ week: days }); }
+    else if (target) target.innerHTML = days.map(day => '<div class="history-row"><span>' + esc(day.date) + '</span><span>' +
+      esc(fmtFriendly(day.byCategory.productive)) + '</span><span>' + esc(fmtFriendly(day.byCategory.unproductive)) +
+      '</span><span>' + esc(fmtFriendly(day.byCategory.other)) + '</span></div>').join('');
+  } catch (_) { if (request === historyRequest && target) target.textContent = 'Could not load history. Reopen this tab to retry.'; }
+}
 
 const ANALYTICS_SUBTITLES = {
   day: 'Today’s hours',
   week: 'Last 7 days',
-  month: 'This month',
+  month: 'Last 30 days',
   apps: 'Re-tag your top apps here.'
 };
 
@@ -274,6 +291,8 @@ function setAnalyticsSegment(segment) {
   });
   const sub = $('analytics-subtitle');
   if (sub) sub.textContent = ANALYTICS_SUBTITLES[segment] || ANALYTICS_SUBTITLES.day;
+  historyRequest++;
+  loadAnalyticsHistory();
 }
 
 document.querySelectorAll('.nav-btn').forEach((btn) => {
@@ -1701,7 +1720,11 @@ function renderStats(stats) {
       ? Object.assign({}, stats, { byCategory: liveDisplayCategories })
       : stats
   );
-  renderWeek(stats);
+  if (stats.week) renderWeek(stats);
+  else if (historicalWeek) {
+    historicalWeek = historicalWeek.map(day => day.date === stats.date ? { ...day, byCategory: stats.byCategory, topApps: stats.topApps } : day);
+    renderWeek({ week: historicalWeek });
+  }
   renderDay(stats);
   renderRoundup(stats);
   $('streak').textContent = fmt(stats.unproductiveStreak || 0);
@@ -2320,10 +2343,13 @@ if ($('data-import')) {
       const res = await api.importData({ mode: 'merge' });
       if (res && res.canceled) $('data-status').textContent = 'Import canceled';
       else if (res && res.ok) {
-        $('data-status').textContent = 'Imported ' + (res.daysImported || 0) + ' day(s)';
+        $('data-status').textContent = 'Imported ' + (res.daysImported || 0) + ' day(s), ' + (res.sessionsImported || 0) + ' session(s) added or updated';
+        historicalWeek = null;
+        historyRequest++;
         const state = await api.getState();
         if (state) renderStats(state.stats);
         await loadRulesAndIgnore();
+        refreshSessionLog();
       } else $('data-status').textContent = (res && res.error) || 'Import failed';
     } catch (err) {
       $('data-status').textContent = 'Import failed';

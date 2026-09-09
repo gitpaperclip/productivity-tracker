@@ -447,6 +447,39 @@ function createSessionManager({ dataDir, getSettings, onRecovery = () => {} }) {
   }
 
   return {
+    exportHistory: () => {
+      checkExpiry();
+      const days = Object.fromEntries(listSessionDates().map(key => [key, readDay(key)]));
+      // Portable checkpoint, not an instruction to start a timer on another machine.
+      if (active) {
+        const entry = toLogEntry(active, 'stopped', Date.now());
+        days[entry.date] = [...(days[entry.date] || []).filter(e => e.id !== entry.id), entry];
+      }
+      return days;
+    },
+    importHistory: (days, mode = 'merge') => {
+      let imported = 0;
+      for (const [key, incoming] of Object.entries(days)) {
+        const existing = mode === 'replace' ? [] : readDay(key);
+        const entries = new Map(existing.map(entry => [entry.id, entry]));
+        for (const entry of incoming) {
+          if (entry.id === (active && active.id)) continue;
+          const previous = entries.get(entry.id);
+          // A later backup may contain the completion of an earlier portable checkpoint.
+          if (!previous || (previous.status !== 'completed' && entry.status === 'completed') ||
+            (previous.status === entry.status && entry.endedAt > previous.endedAt)) {
+            entries.set(entry.id, entry);
+            imported++;
+          }
+        }
+        if (entries.size) writeDay(key, [...entries.values()].sort((a, b) => a.startedAt - b.startedAt));
+      }
+      if (mode === 'replace') {
+        for (const key of listSessionDates()) if (!Object.hasOwn(days, key) || !days[key].length) fs.unlinkSync(dayPath(key));
+      }
+      applyHistorySetting(historyEnabled());
+      return imported;
+    },
     startSession,
     stopSession,
     onTrackerTick,
