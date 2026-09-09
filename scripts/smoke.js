@@ -399,6 +399,49 @@ const left = fs.readdirSync(histDir).filter((f) => f.endsWith(".json"));
 assert(left.length <= MAX_HISTORY_DAYS, "prune keeps at most 90 history files (" + left.length + ")");
 
 async function regressionChecks() {
+  // Exercise real renderer handlers without Electron or writes to user app-data.
+  const vm = require('vm');
+  const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'renderer.js'), 'utf8');
+  const elements = {};
+  const ids = ['rules-prod-edit', 'rules-unprod-edit', 'ignore-edit', 'tags-quick-input', 'tags-quick-status', 'tags-quick-prod', 'tags-quick-unprod', 'tags-quick-ignore'];
+  for (const id of ids) elements[id] = { value: '', textContent: '', disabled: false, listeners: {}, addEventListener(event, handler) { this.listeners[event] = handler; } };
+  let releaseSave;
+  let saveCount = 0;
+  const tagContext = vm.createContext({
+    $: (id) => elements[id] || null,
+    document: { querySelectorAll: () => ids.filter((id) => !['tags-quick-input', 'tags-quick-status'].includes(id)).map((id) => elements[id]) },
+    cachedRules: { productive: [], unproductive: [] }, cachedIgnore: [], tagsQuickSaving: false,
+    console: { warn() {} },
+    api: { setRules(next) { saveCount++; return new Promise((resolve) => { releaseSave = () => resolve(next); }); }, async setIgnore(ignore) { return { ignore }; } }
+  });
+  vm.runInContext(rendererSource.slice(rendererSource.indexOf('function linesToList('), rendererSource.indexOf('async function loadRulesAndIgnore(')), tagContext);
+  vm.runInContext(rendererSource.slice(rendererSource.indexOf('function currentTagLists('), rendererSource.indexOf("if ($('data-export'))")), tagContext);
+  elements['tags-quick-input'].value = 'YOUTUBE';
+  tagContext.fillRulesEditors({ productive: [], unproductive: ['youtube'] });
+  assert(elements['tags-quick-status'].textContent.includes('Unproductive'), '#4 loaded rules immediately refresh an existing search');
+  elements['rules-unprod-edit'].value = '';
+  elements['rules-unprod-edit'].listeners.input();
+  assert(elements['tags-quick-status'].textContent.includes('not in any list'), '#4 deleting a draft tag immediately removes stale cached matches');
+  elements['ignore-edit'].value = 'YouTube';
+  elements['ignore-edit'].listeners.input();
+  assert(elements['tags-quick-status'].textContent.includes('Ignore'), '#4 editing ignore tags refreshes search synchronously');
+  tagContext.fillIgnoreEditor({ ignore: [] });
+  const saving = tagContext.tagsQuickAdd('productive');
+  await tagContext.tagsQuickAdd('unproductive');
+  assert(saveCount === 1 && elements['tags-quick-prod'].disabled, '#4 repeated quick-add cannot race a pending save');
+  elements['tags-quick-input'].value = 'new query';
+  elements['tags-quick-input'].listeners.input();
+  releaseSave(); await saving;
+  assert(elements['tags-quick-status'].textContent.includes('new query') && !elements['tags-quick-prod'].disabled, '#4 slow saves preserve the newer search and restore controls');
+  elements['tags-quick-input'].value = 'youtube';
+  tagContext.fillRulesEditors({ productive: ['youtube'], unproductive: ['youtube'] });
+  const moving = tagContext.tagsQuickAdd('productive');
+  releaseSave(); await moving;
+  assert(elements['rules-unprod-edit'].value === '' && elements['rules-prod-edit'].value === 'youtube', '#4 quick-add resolves duplicate membership across lists');
+  tagContext.api.setRules = async () => { throw new Error('simulated save failure'); };
+  elements['tags-quick-input'].value = 'another';
+  await tagContext.tagsQuickAdd('productive');
+  assert(elements['tags-quick-status'].textContent === 'Save failed.' && !elements['tags-quick-prod'].disabled, '#4 failed saves report the error and unlock controls');
   const { mergeDays } = require('../src/backup');
   const { emptyDay } = require('../src/store');
   const original = emptyDay(todayKey());

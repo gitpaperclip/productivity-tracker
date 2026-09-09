@@ -116,6 +116,7 @@ let applying = false;
 /** Cached rules/ignore for one-click reclassify. */
 let cachedRules = { productive: [], unproductive: [] };
 let cachedIgnore = [];
+let tagsQuickSaving = false;
 const settingsOverrides = Object.create(null);
 /** Last focused window for Home quick-classify (P/U). */
 let lastFocusedCache = null;
@@ -1989,6 +1990,7 @@ function fillRulesEditors(rules) {
   if ($('rules-unprod-custom-label')) {
     $('rules-unprod-custom-label').textContent = rules.isCustom ? '(custom)' : '(defaults)';
   }
+  updateTagsQuickStatus();
 }
 
 function fillIgnoreEditor(payload) {
@@ -1999,10 +2001,11 @@ function fillIgnoreEditor(payload) {
   if (payload && payload.path && $('ignore-path')) $('ignore-path').textContent = payload.path;
   const label = $('ignore-custom-label');
   if (label) label.textContent = payload && payload.isCustom ? '(custom)' : '(defaults)';
+  updateTagsQuickStatus();
 }
 
 async function loadRulesAndIgnore() {
-  if (!api) return;
+  if (!api || tagsQuickSaving) return;
   try {
     const rules = await api.getRules();
     fillRulesEditors(rules);
@@ -2096,35 +2099,20 @@ if ($('ignore-reset')) {
 
 
 /* —— Focus Tags quick add / search —— */
-function mergeKeywordLists(a, b) {
-  const out = [];
-  const seen = new Set();
-  for (const x of [...(a || []), ...(b || [])]) {
-    const t = String(x || '').trim();
-    if (!t) continue;
-    const k = t.toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(t);
-  }
-  return out;
-}
-
-function currentTagListsMerged() {
-  const prodTa = linesToList(($('rules-prod-edit') && $('rules-prod-edit').value) || '');
-  const unprodTa = linesToList(($('rules-unprod-edit') && $('rules-unprod-edit').value) || '');
-  const ignTa = linesToList(($('ignore-edit') && $('ignore-edit').value) || '');
+function currentTagLists() {
+  // The visible draft is authoritative, including an intentionally empty editor.
+  const read = (id, fallback) => $(id) ? linesToList($(id).value) : fallback;
   return {
-    productive: mergeKeywordLists(prodTa, cachedRules.productive),
-    unproductive: mergeKeywordLists(unprodTa, cachedRules.unproductive),
-    ignore: mergeKeywordLists(ignTa, cachedIgnore)
+    productive: read('rules-prod-edit', cachedRules.productive),
+    unproductive: read('rules-unprod-edit', cachedRules.unproductive),
+    ignore: read('ignore-edit', cachedIgnore)
   };
 }
 
 function listsContainingKeyword(keyword) {
   const key = String(keyword || '').trim().toLowerCase();
   if (!key) return [];
-  const lists = currentTagListsMerged();
+  const lists = currentTagLists();
   const found = [];
   if (lists.productive.some((x) => x.toLowerCase() === key)) found.push('Productive');
   if (lists.unproductive.some((x) => x.toLowerCase() === key)) found.push('Unproductive');
@@ -2155,6 +2143,7 @@ function stripKeywordCI(arr, keyword) {
 }
 
 async function tagsQuickAdd(target) {
+  if (tagsQuickSaving) return;
   const status = $('tags-quick-status');
   const input = $('tags-quick-input');
   if (!input) return;
@@ -2178,15 +2167,15 @@ async function tagsQuickAdd(target) {
   const inUnprod = unprod.some((x) => x.toLowerCase() === key);
   const inIgnore = ignore.some((x) => x.toLowerCase() === key);
 
-  if (target === 'productive' && inProd) {
+  if (target === 'productive' && inProd && !inUnprod && !inIgnore) {
     if (status) status.textContent = 'Already in Productive.';
     return;
   }
-  if (target === 'unproductive' && inUnprod) {
+  if (target === 'unproductive' && inUnprod && !inProd && !inIgnore) {
     if (status) status.textContent = 'Already in Unproductive.';
     return;
   }
-  if (target === 'ignore' && inIgnore) {
+  if (target === 'ignore' && inIgnore && !inProd && !inUnprod) {
     if (status) status.textContent = 'Already in Ignore.';
     return;
   }
@@ -2204,6 +2193,10 @@ async function tagsQuickAdd(target) {
   else ignore.push(kw);
 
   if (status) status.textContent = 'Saving…';
+  tagsQuickSaving = true;
+  const controls = document.querySelectorAll('#view-tags button, #view-tags textarea');
+  const disabledBefore = Array.from(controls, (el) => el.disabled);
+  controls.forEach((el) => { el.disabled = true; });
   try {
     const rulesChanged =
       target === 'productive' ||
@@ -2239,6 +2232,11 @@ async function tagsQuickAdd(target) {
   } catch (err) {
     if (status) status.textContent = 'Save failed.';
     console.warn('tags quick-add failed', err);
+  } finally {
+    tagsQuickSaving = false;
+    controls.forEach((el, i) => { el.disabled = disabledBefore[i]; });
+    // A slow save must not replace the search result for a newer query.
+    if (String(input.value || '').trim() !== kw) updateTagsQuickStatus();
   }
 }
 
@@ -2246,6 +2244,9 @@ async function tagsQuickAdd(target) {
   const input = $('tags-quick-input');
   if (!input) return;
   input.addEventListener('input', updateTagsQuickStatus);
+  for (const id of ['rules-prod-edit', 'rules-unprod-edit', 'ignore-edit']) {
+    if ($(id)) $(id).addEventListener('input', updateTagsQuickStatus);
+  }
   input.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') {
       ev.preventDefault();

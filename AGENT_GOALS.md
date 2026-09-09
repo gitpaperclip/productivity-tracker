@@ -8,6 +8,13 @@ Browser tracking isn't perfect and definitely the target here, we need better br
 Some issues with the pie chart updating properly
 Timers don't update second by second , impl needs to be optimized
 
+## UI follow-up — 2026-09-09, gpt6-astra
+
+- **#1 completed locally:** bounded grid columns keep long app names ellipsized and durations inside pie, hourly, and weekly chart tooltips. The isolated Electron test reproduced overflow before the fix and passed afterward at 800, 1040, and 1600 pixel window widths.
+- **#4 completed locally:** search reads current editor drafts (including removals), refreshes immediately on editor input and rule/ignore loads, and announces status accessibly. Quick-add prevents overlapping saves, resolves duplicate list membership, restores controls on failure, and preserves the latest query during slow saves.
+- Verification: `npm test` includes renderer regression cases; `npm run test:ui` loads the real renderer in a hidden Electron window with no preload or tracking service and temporary userData. It measures all three tooltip layouts and dispatches tag editor input events. A captured tooltip screenshot was inspected. No tracking data migration or real-data app launch is needed for these UI changes.
+- Next UI work is **#3**; the older checkpoint below records the prior state before this follow-up.
+
 ## Checkpoint — 2026-09-09 (paused at user request)
 
 All 10 open GitHub issues and their comments were reviewed read-only. Existing uncommitted #11 work was retained and extended. No commits, pushes, issue mutations, or PRs were made.

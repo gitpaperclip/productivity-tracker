@@ -17,6 +17,7 @@ SydTrack is a local-first Windows productivity tracker that watches your active 
 - **Roundup:** daily goal progress, top focus, biggest distraction, peak hour, focus share, and a daily story.
 - **Focus sessions:** Pomodoro, deep work, or custom timers with session history and distraction counts.
 - **Focus Tags:** editable productive, unproductive, and ignore keywords.
+- **Live tag search:** reflects current editor drafts immediately, including unsaved additions and removals; quick-add moves a tag between lists.
 - **FocusBoost:** shorter reminders for unproductive streaks, with optional schedules.
 - **Portable data:** local `.sydtrack` backups and `.sydtrack-profile` focus-tag packs.
 - **Tray operation:** keeps tracking quietly while the main window is hidden.
@@ -51,6 +52,12 @@ Run the smoke tests:
 
 ```powershell
 npm test
+```
+
+Optional isolated Electron UI checks (no tracking or access to your activity data):
+
+```powershell
+npm run test:ui
 ```
 
 
