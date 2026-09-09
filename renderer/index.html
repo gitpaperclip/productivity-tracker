@@ -373,23 +373,14 @@
           </div>
         </header>
 
-        <article class="card profile-settings" id="profile-settings">
-          <h3>Focus profiles</h3>
-          <label class="field"><span>Active profile</span><select id="profile-editor-select" aria-label="Active profile"></select></label>
-          <div class="profile-edit-actions">
-            <button id="profile-new-named" class="btn" type="button">New profile</button>
-            <button id="profile-rename-named" class="btn" type="button">Rename</button>
-            <button id="profile-delete-named" class="btn" type="button">Delete</button>
-            <button id="profile-import-named" class="btn" type="button">Import profile…</button>
-            <button id="profile-export-named" class="btn" type="button">Export profile…</button>
+        <div class="tags-profile-switch">
+          <div class="focusboost-btn profile-trigger" data-boost="off">
+            <span class="profile-icon" aria-hidden="true">🎯</span>
+            <span class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">profile</span></span>
+            <span id="tags-profile-label" class="profile-active-name">default</span><span aria-hidden="true">▾</span>
           </div>
-          <div id="profile-name-form" class="hidden">
-            <label class="field"><span>Profile name</span><input id="profile-name" type="text" maxlength="40" /></label>
-            <button id="profile-save-named" class="btn primary" type="button">Save name</button>
-            <button id="profile-cancel-name" class="btn" type="button">Cancel</button>
-          </div>
-          <p id="profiles-status" class="muted tiny" role="status"></p>
-        </article>
+          <select id="profile-editor-select" aria-label="Active Focus profile"></select>
+        </div>
 
         <article class="card tags-card tags-quick-card">
           <div class="lf-kicker tag-kicker">Quick add</div>
@@ -405,40 +396,59 @@
           <p id="tags-quick-status" class="muted tiny tags-quick-status" role="status" aria-live="polite">Type a keyword to see which list it is in.</p>
         </article>
 
-        <article class="card tags-card">
+        <article class="card profile-settings" id="profile-settings">
+          <h3>Focus profiles</h3>
+          <div class="profile-tag-fields">
+        <div class="profile-tag-column">
           <div class="lf-kicker tag-kicker prod">Productive</div>
           <p class="hint tags-hint">One keyword per line: editors, docs, work sites.</p>
-          <textarea id="rules-prod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="12" placeholder="one keyword per line"></textarea>
+          <textarea id="rules-prod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="5" placeholder="one keyword per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="rules-save" class="btn primary">Save keywords</button>
             <button type="button" id="rules-reset" class="btn ghost">Reset to defaults</button>
             <span id="rules-status" class="muted tiny"></span>
           </div>
           <p class="hint">Active file: <code id="rules-path">src/rules.json</code> <span id="rules-custom-label"></span></p>
-        </article>
+        </div>
 
-        <article class="card tags-card">
+        <div class="profile-tag-column">
           <div class="lf-kicker tag-kicker unprod">Unproductive</div>
           <p class="hint tags-hint">One keyword per line: social, video, rabbit holes. Unproductive wins when both lists match.</p>
-          <textarea id="rules-unprod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="12" placeholder="one keyword per line"></textarea>
+          <textarea id="rules-unprod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="5" placeholder="one keyword per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="rules-unprod-save" class="btn primary">Save keywords</button>
             <button type="button" id="rules-unprod-reset" class="btn ghost">Reset to defaults</button>
             <span id="rules-unprod-status" class="muted tiny"></span>
           </div>
           <p class="hint">Active file: <code id="rules-unprod-path">src/rules.json</code> <span id="rules-unprod-custom-label"></span></p>
-        </article>
+        </div>
 
-        <article class="card tags-card">
+        <div class="profile-tag-column">
           <div class="lf-kicker tag-kicker ignore">Ignore</div>
           <p class="hint tags-hint">Shown in tracking status but not logged (no time, no streak). One process name per line.</p>
-          <textarea id="ignore-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="10" placeholder="one process name per line"></textarea>
+          <textarea id="ignore-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="5" placeholder="one process name per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="ignore-save" class="btn primary">Save ignore list</button>
             <button type="button" id="ignore-reset" class="btn ghost">Reset to defaults</button>
             <span id="ignore-status" class="muted tiny"></span>
           </div>
           <p class="hint">File: <code id="ignore-path">src/ignore.json</code> <span id="ignore-custom-label"></span></p>
+        </div>
+
+          </div>
+          <div class="profile-edit-actions">
+            <button id="profile-new-named" class="btn" type="button">New profile</button>
+            <button id="profile-rename-named" class="btn" type="button">Rename</button>
+            <button id="profile-delete-named" class="btn" type="button">Delete</button>
+            <button id="profile-import-named" class="btn" type="button">Import profile…</button>
+            <button id="profile-export-named" class="btn" type="button">Export profile…</button>
+          </div>
+          <div id="profile-name-form" class="hidden">
+            <label class="field"><span>Profile name</span><input id="profile-name" type="text" maxlength="40" /></label>
+            <button id="profile-save-named" class="btn primary" type="button">Save name</button>
+            <button id="profile-cancel-name" class="btn" type="button">Cancel</button>
+          </div>
+          <p id="profiles-status" class="muted tiny" role="status"></p>
         </article>
       </section>
 

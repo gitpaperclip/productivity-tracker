@@ -2795,9 +2795,9 @@ body[data-boost="on"]::after {
 .history-row span:not(:first-child) { text-align: right; overflow-wrap: anywhere; }
 .history-head { margin-top: 12px; font-weight: 600; }
 .home-focus-actions { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; max-width: 50%; }
-.profile-trigger { justify-content: center; gap: 10px; font-size: 13px; padding: 10px 16px 10px 32px; min-width: 230px; max-width: 100%; }
+.profile-trigger { justify-content: flex-start; gap: 10px; font-size: 13px; padding: 10px 16px 10px 32px; min-width: 230px; max-width: 100%; }
 .profile-trigger .fb-wordmark { flex-shrink: 0; }
-#focus-profile-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+#focus-profile-label, .profile-active-name { margin-left: auto; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
 .profile-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 50; width: 240px; max-width: 65vw; background: #171b25; border: 1px solid #424858; border-radius: 14px; padding: 6px; box-shadow: 0 12px 35px #0008; text-align: left; }
 .profile-choice { display: block; color: inherit; background: transparent; border: 0; border-radius: 8px; width: 100%; padding: 12px; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-choice:hover, .profile-choice:focus-visible, .profile-choice[aria-pressed="true"] { background: #353b53; outline-color: #949dff; }
@@ -2818,3 +2818,15 @@ body[data-boost="on"]::after {
 
 #profile-settings > .field { border-bottom: 0; }
 #view-tags .tags-textarea { font-family: inherit; }
+
+.tags-profile-switch { position: relative; width: 100%; margin-bottom: 24px; }
+.tags-profile-switch .profile-trigger { width: 100%; min-width: 0; min-height: 46px; box-sizing: border-box; }
+.tags-profile-switch select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font: inherit; }
+.tags-profile-switch:focus-within .profile-trigger { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.profile-tag-column { min-width: 0; padding: 12px 0 16px; }
+.profile-tag-column .tags-textarea { min-height: 130px; height: 150px; }
+.profile-tag-column .rules-actions { flex-wrap: wrap; }
+.profile-tag-column .hint { overflow-wrap: anywhere; }
+
+@media (min-width: 901px) { .profile-tag-column > .tags-hint { min-height: 5em; } }

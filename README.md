@@ -132,3 +132,5 @@ Malformed settings and session files are set aside as adjacent `.recovery-…` f
 SydTrack is an actively developed Windows desktop application. Default browser tracking uses foreground titles; automatic website detection is deferred pending reliable browser-independent validation. It remains focused on simple productivity totals and reminders, without a browsing-history dashboard or background-tab monitoring.
 
 License: GPL v3
+
+Focus Tags layout: a full-width focusprofile switcher, Quick Add, then the profile editor and management actions at the bottom. Home aligns the focusprofile label with focusboost and places the active name at the right.
