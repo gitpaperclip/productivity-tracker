@@ -270,7 +270,7 @@ const ANALYTICS_SUBTITLES = {
   day: 'Today’s hours',
   week: 'Last 7 days',
   month: 'Last 30 days',
-  apps: 'Tag future activity. Past totals stay unchanged.'
+  apps: 'Top 10 today · Corrections update today only.'
 };
 
 function setAnalyticsSegment(segment) {
@@ -1739,95 +1739,38 @@ function renderStats(stats) {
 function renderAppList(stats) {
   const list = $('app-list');
   if (!list) return;
-  const apps = (stats && stats.topApps) || [];
-  if (!apps.length) {
-    list.innerHTML = '<li class="empty">No time logged yet</li>';
-    return;
-  }
-  list.innerHTML = apps
-    .map((a) => {
-      const name = esc(a.name);
-      const raw = encodeURIComponent(a.name);
-      const chip = chipDisplay(a.category, a.name);
-      return (
-        '<li class="app-row">' +
-        '<span class="app-name app-trunc" data-full="' +
-        name +
-        '" title="' +
-        name +
-        '">' +
-        name +
-        '</span>' +
-        '<span class="' +
-        chip.className +
-        '">' +
-        chip.label +
-        '</span>' +
-        '<span class="secs">' +
-        fmt(a.seconds) +
-        '</span>' +
-        '<span class="reclass" data-app="' +
-        raw +
-        '">' +
-        '<button type="button" class="btn-mini prod" data-action="productive" title="Mark productive">P</button>' +
-        '<button type="button" class="btn-mini unprod" data-action="unproductive" title="Mark unproductive">U</button>' +
-        '<button type="button" class="btn-mini ignore" data-action="ignore" title="Ignore">ign</button>' +
-        '</span>' +
-        '</li>'
-      );
-    })
-    .join('');
+  const apps = ((stats && (stats.analyticsApps || stats.topApps)) || []).slice(0, 10);
+  const corrections = (stats && stats.appCorrections) || {};
+  if (!apps.length) { list.innerHTML = '<li class="empty">No time logged yet</li>'; return; }
+  list.innerHTML = apps.map(a => {
+    const key = a.name.toLowerCase();
+    const ignored = cachedIgnore.some(tag => key.includes(String(tag).toLowerCase()));
+    const category = corrections[key] || (ignored ? 'ignored' : a.category);
+    const chip = category === 'mixed' ? { className: 'chip other', label: 'mixed' } : chipDisplay(category, a.name);
+    return '<li class="app-row"><span class="app-name app-trunc" title="' + esc(a.name) + '">' + esc(a.name) + '</span>' +
+      '<span class="' + chip.className + '">' + chip.label + '</span><span class="secs">' + fmt(a.seconds) + '</span>' +
+      '<span class="reclass" data-app="' + encodeURIComponent(a.name) + '">' +
+      [['productive', 'prod', 'P'], ['unproductive', 'unprod', 'U'], ['ignored', 'ignore', 'ign']].map(([value, cls, label]) =>
+        '<button type="button" class="btn-mini ' + cls + (category === value ? ' selected' : '') + '" aria-pressed="' + (category === value) +
+        '" data-action="' + value + '" title="' + (value === 'ignored' && category === 'ignored' ? 'Unignore for today' : 'Mark ' + value + ' for today') + '">' + label + '</button>').join('') + '</span></li>';
+  }).join('');
 }
 
-$('app-list').addEventListener('click', async (ev) => {
+$('app-list').addEventListener('click', async ev => {
   const btn = ev.target.closest('button[data-action]');
-  if (!btn || !api) return;
+  if (!btn || !api || !api.correctAppToday) return;
   const wrap = btn.closest('.reclass');
-  if (!wrap) return;
-  const appName = decodeURIComponent(wrap.getAttribute('data-app') || '');
-  if (!appName) return;
-  const action = btn.getAttribute('data-action');
-  const label = appName.trim();
-  const key = label.toLowerCase();
+  const name = decodeURIComponent(wrap.getAttribute('data-app'));
+  let category = btn.dataset.action;
+  if (category === 'ignored' && btn.getAttribute('aria-pressed') === 'true') category = 'other';
   btn.disabled = true;
   try {
-    if (action === 'ignore') {
-      const prev = cachedIgnore.slice();
-      const already = listHasKey(prev, key);
-      const nextIgnore = already
-        ? prev.filter((x) => String(x).toLowerCase() !== key)
-        : prev.concat([label]);
-      const payload = await api.setIgnore(nextIgnore);
-      cachedIgnore = (payload && payload.ignore) || nextIgnore;
-      fillIgnoreEditor({ ignore: cachedIgnore, path: payload && payload.path, isCustom: true });
-      if (already) refreshLastFocusedAfterToggle(key);
-    } else if (action === 'productive' || action === 'unproductive') {
-      const prod = (cachedRules.productive || []).slice();
-      const unprod = (cachedRules.unproductive || []).slice();
-      const strip = (arr) => arr.filter((k) => String(k).toLowerCase() !== key);
-      const already =
-        (action === 'productive' && listHasKey(prod, key)) ||
-        (action === 'unproductive' && listHasKey(unprod, key));
-      let nextProd = strip(prod);
-      let nextUnprod = strip(unprod);
-      // Toggle off: strip from both lists; do not re-add
-      if (!already) {
-        if (action === 'productive') nextProd.push(label);
-        else nextUnprod.push(label);
-      }
-      const next = await api.setRules({ productive: nextProd, unproductive: nextUnprod });
-      cachedRules = {
-        productive: (next && next.productive) || nextProd,
-        unproductive: (next && next.unproductive) || nextUnprod
-      };
-      fillRulesEditors(next);
-      if (already) refreshLastFocusedAfterToggle(key);
-    }
-  } catch (err) {
-    console.warn('reclassify failed', err);
-  } finally {
-    btn.disabled = false;
-  }
+    const stats = await api.correctAppToday(name, category);
+    historicalWeek = null;
+    historyRequest++;
+    renderStats(stats);
+  } catch (err) { console.warn('App correction failed', err); }
+  finally { btn.disabled = false; }
 });
 
 async function pushSettings(partial) {

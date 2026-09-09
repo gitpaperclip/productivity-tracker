@@ -281,3 +281,5 @@ MIT
 
 ### Focus Tags consolidation
 Profile management now lives at the top of Focus Tags, with one active-profile selector and one set of tag editors. Home retains five choices; empty choices open creation on Focus Tags. New/imported profiles activate immediately; rename changes only the name and preserves tag drafts. Settings retains full backups, not duplicate profile controls. No data migration.
+
+- Analytics Apps now supports explicit today-only corrections, separate from future-only Focus Tags. Top ten distinct apps; retained ignored seconds remain recoverable; daily/hourly totals recalculate. Previous days and session logs stay unchanged. Overrides expire at midnight.

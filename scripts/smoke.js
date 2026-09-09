@@ -1107,7 +1107,40 @@ async function focusProfileChecks() {
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 }
 
-regressionChecks().then(lifecycleChecks).then(infrastructureChecks).then(historyLoadingChecks).then(focusProfileChecks).then(browserProbeChecks).then(() => {
+async function appCorrectionChecks() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-corrections-'));
+  const store = createStore(root);
+  store.addSeconds('Chrome', 'productive', 20);
+  store.addSeconds('Chrome', 'unproductive', 10);
+  for (let i = 0; i < 12; i++) store.addSeconds('App' + i, 'other', 1);
+  assert(store.snapshot().analyticsApps.length === 10 && store.snapshot().analyticsApps[0].seconds === 30, 'Apps ranks ten distinct apps without discarding other records');
+  const corrected = store.correctAppToday('Chrome', 'unproductive');
+  assert(corrected.byCategory.productive === 0 && corrected.byCategory.unproductive === 30 && corrected.byHour[new Date().getHours()].unproductive === 30, 'Today correction updates totals and hourly telemetry');
+  store.correctAppToday('Chrome', 'ignored');
+  assert(store.snapshot().byCategory.unproductive === 0 && store.snapshot().analyticsApps[0].seconds === 30 && !store.snapshot().topApps.some(a => a.name === 'Chrome'), 'Ignored time stays discoverable but is excluded from productivity totals');
+  const restarted = createStore(root);
+  assert(restarted.getAppCorrection('chrome') === 'ignored' && restarted.snapshot().analyticsApps[0].seconds === 30, 'Ignored correction survives restart without losing recoverable time');
+  restarted.correctAppToday('Chrome', 'productive');
+  assert(restarted.snapshot().byCategory.productive === 30, 'Unignoring restores previously recorded time');
+  const before = fs.readFileSync(restarted.filePath, 'utf8');
+  const rename = fs.renameSync; fs.renameSync = () => { throw new Error('disk failure'); };
+  try { restarted.correctAppToday('Chrome', 'ignored'); } catch (_) {} finally { fs.renameSync = rename; }
+  assert(restarted.snapshot().byCategory.productive === 30 && fs.readFileSync(restarted.filePath, 'utf8') === before, 'Failed correction preserves disk and memory');
+  const { createTracker } = require('../src/tracker');
+  restarted.updateSettings({ idleTimeoutSec: 0 });
+  let time = Date.now();
+  const tracker = createTracker({ store: restarted, rules: { productive: [], unproductive: ['youtube'] }, ignore: ['chrome'], now: () => time,
+    backend: { getActiveWindow: async () => ({ window: { owner: { name: 'Chrome' }, title: 'YouTube' } }) } });
+  time += 1000; await tracker.poll();
+  assert(restarted.snapshot().byCategory.productive > 30, 'Explicit today correction overrides ignore and browser keywords for today');
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const raw = restarted.getState(); raw.date = todayKey(yesterday);
+  restarted.replaceToday(raw);
+  restarted.snapshot();
+  assert(!restarted.getAppCorrection('Chrome'), 'Corrections expire on the next local day');
+}
+
+regressionChecks().then(lifecycleChecks).then(infrastructureChecks).then(historyLoadingChecks).then(focusProfileChecks).then(appCorrectionChecks).then(browserProbeChecks).then(() => {
   console.log(failed ? `\n${failed} failed` : '\nall smoke checks passed');
   process.exitCode = failed ? 1 : 0;
 }).catch((err) => { console.error(err); process.exitCode = 1; });

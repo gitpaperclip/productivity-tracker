@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('sydtrack', {
   activateProfile: id => ipcRenderer.invoke('profiles:activate', id).then(rememberProfile),
   deleteProfile: id => ipcRenderer.invoke('profiles:delete', id),
   importNamedProfile: () => ipcRenderer.invoke('profiles:import'),
+  correctAppToday: (name, category) => ipcRenderer.invoke('apps:correctToday', { name, category }),
   getHistorySummary: (days) => ipcRenderer.invoke('history:summary', days),
   getRules: () => ipcRenderer.invoke('rules:get').then(rememberProfile),
   setRules: (rules) => ipcRenderer.invoke('rules:set', { ...rules, profileId: activeProfileId }),

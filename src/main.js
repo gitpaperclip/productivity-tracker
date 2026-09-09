@@ -435,6 +435,13 @@ ipcMain.handle('state:get', async () => ({
   platform: process.platform
 }));
 
+ipcMain.handle('apps:correctToday', async (_event, { name, category }) => {
+  const stats = store.correctAppToday(name, category);
+  if (tracker) tracker.invalidateClassification();
+  if (sessionManager) sessionManager.resetClassification();
+  return stats;
+});
+
 ipcMain.handle('history:summary', async (_event, days) => store ? store.historySummary(days) : []);
 
 ipcMain.handle('rules:get', async () => rulesPayload());

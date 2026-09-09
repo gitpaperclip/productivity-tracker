@@ -134,3 +134,8 @@ SydTrack is an actively developed Windows desktop application. Default browser t
 License: GPL v3
 
 Focus Tags layout: a full-width focusprofile switcher, Quick Add, then the profile editor and management actions at the bottom. Home aligns the focusprofile label with focusboost and places the active name at the right.
+
+### Correcting today’s Apps analytics
+Analytics → Apps shows the ten most-used distinct apps today, ranked by recorded seconds (including time recorded before Ignore). All app records are retained; only the display is limited. P/U/ign highlights the effective state; Mixed means the app has more than one recorded category.
+
+These controls make explicit **today-only corrections**: they update today’s category totals and hourly buckets and override that app’s classification for the remainder of the local day. They do not edit Focus profiles or previous days. Ignore removes recorded time from totals while retaining it for restoration; P/U restores it, or clicking selected ign restores it as Other. Time skipped while ignored cannot be recreated. Corrections survive restart and expire at midnight. Session logs keep their original observations.

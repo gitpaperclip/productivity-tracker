@@ -83,7 +83,6 @@
         "slides.google",
         "google docs",
         "google sheets",
-        "chatgpt",
         "chat.openai",
         "claude.ai",
         "gemini.google",
@@ -95,7 +94,8 @@
         "illustrator",
         "after effects",
         "instructure",
-        "canvas.instructure"
+        "canvas.instructure",
+        "chatgpt"
       ],
       "unproductive": [
         "youtube",
@@ -114,7 +114,6 @@
         "tumblr",
         "pinterest",
         "snapchat",
-        "discord",
         "telegram",
         "steam",
         "epic games",
@@ -142,7 +141,8 @@
         "chegg",
         "netflix.com",
         "instagram.com",
-        "tiktok.com"
+        "tiktok.com",
+        "discord"
       ],
       "ignore": [
         "explorer",
@@ -180,7 +180,9 @@
         "runtimebroker",
         "sihost",
         "ctfmon",
-        "conhost"
+        "conhost",
+        "discord",
+        "shellhost"
       ]
     }
   ]

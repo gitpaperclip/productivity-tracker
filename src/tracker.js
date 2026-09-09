@@ -160,12 +160,14 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
     settings = store.getSettings();
     if (!!settings.demoMode !== startedDemo) return;
     if (startedPaused) elapsed = 0;
-    const ignored = win ? isIgnored(win, iHolder.ignore || [], rHolder.rules && rHolder.rules.identities) : false;
+    const correction = win && store.getAppCorrection ? store.getAppCorrection(appLabel(win)) : null;
+    const selfIgnored = win && isIgnored(win, [], {});
+    const ignored = selfIgnored || (correction ? correction === 'ignored' : win ? isIgnored(win, iHolder.ignore || [], rHolder.rules && rHolder.rules.identities) : false);
     const idleTimeoutSec = Math.max(0, Number(settings.idleTimeoutSec) || 0);
     const idle = !settings.demoMode && idleTimeoutSec > 0 && idleSec >= idleTimeoutSec;
     // Pause at the timeout. Never subtract accumulated idle time from earned history.
     // Show in Now viewing; do not log time or affect streaks when ignored
-    const category = !win ? 'other' : ignored ? 'ignored' : classify(win, rHolder.rules);
+    const category = !win ? 'other' : ignored ? 'ignored' : correction || classify(win, rHolder.rules);
     const app = win
       ? appLabel(win)
       : trackingError

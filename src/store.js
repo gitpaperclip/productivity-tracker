@@ -43,7 +43,7 @@ function mergeAppEntries(entries) {
   const merged = new Map();
   for (const entry of entries || []) {
     const category =
-      entry.category === 'productive' || entry.category === 'unproductive'
+      entry.category === 'productive' || entry.category === 'unproductive' || entry.category === 'ignored'
         ? entry.category
         : 'other';
     const key = entry.name + '\u0000' + category;
@@ -107,6 +107,7 @@ function migrateDay(raw) {
         })
       : emptyByHour(),
     unproductiveStreak: Number(raw.unproductiveStreak) || 0,
+    appCorrections: Object.fromEntries(Object.entries(raw.appCorrections || {}).filter(([name, category]) => name && ['productive', 'unproductive', 'ignored', 'other'].includes(category))),
     lastReminderAt: Number(raw.lastReminderAt) || 0
   };
   return day;
@@ -408,6 +409,34 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
     return state;
   }
 
+  function correctAppToday(name, category) {
+    if (typeof name !== 'string' || !name.trim() || name.length > 500 || !['productive', 'unproductive', 'ignored', 'other'].includes(category)) throw new Error('Invalid app correction.');
+    rollIfNeeded();
+    const next = structuredClone(state);
+    const identity = name.toLowerCase();
+    const correctBucket = (bucket, totals) => {
+      let seconds = 0;
+      for (const [key, info] of Object.entries(bucket.byApp || {})) {
+        if (appEntryName(key).toLowerCase() !== identity) continue;
+        const value = Number(info.seconds) || 0;
+        seconds += value;
+        if (info.category !== 'ignored') totals[info.category] = Math.max(0, (totals[info.category] || 0) - value);
+        delete bucket.byApp[key];
+      }
+      if (seconds) {
+        bucket.byApp[appCategoryKey(name, category)] = { seconds, category };
+        if (category !== 'ignored') totals[category] = (totals[category] || 0) + seconds;
+      }
+    };
+    correctBucket(next, next.byCategory);
+    for (const hour of next.byHour) correctBucket(hour, hour);
+    next.appCorrections = { ...next.appCorrections, [identity]: category };
+    next.unproductiveStreak = 0;
+    writeJson(filePath, next);
+    state = next;
+    return snapshot();
+  }
+
   function markReminder() {
     state.lastReminderAt = Date.now();
     persistStats();
@@ -556,6 +585,14 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
       date: state.date,
       byCategory,
       topApps,
+      analyticsApps: Object.values(Object.entries(state.byApp).reduce((apps, [key, info]) => {
+        const name = appEntryName(key), id = name.toLowerCase();
+        if (!Object.hasOwn(apps, id)) apps[id] = { name, seconds: 0, category: info.category };
+        apps[id].seconds += info.seconds;
+        if (apps[id].category !== info.category) apps[id].category = 'mixed';
+        return apps;
+      }, Object.create(null))).sort((a, b) => b.seconds - a.seconds).slice(0, 10),
+      appCorrections: { ...state.appCorrections },
       byHour: (state.byHour || emptyByHour()).map((h) => {
         const src = h || {};
         const byApp =
@@ -648,6 +685,8 @@ function createStore(dataDir, { onRecovery = () => {} } = {}) {
     addInterval,
     removeSeconds,
     reclassifyStoredApps,
+    correctAppToday,
+    getAppCorrection: name => { rollIfNeeded(); const corrections = state.appCorrections || {}; const key = String(name).toLowerCase(); return Object.hasOwn(corrections, key) ? corrections[key] : undefined; },
     markReminder,
     resetStreak,
     shouldRemind,

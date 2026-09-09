@@ -39,6 +39,8 @@
     const active = state.profiles.find(profile => profile.id === state.activeId);
     $('focus-profile-label').textContent = displayName(active);
     $('tags-profile-label').textContent = displayName(active);
+    $('profile-management-name').textContent = displayName(active);
+    $('profile-management-name').title = displayName(active);
     $('focus-profile-btn').title = 'Focus profile: ' + displayName(active);
     $('focus-profile-btn').setAttribute('aria-label', 'Focus profile: ' + displayName(active));
     $('focus-profile-menu').replaceChildren();
