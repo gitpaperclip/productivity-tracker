@@ -8,6 +8,17 @@ Browser tracking isn't perfect and definitely the target here, we need better br
 Some issues with the pie chart updating properly
 Timers don't update second by second , impl needs to be optimized
 
+## Browser tracking checkpoint — #7, 2026-09-09
+
+- Added `site:example.com` rules within the existing Productive/Unproductive arrays. Exact domains and subdomains match; longer matching domains win, with Unproductive breaking ties. Website rules override title keywords. Missing addresses preserve keyword fallback. No schema change, new settings page, named profiles, per-site analytics, or dependency was added.
+- `src/browser-rules.js` shares browser classification between main and renderer. Home quick-tagging uses the captured hostname; existing backups and profile packs retain website tags. Historical browser category totals remain untouched.
+- Added a separate, hidden Windows UI Automation address probe with a three-second timeout. It skips Document subtrees, requires a recognized address Edit control inside a toolbar, avoids focused address fields, and verifies the foreground handle/title before accepting results. Only a hostname enters the tracker; no paths or queries from this probe. The script is included in packaged resources.
+- Fixed a native idle bug discovered during validation: Windows PowerShell 5.1 lacks `Environment.TickCount64`. The probe now uses unsigned Win32 ticks, with rollover tests against the actual compiled helper.
+- Verified: smoke tests (including tracker website switches, settings/backup/profile roundtrips), isolated Electron website quick-tagging/classification and existing UI regressions, PowerShell parsing/native helper compilation, JavaScript syntax, `git diff --check`, and a real foreground capture returning a non-browser window. `npm run pack` passed; packaged probe scripts and shared browser-rule module match source. The automated browser surface available here is only the in-app browser, so live native browser URL capture is **not verified**. Do not close #7 or call this release-validated yet.
+- Next acceptance step: on Windows, test Chrome/Edge/Firefox with an unhelpful page title, switch productive/unproductive websites, edit the address bar, switch apps mid-probe, and confirm fallback on inaccessible controls. Measure normal capture latency before release; the extra PowerShell process adds overhead. Localized address-bar names beyond the recognized controls need explicit verification. Repeat the live checks in the packaged app; resource inclusion is already verified.
+- Keep future work small: improve proven capture gaps first; defer browser extensions, browsing history, database rewrites, media detection, and broader analytics.
+- Changed files: `src/browser-rules.js` (new), `src/classifier.js`, `src/main.js`, `src/tracker.js`, `src/windows-backend.js`; `scripts/get-browser-address.ps1` (new), `scripts/get-foreground.ps1`, `scripts/check-windows-probe.ps1` (new), `scripts/smoke.js`, `scripts/check-ui.js`; `renderer/index.html`, `renderer/renderer.js`; `package.json`, `README.md`, `AGENT_GOALS.md`. Ready for a checkpoint commit, with live-browser acceptance still pending. No user history migration or external GitHub mutation was performed.
+
 ## UI follow-up — 2026-09-09, gpt6-astra
 
 Core follow-up (supersedes the pending items in the earlier checkpoint):

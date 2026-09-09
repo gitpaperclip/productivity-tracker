@@ -33,6 +33,7 @@ const {
 const rules = loadRules();
 const ignore = loadIgnore();
 const identities = loadAppIdentities();
+const browserRules = require('../src/browser-rules');
 let failed = 0;
 
 function assert(cond, msg) {
@@ -638,7 +639,60 @@ async function regressionChecks() {
   assert(sparse.listHistoryDates().length === 0, '#9 sparse history older than 90 days is pruned');
 }
 
-regressionChecks().then(() => {
+const siteRules = { productive: ['site:learn.youtube.com'], unproductive: ['site:youtube.com', 'distraction'] };
+const browserWindow = (url, title = 'Neutral title') => ({ owner: { name: 'chrome' }, title, url });
+assert(classify(browserWindow('https://youtube.com/watch?v=1'), siteRules) === 'unproductive', '#7 site rule matches an address without title keywords');
+assert(classify(browserWindow('https://www.youtube.com'), siteRules) === 'unproductive', '#7 site rule includes subdomains');
+assert(classify(browserWindow('https://learn.youtube.com', 'distraction'), siteRules) === 'productive', '#7 specific site overrides parent and title rules');
+for (const url of ['https://notyoutube.com', 'https://youtube.com.evil.test', 'https://example.com/youtube.com', '', 'about:blank', 'file:///youtube.com']) {
+  assert(classify(browserWindow(url), siteRules) === 'productive', '#7 domain boundary/fallback: ' + url);
+}
+assert(classify(browserWindow('', 'distraction'), siteRules) === 'unproductive', '#7 unavailable URL preserves title fallback');
+assert(classify({ owner: { name: 'Unknown' }, title: 'site:youtube.com', url: 'https://youtube.com' }, siteRules) === 'other', '#7 site tags never classify native apps');
+assert(browserRules.classifySite('https://EXAMPLE.COM.', { productive: ['site:example.com'], unproductive: ['site:example.com'] }) === 'unproductive', '#7 domain normalization and equal-specificity precedence');
+assert(!browserRules.siteDomain('site:example.com/path') && !browserRules.siteDomain('site:*.com'), '#7 invalid website rules are not substring rules');
+const { buildProfilePack, parseProfilePack } = require('../src/profile-pack');
+assert(parseProfilePack(JSON.stringify(buildProfilePack(siteRules))).productive[0] === 'site:learn.youtube.com', '#7 website tags survive existing profile packs');
+
+async function browserProbeChecks() {
+  const { createTracker } = require('../src/tracker');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-sites-'));
+  const siteStore = createStore(dir);
+  siteStore.updateSettings({ demoMode: false, idleTimeoutSec: 0 });
+  let clock = 10000, url = 'https://learn.youtube.com';
+  const tracker = createTracker({ store: siteStore, rules: siteRules, now: () => clock,
+    backend: { getActiveWindow: async () => ({ window: browserWindow(url), idleSec: 0 }) } });
+  clock += 1000; await tracker.poll();
+  url = 'https://youtube.com'; clock += 1000; await tracker.poll();
+  assert(siteStore.snapshot().byCategory.productive === 1 && siteStore.snapshot().byCategory.unproductive === 1, '#7 switching websites preserves separate category time');
+  assert(tracker.getLastFocused().url === url, '#7 current website reaches Home quick tagging');
+  const rulesPath = path.join(dir, 'rules.json');
+  saveRules(rulesPath, siteRules);
+  assert(loadRulesFrom(rulesPath).productive[0] === 'site:learn.youtube.com', '#7 website tags survive settings roundtrip');
+  const backup = buildExport(siteStore, { includeRules: true, rules: siteRules });
+  let importedRules;
+  importBackup(createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-site-import-'))), backup, { onRules: (value) => { importedRules = value; } });
+  assert(importedRules.productive[0] === 'site:learn.youtube.com', '#7 website tags survive backup import');
+  let invalidRejected = false;
+  try { browserRules.validateSiteTags({ productive: ['site:example.com/path'] }); } catch (_) { invalidRejected = true; }
+  assert(invalidRejected, '#7 invalid website edits are rejected before saving');
+  const { readBrowserAddress } = require('../src/windows-backend');
+  const win = { ...browserWindow(''), id: '123' };
+  const probe = (result, err) => (exe, args, options, callback) => {
+    assert(options.timeout === 3000 && options.windowsHide, '#7 browser probe is bounded and hidden');
+    callback(err, JSON.stringify(result));
+  };
+  assert(await readBrowserAddress(win, probe({ id: '123', title: win.title, url: 'https://example.com/private?q=secret' })) === 'https://example.com', '#7 address capture retains only hostname');
+  assert(await readBrowserAddress(win, probe({ id: '123', title: 'Different tab', url: 'https://youtube.com' })) === '', '#7 tab changes discard mismatched address results');
+  assert(await readBrowserAddress(win, probe({}, new Error('timeout'))) === '', '#7 probe failure falls back without disabling the backend');
+  assert(await readBrowserAddress({ ...win, owner: { name: 'Code' } }, () => { throw new Error('unexpected probe'); }) === '', '#7 native apps never run address capture');
+  if (process.platform === 'win32') {
+    require('child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'check-windows-probe.ps1')], { windowsHide: true, timeout: 15000 });
+    assert(true, '#7 Windows probe compiles and idle ticks handle 32-bit rollover');
+  }
+}
+
+regressionChecks().then(browserProbeChecks).then(() => {
   console.log(failed ? `\n${failed} failed` : '\nall smoke checks passed');
   process.exitCode = failed ? 1 : 0;
 }).catch((err) => { console.error(err); process.exitCode = 1; });

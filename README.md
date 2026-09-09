@@ -11,6 +11,7 @@ SydTrack is a local-first Windows productivity tracker that watches your active 
 - **Local active-window tracking:** records foreground applications on Windows.
 - **Productive by default for browsers:** Chrome, Edge, Firefox, Brave, Opera, and Chromium are productive when no keyword matches.
 - **Keyword overrides:** unproductive keywords such as YouTube take priority over the browser default.
+- **Website tags:** use `site:example.com` in Focus Tags to classify a website and its subdomains. Home quick-tagging uses the website when its address is available.
 - **Separate app categories:** the same app can appear in both productive and unproductive analytics with separate time totals.
 - **Home:** mood, time pie, last-focused app, FocusBoost, and quick productive/unproductive/ignore actions.
 - **Analytics:** day, week, month, hourly, and app views.
@@ -67,10 +68,15 @@ Classification checks process names, window titles, URLs, and configured keyword
 
 1. Ignored process identities are excluded from tracking.
 2. For non-browser apps, an explicit unproductive process-name tag wins; otherwise productive process identities take precedence over window titles and URLs.
-3. Unproductive keyword matches take priority over ordinary productive keywords.
-4. Productive keyword matches are applied next.
-5. Recognized browsers with no matching keyword default to productive.
-6. Unknown applications without a match are other.
+3. For browsers with a captured address, `site:` tags take precedence over keywords. The most specific matching domain wins; the same domain in both lists is unproductive. For example, productive `site:learn.youtube.com` overrides unproductive `site:youtube.com` on that subdomain only. Rules match domain boundaries, never a domain mentioned in a page title or URL path.
+4. Unproductive keyword matches take priority over ordinary productive keywords.
+5. Productive keyword matches are applied next.
+6. Recognized browsers with no matching keyword default to productive.
+7. Unknown applications without a match are other.
+
+Add website tags to the existing Productive or Unproductive lists (one per line). Use a domain without a path or wildcard, such as `site:youtube.com`. Ignore still applies to whole applications. Website tags travel with existing backups and profile packs; no data migration is needed. Older app versions preserve these strings but do not interpret them as website rules.
+
+Windows address capture is a best-effort UI Automation probe of recognized browser address-bar controls. It does not inspect page documents or use browser extensions. The probe retains only the hostname, drops paths and queries, and falls back to title keywords if unavailable, timed out, or the window/title changed. Editing the address bar also uses title fallback. Browser versions and localized controls may differ; live Chrome/Edge/Firefox verification is still pending for this implementation. A separate probe adds capture latency and is limited to three seconds. Existing analytics remain app/category totals, not a browsing-history view.
 
 `app-identities.json` contains the configurable process/app identities. On first run SydTrack copies it to its app-data folder, where it can be customized without editing the installed app (restart after editing). Identities match exact process names or executable basenames, with or without `.exe`. Browser identities never override content classification. Invalid JSON falls back to bundled identities while preserving the custom file.
 
@@ -95,6 +101,6 @@ Imported settings apply the same behavior as Settings controls. In particular, i
 
 ## Project Status
 
-SydTrack is an actively developed Windows desktop application. Browser tracking is intentionally rudimentary: it uses the active browser window title and URL rather than browser extensions or tab APIs. This keeps the application local and lightweight while leaving room for deeper browser integration later.
+SydTrack is an actively developed Windows desktop application. Browser tracking uses foreground titles and best-effort website detection. It remains focused on simple productivity totals and reminders, without a browsing-history dashboard or background-tab monitoring.
 
 License: GPL v3

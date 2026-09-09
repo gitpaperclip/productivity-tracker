@@ -203,6 +203,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       lastFocused = {
         app,
         title,
+        url: win.url || '',
         category,
         browser,
         source,

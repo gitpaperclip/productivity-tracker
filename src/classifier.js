@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { classifyBrowser } = require('./browser-rules');
 
 const DEFAULT_RULES_PATH = path.join(__dirname, 'rules.json');
 const DEFAULT_IGNORE_PATH = path.join(__dirname, 'ignore.json');
@@ -194,24 +195,23 @@ function isIgnored(win, ignoreList, identities) {
 function classify(win, rules) {
   rules = rules || { productive: [], unproductive: [] };
   const browser = isBrowserProcess(win);
+  if (browser) return classifyBrowser(win, rules);
   // Explicit app tags remain editable; project/title words cannot override an identity.
-  if (!browser && matchesProcess(win, rules.unproductive)) return 'unproductive';
-  if (!browser && appMatchesIdentity(win, rules.identities) === 'productive') return 'productive';
-  const hay = browser ? `${win.title || ''} ${win.url || ''}`.toLowerCase() : haystack(win);
-  if (!hay.trim()) return browser ? 'productive' : 'other';
+  if (matchesProcess(win, rules.unproductive)) return 'unproductive';
+  if (appMatchesIdentity(win, rules.identities) === 'productive') return 'productive';
+  const hay = haystack(win);
+  if (!hay.trim()) return 'other';
 
   for (const keyword of normalizeKeywords(rules.unproductive)) {
-    if (keyword && hay.includes(keyword)) {
+    if (!keyword.startsWith('site:') && hay.includes(keyword)) {
       return 'unproductive';
     }
   }
   for (const keyword of normalizeKeywords(rules.productive)) {
-    if (keyword && hay.includes(keyword)) {
+    if (!keyword.startsWith('site:') && hay.includes(keyword)) {
       return 'productive';
     }
   }
-  // Browsers are productive by default; unproductive keyword hits win above.
-  if (isBrowserProcess(win)) return 'productive';
   return 'other';
 }
 

@@ -51,7 +51,10 @@ app.whenReady().then(async () => {
     document.getElementById('rules-unprod-edit').dispatchEvent(new Event('input'));
     const removed = document.getElementById('tags-quick-status').textContent.includes('not in any list');
     document.querySelectorAll('.view').forEach((view) => view.classList.toggle('hidden', view.id !== 'view-home'));
-    return { loaded, removed };
+    const siteKey = keywordForQuickClassify({ app: 'chrome', title: 'Unhelpful title', url: 'https://example.com' }) === 'site:example.com';
+    const siteCategory = defaultCategoryFromRules({ app: 'chrome', url: 'https://learn.youtube.com', title: 'youtube' }, { productive: ['site:learn.youtube.com'], unproductive: ['youtube'] }, []) === 'productive';
+    if (!siteKey || !siteCategory) throw new Error('Website quick tagging or classification failed');
+    return { loaded, removed, siteKey, siteCategory };
   })()`);
   console.log('Tag input checks:', JSON.stringify(tagChecks));
   const segmentChecks = await win.webContents.executeJavaScript(`(() => {

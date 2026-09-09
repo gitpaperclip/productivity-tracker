@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { app, BrowserWindow, ipcMain, Notification, dialog } = require('electron');
 const { createAppTray } = require('./tray');
+const { validateSiteTags } = require('./browser-rules');
 
 const {
   loadRulesFrom,
@@ -385,6 +386,7 @@ ipcMain.handle('state:get', async () => ({
 ipcMain.handle('rules:get', async () => rulesPayload());
 
 ipcMain.handle('rules:set', async (_e, next) => {
+  validateSiteTags(next);
   const dest = userRulesPath();
   rulesHolder.rules = attachAppIdentities(saveRules(dest, next || {}));
   if (store && store.reclassifyStoredApps) store.reclassifyStoredApps(rulesHolder.rules);

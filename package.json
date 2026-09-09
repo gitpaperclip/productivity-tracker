@@ -36,7 +36,10 @@
       "package.json"
     ],
     "asar": true,
-    "extraResources": [{ "from": "scripts/get-foreground.ps1", "to": "get-foreground.ps1" }],
+    "extraResources": [
+      { "from": "scripts/get-foreground.ps1", "to": "get-foreground.ps1" },
+      { "from": "scripts/get-browser-address.ps1", "to": "get-browser-address.ps1" }
+    ],
     "win": {
       "icon": "renderer/assets/logo-wordmark.png",
       "signAndEditExecutable": false,

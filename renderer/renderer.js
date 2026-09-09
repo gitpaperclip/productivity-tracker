@@ -468,6 +468,8 @@ function extractBrowserKeyword(title) {
 function keywordForQuickClassify(entry) {
   if (!entry || !entry.app) return null;
   if (isBrowserApp(entry.app)) {
+    const host = window.sydtrackBrowserRules.hostname(entry.url || '');
+    if (host) return `site:${host}`;
     return extractBrowserKeyword(entry.title || '');
   }
   return String(entry.app)
@@ -500,6 +502,7 @@ function defaultCategoryFromRules(entry, rules, ignore) {
       if (pk === k || pk.includes(k) || k.includes(pk)) return 'ignored';
     }
   }
+  if (isBrowserApp(entry.app)) return window.sydtrackBrowserRules.classifyBrowser(entry, r);
   const kw = keywordForQuickClassify(entry);
   if (kw) {
     const key = kw.toLowerCase();
@@ -565,6 +568,7 @@ function renderLastFocused(lf, now) {
   lastFocusedCache = {
     app: use.app,
     title: use.title || '',
+    url: use.url || '',
     category: use.category || 'other',
     browser: use.browser === true || isBrowserApp(use.app)
   };
@@ -2169,6 +2173,10 @@ async function tagsQuickAdd(target) {
   const kw = String(input.value || '').trim();
   if (!kw) {
     if (status) status.textContent = 'Enter a keyword first.';
+    return;
+  }
+  if (/^site:/i.test(kw) && (target === 'ignore' || !window.sydtrackBrowserRules.siteDomain(kw))) {
+    if (status) status.textContent = 'Use site:example.com in Productive or Unproductive. Ignore applies to whole apps.';
     return;
   }
   if (!api) {
