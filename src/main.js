@@ -10,8 +10,11 @@ const {
   saveRules,
   loadIgnoreFrom,
   saveIgnore,
+  loadAppIdentitiesFrom,
+  saveAppIdentities,
   DEFAULT_RULES_PATH,
-  DEFAULT_IGNORE_PATH
+  DEFAULT_IGNORE_PATH,
+  DEFAULT_APP_IDENTITIES_PATH
 } = require('./classifier');
 const { createStore } = require('./store');
 const { createTracker } = require('./tracker');
@@ -45,6 +48,7 @@ let sessionManager = null;
 /** Mutable holders so tracker picks up hot-reloaded rules/ignore. */
 const rulesHolder = { rules: null };
 const ignoreHolder = { ignore: [] };
+const identitiesHolder = { identities: null };
 let rulesFilePath = null;
 let rulesIsCustom = false;
 let ignoreFilePath = null;
@@ -72,14 +76,34 @@ function userIgnorePath() {
   return path.join(dataDir(), 'ignore.json');
 }
 
+function userAppIdentitiesPath() {
+  return path.join(dataDir(), 'app-identities.json');
+}
+
+function loadAppIdentities() {
+  const custom = userAppIdentitiesPath();
+  if (!fs.existsSync(custom)) saveAppIdentities(custom, loadAppIdentitiesFrom(DEFAULT_APP_IDENTITIES_PATH));
+  try {
+    identitiesHolder.identities = loadAppIdentitiesFrom(custom);
+  } catch (err) {
+    console.warn('[main] invalid app identities; using defaults, preserving file:', err.message);
+    identitiesHolder.identities = loadAppIdentitiesFrom(DEFAULT_APP_IDENTITIES_PATH);
+  }
+}
+
+function attachAppIdentities(rules) {
+  rules.identities = identitiesHolder.identities || loadAppIdentitiesFrom(DEFAULT_APP_IDENTITIES_PATH);
+  return rules;
+}
+
 function loadAppRules() {
   const custom = userRulesPath();
   if (fs.existsSync(custom)) {
-    rulesHolder.rules = loadRulesFrom(custom);
+    rulesHolder.rules = attachAppIdentities(loadRulesFrom(custom));
     rulesFilePath = custom;
     rulesIsCustom = true;
   } else {
-    rulesHolder.rules = loadRulesFrom(DEFAULT_RULES_PATH);
+    rulesHolder.rules = attachAppIdentities(loadRulesFrom(DEFAULT_RULES_PATH));
     rulesFilePath = DEFAULT_RULES_PATH;
     rulesIsCustom = false;
   }
@@ -243,6 +267,7 @@ function fireReminder(payload) {
 function startServices() {
   if (servicesStarted) return;
   servicesStarted = true;
+  loadAppIdentities();
   loadAppRules();
   loadAppIgnore();
   store = createStore(dataDir());
@@ -313,7 +338,17 @@ function createTray() {
   return appTray;
 }
 
+const ownsInstance = app.requestSingleInstanceLock();
+if (!ownsInstance) app.quit();
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
+
 app.whenReady().then(() => {
+  if (!ownsInstance) return;
   startServices();
   createWindow();
   createTray();
@@ -350,7 +385,7 @@ ipcMain.handle('rules:get', async () => rulesPayload());
 
 ipcMain.handle('rules:set', async (_e, next) => {
   const dest = userRulesPath();
-  rulesHolder.rules = saveRules(dest, next || {});
+  rulesHolder.rules = attachAppIdentities(saveRules(dest, next || {}));
   if (store && store.reclassifyStoredApps) store.reclassifyStoredApps(rulesHolder.rules);
   rulesFilePath = dest;
   rulesIsCustom = true;
@@ -364,7 +399,7 @@ ipcMain.handle('rules:reset', async () => {
   } catch (err) {
     console.warn('[main] could not remove custom rules', err.message);
   }
-  rulesHolder.rules = loadRulesFrom(DEFAULT_RULES_PATH);
+  rulesHolder.rules = attachAppIdentities(loadRulesFrom(DEFAULT_RULES_PATH));
   if (store && store.reclassifyStoredApps) store.reclassifyStoredApps(rulesHolder.rules);
   rulesFilePath = DEFAULT_RULES_PATH;
   rulesIsCustom = false;
@@ -463,7 +498,7 @@ ipcMain.handle('data:import', async (_e, opts) => {
     mode: options.mode === 'replace' ? 'replace' : 'merge',
     onRules: (rules) => {
       const dest = userRulesPath();
-      rulesHolder.rules = saveRules(dest, rules);
+      rulesHolder.rules = attachAppIdentities(saveRules(dest, rules));
       rulesFilePath = dest;
       rulesIsCustom = true;
     },
@@ -528,10 +563,10 @@ ipcMain.handle('profile:import', async () => {
   // Replace active productive / unproductive / ignore tags; tracker holds
   // mutable refs so classification picks up the new lists immediately.
   const rulesDest = userRulesPath();
-  rulesHolder.rules = saveRules(rulesDest, {
+  rulesHolder.rules = attachAppIdentities(saveRules(rulesDest, {
     productive: pack.productive,
     unproductive: pack.unproductive
-  });
+  }));
   rulesFilePath = rulesDest;
   rulesIsCustom = true;
 

@@ -58,13 +58,18 @@ npm test
 
 Classification checks process names, window titles, URLs, and configured keywords.
 
-1. Ignored processes are excluded from tracking.
-2. Unproductive keyword matches take priority.
-3. Productive keyword matches are applied next.
-4. Recognized browsers with no matching keyword default to productive.
-5. Unknown applications without a match are other.
+1. Ignored process identities are excluded from tracking.
+2. For non-browser apps, an explicit unproductive process-name tag wins; otherwise productive process identities take precedence over window titles and URLs.
+3. Unproductive keyword matches take priority over ordinary productive keywords.
+4. Productive keyword matches are applied next.
+5. Recognized browsers with no matching keyword default to productive.
+6. Unknown applications without a match are other.
+
+`app-identities.json` contains the configurable process/app identities. On first run SydTrack copies it to its app-data folder, where it can be customized without editing the installed app (restart after editing). Identities match exact process names or executable basenames, with or without `.exe`. Browser identities never override content classification. Invalid JSON falls back to bundled identities while preserving the custom file.
 
 Browser activity is stored by category, so switching from a productive GitHub tab to an unproductive YouTube tab does not reclassify the earlier time.
+
+Idle tracking pauses at the configured timeout and retains time earned before that timeout. Paused or idle ticks do not add session distractions. Sessions that expire while the app is closed finish at their original deadline.
 
 ## Data
 
@@ -74,6 +79,8 @@ Settings can export:
 
 - `.sydtrack` history backups, optionally including settings, rules, and ignore lists.
 - `.sydtrack-profile` files containing portable focus tags only.
+
+Backup merge is additive: importing the same backup again adds its time again. Imports validate day data before replacing history and preserve hourly app/category breakdowns. Backups currently exclude sessions and custom app identities; copy those separately when moving all configuration. Daily statistics, settings, and session writes replace complete JSON files to reduce the risk of truncation. Malformed stored statistics are preserved and reported rather than silently reset.
 
 ## Project Status
 

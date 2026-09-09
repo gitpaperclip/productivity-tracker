@@ -3,10 +3,38 @@
 Desktop productivity tracker for Windows. Watches the foreground window, classifies time as productive, unproductive, or other, and nudges you on long unproductive streaks.
 
 # Known issues
-If you don't explicitly close your instance of sydtrack, there is a duplicate focus issue
+Duplicate-instance startup is guarded in the current working tree; verify second launch with the packaged app before release.
 Browser tracking isn't perfect and definitely the target here, we need better browser integration
 Some issues with the pie chart updating properly
 Timers don't update second by second , impl needs to be optimized
+
+## Checkpoint — 2026-09-09 (paused at user request)
+
+All 10 open GitHub issues and their comments were reviewed read-only. Existing uncommitted #11 work was retained and extended. No commits, pushes, issue mutations, or PRs were made.
+
+Implemented in working tree:
+- **#11:** exact normalized process identities, explicit unproductive app-tag override, no title-as-identity fallback, malformed identity-file fallback that preserves the file.
+- **#7 groundwork:** browser classification uses content rather than install paths; productive browser identities cannot bypass content rules. Stored browser categories remain separate. Browser URL extraction/community browser lists remain pending.
+- **#14 ordinary-idle defect:** remove repeated subtraction of earned history; pause at the timeout, resume on input; no session distraction edges on zero-time ticks. Media-aware behavior is not implemented.
+- **#9 bounded retention:** prune old activity/session days even when fewer than 90 files exist; prune activity after import. Storage architecture is unchanged.
+- **Core correctness:** expired sessions end at their deadline; completed session is written before deleting the active copy; backup validation precedes destructive replacement; legacy browser category splits and hourly app totals survive merge; atomic JSON replacement for stats/settings/sessions/backups; invalid stats JSON is not silently overwritten.
+- **Release plumbing:** single-instance guard; package the PowerShell probe outside ASAR; repair the Windows backend test command.
+
+Verification: npm test passes with regression cases for classification, idle/session accounting, sparse retention, malformed backup replacement, legacy/hourly merge, and failed atomic writes. JavaScript syntax and git diff whitespace checks pass. Issue screenshots were inspected; the running app was NOT visually validated and packaging was NOT built. The working tree is a reviewable checkpoint, not a release sign-off.
+
+Recommended next work, in priority order:
+1. Finish integration review of current changes: Windows packaged capture and fallback idle reporting, second-instance behavior, backup/settings error paths, session persistence failures, pause during an in-flight foreground probe. Add user-visible startup error handling for malformed stored JSON. `--demo` is currently not wired by the launcher; fix it with isolated demo data before visual QA. Do not launch demo against user history.
+2. **#4 (medium impact, small scope):** search status merges stale saved tags with textarea drafts; removing a draft tag still finds the cached entry. Refresh status after loads/saves/editor input, use current drafts, and serialize quick-add mutations. Not implemented at this checkpoint.
+3. **#1 (medium impact, small scope):** screenshots show long app names pushing time text outside pie and hourly tooltips. Inspect flex sizing/overflow with long names at minimum window size. Not implemented.
+4. **#3 (low/medium impact, small scope):** center collapsed rail controls; verify custom-session input/play alignment. Desktop collapse rules occur after narrow-window overrides and need responsive testing. Session mode buttons also match generic Analytics `.segment-btn` listeners; scope those listeners. Not implemented.
+5. **#7 (high product value, medium/high risk):** bounded Windows UI Automation address-bar extraction, exact normalized domains, editable browser rule list, and graceful fallback. Decide domain-versus-title rule precedence and profile portability before extending schema; never identify an arbitrary Edit control as the address bar.
+6. **#9 (medium impact, large scope):** retain current per-day storage until performance is measured. Decide whether a single three-month file is actually required; implement lazy month reads and loading/error UI against fixtures. Current snapshots still read a week's history each poll. Clarify retention inclusion of today. No cloud test agent was created.
+7. **#14 (medium impact, large/high-risk scope):** require real playing/paused media evidence; separate music/video preferences; one shared decision for tracking, sessions, and reminders. Titles alone are insufficient.
+8. **#13 (medium impact, ambiguous/large):** define focus-score formula, treatment of Other, goal migration, and decompression eligibility/daily quota before implementation. Keep the existing productive-hours goal meanwhile.
+9. **#8 (low priority, large scope):** choose opt-in gamification and independent mascot UX; defer sharing/privacy design and artwork.
+10. **#10 (low impact, external ownership):** no Grok workflow or `.github` directory exists locally. Identify the external bot configuration owner; do not rename stable app IDs, data paths, or backup formats.
+
+Compatibility notes: no schema-version bump; legacy day files remain readable and browser keys normalize by category on load. Merge remains additive, not deduplicated. Backups still omit session logs and custom identities. No user app-data was intentionally edited; tests use temporary directories. A failed multi-file import is not transactional, and malformed session recovery still needs review.
 
 **Name update will be shipped in v0.9.1**
 

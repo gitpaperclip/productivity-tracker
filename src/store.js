@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { writeJson, validDateKey } = require('./json-file');
 
 function todayKey() {
   const d = new Date();
@@ -14,7 +15,7 @@ function todayKey() {
 const MAX_HISTORY_DAYS = 90;
 
 function emptyHour() {
-  return { productive: 0, unproductive: 0, other: 0, byApp: {} };
+  return { productive: 0, unproductive: 0, other: 0, byApp: Object.create(null) };
 }
 
 function emptyByHour() {
@@ -58,6 +59,12 @@ function mergeAppEntries(entries) {
 
 function categoryForStoredApp(name, current, rules) {
   const text = String(name || '').toLowerCase();
+  const { isBrowserProcess, classify } = require('./classifier');
+  const win = { owner: { name } };
+  // Original browser titles/URLs are unavailable in history. Preserve their categories.
+  if (isBrowserProcess(win)) return current;
+  const classified = classify(win, rules);
+  if (classified !== 'other') return classified;
   const unproductive = (rules && rules.unproductive) || [];
   const productive = (rules && rules.productive) || [];
   if (unproductive.some((keyword) => text.includes(String(keyword).toLowerCase()))) {
@@ -72,7 +79,7 @@ function categoryForStoredApp(name, current, rules) {
 function emptyDay(date) {
   return {
     date: date || todayKey(),
-    byApp: {},
+    byApp: Object.create(null),
     byCategory: { productive: 0, unproductive: 0, other: 0 },
     byHour: emptyByHour(),
     unproductiveStreak: 0,
@@ -85,7 +92,7 @@ function migrateDay(raw) {
   if (!raw || typeof raw !== 'object') return emptyDay();
   const day = {
     date: raw.date || todayKey(),
-    byApp: raw.byApp && typeof raw.byApp === 'object' ? raw.byApp : {},
+    byApp: cloneAppMap(raw.byApp),
     byCategory: Object.assign(
       { productive: 0, unproductive: 0, other: 0 },
       raw.byCategory || {}
@@ -95,7 +102,7 @@ function migrateDay(raw) {
           const base = emptyHour();
           const src = h && typeof h === 'object' ? h : {};
           const byApp =
-            src.byApp && typeof src.byApp === 'object' ? { ...src.byApp } : {};
+            cloneAppMap(src.byApp);
           return Object.assign(base, src, { byApp });
         })
       : emptyByHour(),
@@ -103,6 +110,20 @@ function migrateDay(raw) {
     lastReminderAt: Number(raw.lastReminderAt) || 0
   };
   return day;
+}
+
+function cloneAppMap(map) {
+  const out = Object.create(null);
+  for (const [key, info] of Object.entries(map || {})) {
+    if (!info || typeof info !== 'object') continue;
+    const category = ['productive', 'unproductive', 'ignored'].includes(info.category) ? info.category : 'other';
+    const name = appCategoryKey(appEntryName(key), category);
+    const seconds = Number(info.seconds);
+    if (!Number.isFinite(seconds) || seconds < 0) continue;
+    if (!out[name]) out[name] = { seconds: 0, category };
+    out[name].seconds += seconds;
+  }
+  return out;
 }
 
 /**
@@ -194,29 +215,32 @@ function createStore(dataDir) {
   }
 
   function archiveDay(day) {
-    if (!day || !day.date) return;
+    if (!day || !validDateKey(day.date)) throw new Error('Invalid history date');
     try {
       fs.mkdirSync(historyDir, { recursive: true });
       const dest = path.join(historyDir, `${day.date}.json`);
-      fs.writeFileSync(dest, JSON.stringify(day, null, 2));
+      writeJson(dest, day);
     } catch (err) {
       console.error('[store] archive day failed', err.message);
+      throw err;
     }
   }
 
   function persistStats() {
     try {
-      fs.writeFileSync(filePath, JSON.stringify(state, null, 2));
+      writeJson(filePath, state);
     } catch (err) {
       console.error('[store] persist stats failed', err.message);
+      throw err;
     }
   }
 
   function persistSettings() {
     try {
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      writeJson(settingsPath, settings);
     } catch (err) {
       console.error('[store] persist settings failed', err.message);
+      throw err;
     }
   }
 
@@ -232,7 +256,7 @@ function createStore(dataDir) {
 
   function addSeconds(app, category, seconds) {
     rollIfNeeded();
-    const sec = Math.max(0, Number(seconds) || 0);
+    const sec = Number.isFinite(Number(seconds)) ? Math.max(0, Number(seconds)) : 0;
     if (sec === 0) return state;
     // Never persist ignored category into totals
     if (category === 'ignored') return state;
@@ -266,7 +290,7 @@ function createStore(dataDir) {
 
     if (category === 'unproductive') {
       state.unproductiveStreak += sec;
-    } else if (category === 'productive') {
+    } else {
       state.unproductiveStreak = 0;
     }
 
@@ -352,6 +376,12 @@ function createStore(dataDir) {
     persistStats();
   }
 
+  function resetStreak() {
+    if (!state.unproductiveStreak) return;
+    state.unproductiveStreak = 0;
+    persistStats();
+  }
+
   function shouldRemind() {
     const threshold = Number(settings.thresholdSec) || 600;
     const cooldown = (Number(settings.reminderCooldownSec) || 90) * 1000;
@@ -361,6 +391,7 @@ function createStore(dataDir) {
   }
 
   function loadHistoryDay(dateKey) {
+    if (!validDateKey(dateKey)) return null;
     const p = path.join(historyDir, `${dateKey}.json`);
     const raw = loadJson(p);
     return raw ? migrateDay(raw) : null;
@@ -370,7 +401,6 @@ function createStore(dataDir) {
   function pruneOldHistory() {
     try {
       const dates = listHistoryDates();
-      if (dates.length <= MAX_HISTORY_DAYS) return;
       const cutoff = new Date();
       cutoff.setHours(0, 0, 0, 0);
       cutoff.setDate(cutoff.getDate() - MAX_HISTORY_DAYS);
@@ -574,6 +604,7 @@ function createStore(dataDir) {
     removeSeconds,
     reclassifyStoredApps,
     markReminder,
+    resetStreak,
     shouldRemind,
     snapshot,
     updateSettings,
@@ -609,6 +640,7 @@ function loadJson(p) {
     }
   } catch (err) {
     console.error('[store] read failed', p, err.message);
+    throw err;
   }
   return null;
 }

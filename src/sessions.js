@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { writeJson, validDateKey } = require('./json-file');
 const { todayKey, MAX_HISTORY_DAYS } = require('./store');
 
 const MODE_DEFS = {
@@ -107,13 +108,14 @@ function createSessionManager({ dataDir, getSettings }) {
         if (fs.existsSync(activePath)) fs.unlinkSync(activePath);
         return;
       }
-      fs.writeFileSync(activePath, JSON.stringify(active, null, 2));
+      writeJson(activePath, active);
     } catch (err) {
       console.error('[sessions] persist active failed', err.message);
     }
   }
 
   function dayPath(dateKey) {
+    if (!validDateKey(dateKey)) throw new Error('Invalid session date');
     return path.join(sessionsDir, `${dateKey}.json`);
   }
 
@@ -125,9 +127,10 @@ function createSessionManager({ dataDir, getSettings }) {
   function writeDay(dateKey, list) {
     try {
       fs.mkdirSync(sessionsDir, { recursive: true });
-      fs.writeFileSync(dayPath(dateKey), JSON.stringify(list, null, 2));
+      writeJson(dayPath(dateKey), list);
     } catch (err) {
       console.error('[sessions] write day failed', err.message);
+      throw err;
     }
   }
 
@@ -152,7 +155,6 @@ function createSessionManager({ dataDir, getSettings }) {
   function pruneOldSessionDays() {
     try {
       const dates = listSessionDates();
-      if (dates.length <= MAX_HISTORY_DAYS) return;
       const cutoff = new Date();
       cutoff.setHours(0, 0, 0, 0);
       cutoff.setDate(cutoff.getDate() - MAX_HISTORY_DAYS);
@@ -234,10 +236,11 @@ function createSessionManager({ dataDir, getSettings }) {
 
   function finishActive(status) {
     if (!active) return null;
-    const entry = toLogEntry(active, status, Date.now());
+    const entry = toLogEntry(active, status, status === 'completed' ? active.endsAt : Date.now());
+    // Save the completed record before removing its recoverable active copy.
+    appendCompleted(entry);
     active = null;
     persistActive();
-    appendCompleted(entry);
     return entry;
   }
 
@@ -276,8 +279,10 @@ function createSessionManager({ dataDir, getSettings }) {
   }
 
   restoreActiveFromDisk();
+  pruneOldSessionDays();
 
   function startSession(opts) {
+    checkExpiry();
     const options = opts || {};
     const mode = MODE_DEFS[options.mode] ? options.mode : 'pomodoro';
     const settings = (getSettings && getSettings()) || {};
@@ -335,7 +340,7 @@ function createSessionManager({ dataDir, getSettings }) {
     const elapsed = Math.max(0, Number(tick && tick.elapsedSec) || 0);
 
     // Ignored / SydTrack self: do not count time or distractions; freeze lastCategory
-    if (!category || category === 'ignored' || !app) {
+    if (!category || category === 'ignored' || !app || elapsed <= 0) {
       persistActive();
       return { completed, active: publicActive(active) };
     }

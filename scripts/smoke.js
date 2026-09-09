@@ -12,7 +12,9 @@ const {
   saveIgnore,
   isIgnored,
   appLabel,
-  isBrowserProcess
+  isBrowserProcess,
+  loadAppIdentities,
+  appMatchesIdentity
 } = require('../src/classifier');
 const {
   createStore,
@@ -30,6 +32,7 @@ const {
 
 const rules = loadRules();
 const ignore = loadIgnore();
+const identities = loadAppIdentities();
 let failed = 0;
 
 function assert(cond, msg) {
@@ -89,6 +92,15 @@ assert(appLabel({ owner: { name: 'Cursor' }, title: 'x' }) === 'Cursor', 'app la
 
 assert(isBrowserProcess({ owner: { name: 'Google Chrome' } }) === true, 'chrome is browser process');
 assert(isBrowserProcess({ owner: { name: 'Code' } }) === false, 'Code is not browser');
+assert(
+  classify(
+    { title: 'youtube-clone — Visual Studio Code', owner: { name: 'Code', path: 'C:\\Program Files\\Microsoft VS Code\\Code.exe' } },
+    { ...rules, identities }
+  ) === 'productive',
+  'productive app identity overrides an unproductive project title'
+);
+assert(appMatchesIdentity({ owner: { name: 'Code' } }, identities) === 'productive', 'app identity matches process name');
+assert(isIgnored({ title: 'Search', owner: { name: 'SearchHost' } }, [], identities) === true, 'ignored app identity takes precedence');
 
 assert(isIgnored({ owner: { name: 'Explorer' } }, ignore) === true, 'explorer is ignored');
 assert(
@@ -386,5 +398,86 @@ storePrune.pruneOldHistory();
 const left = fs.readdirSync(histDir).filter((f) => f.endsWith(".json"));
 assert(left.length <= MAX_HISTORY_DAYS, "prune keeps at most 90 history files (" + left.length + ")");
 
-console.log(failed ? `\n${failed} failed` : '\nall smoke checks passed');
-process.exit(failed ? 1 : 0);
+async function regressionChecks() {
+  const { mergeDays } = require('../src/backup');
+  const { emptyDay } = require('../src/store');
+  const original = emptyDay(todayKey());
+  original.byApp.Chrome = { seconds: 10, category: 'productive' };
+  original.byCategory.productive = 10;
+  original.byHour[0].productive = 10;
+  original.byHour[0].byApp.Chrome = { seconds: 10, category: 'productive' };
+  const incoming = emptyDay(todayKey());
+  incoming.byApp.Chrome = { seconds: 20, category: 'unproductive' };
+  incoming.byCategory.unproductive = 20;
+  incoming.byHour[0].unproductive = 20;
+  incoming.byHour[0].byApp.Chrome = { seconds: 20, category: 'unproductive' };
+  const beforeMerge = JSON.stringify(original);
+  const merged = mergeDays(original, incoming);
+  assert(merged.byApp['Chrome::productive'].seconds === 10 && merged.byApp['Chrome::unproductive'].seconds === 20, 'backup merge preserves legacy browser category splits');
+  assert(merged.byHour[0].byApp['Chrome::unproductive'].seconds === 20, 'backup merge retains imported hourly app totals');
+  assert(JSON.stringify(original) === beforeMerge, 'backup merge does not mutate its source');
+  const backupStore = createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-backup-regression-')));
+  backupStore.addSeconds('Code', 'productive', 15);
+  for (const days of [null, [], { '2026-02-31': {} }, { [todayKey()]: { byCategory: { productive: -1 } } }]) {
+    const rejected = importBackup(backupStore, { format: 'sydtrack-backup', schemaVersion: 1, days }, { mode: 'replace' });
+    assert(!rejected.ok && backupStore.snapshot().byCategory.productive === 15, 'invalid replacement backup leaves existing history intact');
+  }
+  const { writeJson } = require('../src/json-file');
+  const atomicPath = path.join(backupStore.dataDir, 'atomic-test.json');
+  writeJson(atomicPath, { saved: true });
+  const rename = fs.renameSync;
+  let rejectedWrite = false;
+  try {
+    fs.renameSync = () => { throw new Error('simulated disk failure'); };
+    writeJson(atomicPath, { saved: false });
+  } catch (_) { rejectedWrite = true; } finally { fs.renameSync = rename; }
+  assert(rejectedWrite && JSON.parse(fs.readFileSync(atomicPath, 'utf8')).saved, 'failed atomic replacement preserves the previous file');
+  assert(!fs.existsSync(`${atomicPath}.${process.pid}.tmp`), 'failed atomic replacement cleans up its temporary file');
+  const identityRules = { ...rules, identities };
+  for (const name of ['Code.exe', 'CURSOR.EXE', 'devenv']) {
+    assert(classify({ owner: { name }, title: 'youtube-clone' }, identityRules) === 'productive', '#11 normalized process identities protect project titles: ' + name);
+  }
+  assert(appMatchesIdentity({ title: 'code' }, identities) === null, '#11 missing owner never treats a title as process identity');
+  assert(classify({ owner: { name: 'Code' }, title: 'youtube' }, { ...identityRules, unproductive: ['code'] }) === 'unproductive', '#11 explicit app tag can override productive identity');
+  assert(classify({ owner: { name: 'chrome' }, title: 'YouTube' }, { ...identityRules, identities: { productiveApps: ['chrome'] } }) === 'unproductive', '#7 browser content wins even with productive browser identity');
+  assert(classify({ owner: { name: 'chrome', path: 'C:/youtube/chrome.exe' }, title: 'New Tab' }, identityRules) === 'productive', '#7 browser install directory does not classify content');
+  assert(!isBrowserProcess({ owner: { name: 'knowledge-editor' } }), '#7 unrelated edge substring is not a browser');
+  const { createSessionManager } = require('../src/sessions');
+  const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-session-regression-'));
+  const manager = createSessionManager({ dataDir: sessionDir });
+  manager.startSession({ mode: 'custom', customMin: 1 });
+  manager.onTrackerTick({ app: 'Code', category: 'productive', elapsedSec: 1 });
+  manager.onTrackerTick({ app: 'Chrome', category: 'unproductive', elapsedSec: 0 });
+  assert(manager.getActiveSession().distractionCount === 0, 'paused/idle session ticks do not count distractions');
+  const persisted = JSON.parse(fs.readFileSync(manager.activePath, 'utf8'));
+  persisted.startedAt = Date.now() - 3600000;
+  persisted.endsAt = persisted.startedAt + 60000;
+  fs.writeFileSync(manager.activePath, JSON.stringify(persisted));
+  const restored = createSessionManager({ dataDir: sessionDir });
+  assert(restored.getMostRecentSession().elapsedSec === 60, 'expired session restored after an hour records planned duration');
+  assert(restored.getMostRecentSession().endedAt === persisted.endsAt, 'expired session records its actual deadline');
+  const idleStore = createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-idle-regression-')));
+  idleStore.updateSettings({ demoMode: false, idleTimeoutSec: 5 });
+  idleStore.addSeconds('Code', 'productive', 120);
+  let clock = 10000;
+  let idleSec = 6;
+  const { createTracker } = require('../src/tracker');
+  const idleTracker = createTracker({ store: idleStore, rules: identityRules, now: () => clock,
+    backend: { getActiveWindow: async () => ({ window: { owner: { name: 'Code' } }, idleSec }) } });
+  for (let i = 0; i < 20; i++) { clock += 1000; idleSec += 1; await idleTracker.poll(); }
+  assert(idleStore.snapshot().byCategory.productive === 120, '#14 ordinary idle never erases previously earned time');
+  idleSec = 0; clock += 1000; await idleTracker.poll();
+  assert(idleStore.snapshot().byCategory.productive === 121, '#14 input resumes tracking without counting the idle interval');
+  idleStore.addSeconds('Chrome', 'unproductive', 15);
+  idleStore.addSeconds('Unknown', 'other', 1);
+  assert(idleStore.snapshot().unproductiveStreak === 0, 'other activity breaks an unproductive streak');
+  const sparse = createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-sparse-')));
+  sparse.writeHistoryDay({ date: '2001-01-01', byApp: {}, byCategory: {} });
+  sparse.pruneOldHistory();
+  assert(sparse.listHistoryDates().length === 0, '#9 sparse history older than 90 days is pruned');
+}
+
+regressionChecks().then(() => {
+  console.log(failed ? `\n${failed} failed` : '\nall smoke checks passed');
+  process.exitCode = failed ? 1 : 0;
+}).catch((err) => { console.error(err); process.exitCode = 1; });

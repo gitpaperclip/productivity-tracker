@@ -10,7 +10,7 @@
     "start:electron": "electron . --no-sandbox --disable-gpu",
     "start:demo": "node scripts/start.js --demo",
     "test": "node scripts/smoke.js",
-    "test:windows-backend": "node scripts/test-windows-backend.js",
+    "test:windows-backend": "node scripts/test-win.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win",
     "dist:portable": "electron-builder --win portable"
@@ -35,6 +35,7 @@
       "package.json"
     ],
     "asar": true,
+    "extraResources": [{ "from": "scripts/get-foreground.ps1", "to": "get-foreground.ps1" }],
     "win": {
       "icon": "renderer/assets/logo-wordmark.png",
       "signAndEditExecutable": false,

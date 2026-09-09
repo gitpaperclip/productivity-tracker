@@ -86,15 +86,14 @@ function createRealBackend() {
  * Mutable so IPC can hot-reload without restarting tracker.
  * Also accepts legacy `rules` / `ignore` plain values for smoke/tests.
  */
-function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessionManager, onTick, onReminder }) {
+function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessionManager, onTick, onReminder, backend, now: clock = Date.now }) {
   const rHolder = rulesHolder || { rules: rules };
   const iHolder = ignoreHolder || { ignore: ignore || [] };
-  const real = createRealBackend();
+  const real = backend || createRealBackend();
   const demo = createDemoBackend();
   let timer = null;
   let pollInFlight = false;
-  let idleCorrectionApplied = 0;
-  let lastTick = Date.now();
+  let lastTick = clock();
   let current = {
     window: null,
     app: '—',
@@ -107,7 +106,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   let lastFocused = null;
 
   async function pollOnce() {
-    const now = Date.now();
+    const now = clock();
     const elapsed = Math.min(5, Math.max(0, (now - lastTick) / 1000));
     lastTick = now;
 
@@ -130,14 +129,10 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       source = win ? 'real' : 'idle';
     }
 
-    const ignored = win ? isIgnored(win, iHolder.ignore || []) : false;
+    const ignored = win ? isIgnored(win, iHolder.ignore || [], rHolder.rules && rHolder.rules.identities) : false;
     const idleTimeoutSec = Math.max(0, Number(settings.idleTimeoutSec) || 0);
     const idle = !settings.demoMode && idleTimeoutSec > 0 && idleSec >= idleTimeoutSec;
-    const idleCorrection = idle ? Math.max(0, idleSec - idleTimeoutSec) : 0;
-    if (idle && win && !ignored && !settings.trackingPaused && idleCorrection > idleCorrectionApplied) {
-      store.removeSeconds(appLabel(win), classify(win, rHolder.rules), idleCorrection - idleCorrectionApplied);
-    }
-    idleCorrectionApplied = idle ? idleCorrection : 0;
+    // Pause at the timeout. Never subtract accumulated idle time from earned history.
     // Show in Now viewing; do not log time or affect streaks when ignored
     const category = !win ? 'other' : ignored ? 'ignored' : classify(win, rHolder.rules);
     const app = win
@@ -180,6 +175,8 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
     // NEVER count ignored toward totals or streaks; never log while paused
     if (win && !ignored && !paused && !idle) {
       store.addSeconds(app, category, elapsed);
+    } else if (store.resetStreak) {
+      store.resetStreak();
     }
 
     // Focus session: accumulate byApp + distraction edges while active
@@ -210,6 +207,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       !ignored &&
       !paused &&
       !idle &&
+      settings.notificationsEnabled !== false &&
       store.shouldRemind() &&
       category === 'unproductive'
     ) {
@@ -263,10 +261,11 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
 
   function start() {
     if (timer) return; // idempotent
-    lastTick = Date.now();
-    poll();
+    lastTick = clock();
+    const run = () => poll().catch((err) => console.error('[tracker] poll failed:', err.message));
+    run();
     const ms = store.getSettings().pollMs || 1500;
-    timer = setInterval(poll, ms);
+    timer = setInterval(run, ms);
     if (timer.unref) timer.unref();
   }
 

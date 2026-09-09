@@ -3,7 +3,9 @@
 const path = require('path');
 const { execFile } = require('child_process');
 
-const PS1 = path.join(__dirname, '..', 'scripts', 'get-foreground.ps1');
+const PS1 = __dirname.includes('app.asar')
+  ? path.join(process.resourcesPath, 'get-foreground.ps1')
+  : path.join(__dirname, '..', 'scripts', 'get-foreground.ps1');
 const TIMEOUT_MS = 5000;
 
 function createWindowsBackend() {

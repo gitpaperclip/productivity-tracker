@@ -5,6 +5,7 @@ const path = require('path');
 
 const DEFAULT_RULES_PATH = path.join(__dirname, 'rules.json');
 const DEFAULT_IGNORE_PATH = path.join(__dirname, 'ignore.json');
+const DEFAULT_APP_IDENTITIES_PATH = path.join(__dirname, 'app-identities.json');
 
 /** Known browser process-name fragments — bare browsers default to productive. */
 const BROWSER_PROCESSES = [
@@ -23,7 +24,8 @@ const BROWSER_PROCESSES = [
 function normalizeKeywords(list) {
   const seen = new Set();
   const out = [];
-  for (const item of list || []) {
+  for (const item of Array.isArray(list) ? list : []) {
+    if (typeof item !== 'string') continue;
     const s = String(item).trim().toLowerCase();
     if (!s || seen.has(s)) continue;
     seen.add(s);
@@ -42,6 +44,13 @@ function normalizeRules(parsed) {
 function normalizeIgnore(parsed) {
   if (Array.isArray(parsed)) return normalizeKeywords(parsed);
   return normalizeKeywords(parsed && parsed.ignore);
+}
+
+function normalizeAppIdentities(parsed) {
+  return {
+    productiveApps: normalizeKeywords(parsed && parsed.productiveApps),
+    ignoredApps: normalizeKeywords(parsed && parsed.ignoredApps)
+  };
 }
 
 /**
@@ -78,6 +87,21 @@ function loadIgnore(filePath) {
   return loadIgnoreFrom(filePath || DEFAULT_IGNORE_PATH);
 }
 
+function loadAppIdentitiesFrom(filePath) {
+  return normalizeAppIdentities(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+}
+
+function loadAppIdentities(filePath) {
+  return loadAppIdentitiesFrom(filePath || DEFAULT_APP_IDENTITIES_PATH);
+}
+
+function saveAppIdentities(filePath, identities) {
+  const normalized = normalizeAppIdentities(identities || {});
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(normalized, null, 2) + '\n', 'utf8');
+  return normalized;
+}
+
 function saveIgnore(filePath, ignoreList) {
   const ignore = normalizeKeywords(ignoreList || []);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -109,9 +133,23 @@ function processNameParts(win) {
 }
 
 function isBrowserProcess(win) {
-  const { owner, base, baseNoExt } = processNameParts(win);
-  const hay = `${owner} ${base} ${baseNoExt}`;
-  return BROWSER_PROCESSES.some((b) => hay.includes(b));
+  return matchesProcess(win, [...BROWSER_PROCESSES, 'google chrome', 'microsoft edge', 'mozilla firefox', 'brave browser', 'opera browser']);
+}
+
+function matchesProcess(win, identities) {
+  const { owner, baseNoExt } = processNameParts(win);
+  const normalize = (value) => String(value || '').trim().toLowerCase().replace(/\.exe$/, '');
+  const values = [owner, baseNoExt].map(normalize).filter(Boolean);
+  return normalizeKeywords(identities).some((identity) => values.includes(normalize(identity)));
+}
+
+/** Match process/app fields only, never window titles or URLs. */
+function appMatchesIdentity(win, identities) {
+  if (!win || !identities) return null;
+  const matches = (list) => matchesProcess(win, list);
+  if (matches(identities.ignoredApps)) return 'ignored';
+  if (matches(identities.productiveApps)) return 'productive';
+  return null;
 }
 
 /**
@@ -120,8 +158,9 @@ function isBrowserProcess(win) {
  * Match against owner.name, path basename, and app label — not arbitrary title text
  * (except the SydTrack self-exclusion rule).
  */
-function isIgnored(win, ignoreList) {
+function isIgnored(win, ignoreList, identities) {
   if (!win) return false;
+  if (appMatchesIdentity(win, identities) === 'ignored') return true;
 
   const title = (win.title || '').toLowerCase();
   const { owner, base, baseNoExt, label } = processNameParts(win);
@@ -153,15 +192,20 @@ function isIgnored(win, ignoreList) {
  * Known browsers without keyword hits → productive; explicit unproductive keywords win above.
  */
 function classify(win, rules) {
-  const hay = haystack(win);
-  if (!hay.trim()) return 'other';
+  rules = rules || { productive: [], unproductive: [] };
+  const browser = isBrowserProcess(win);
+  // Explicit app tags remain editable; project/title words cannot override an identity.
+  if (!browser && matchesProcess(win, rules.unproductive)) return 'unproductive';
+  if (!browser && appMatchesIdentity(win, rules.identities) === 'productive') return 'productive';
+  const hay = browser ? `${win.title || ''} ${win.url || ''}`.toLowerCase() : haystack(win);
+  if (!hay.trim()) return browser ? 'productive' : 'other';
 
-  for (const keyword of rules.unproductive) {
+  for (const keyword of normalizeKeywords(rules.unproductive)) {
     if (keyword && hay.includes(keyword)) {
       return 'unproductive';
     }
   }
-  for (const keyword of rules.productive) {
+  for (const keyword of normalizeKeywords(rules.productive)) {
     if (keyword && hay.includes(keyword)) {
       return 'productive';
     }
@@ -194,16 +238,22 @@ module.exports = {
   loadIgnore,
   loadIgnoreFrom,
   saveIgnore,
+  loadAppIdentities,
+  loadAppIdentitiesFrom,
+  saveAppIdentities,
   normalizeKeywords,
   normalizeRules,
   normalizeIgnore,
+  normalizeAppIdentities,
   classify,
   isIgnored,
   appLabel,
   haystack,
   appMatchesIgnore,
   isBrowserProcess,
+  appMatchesIdentity,
   BROWSER_PROCESSES,
   DEFAULT_RULES_PATH,
-  DEFAULT_IGNORE_PATH
+  DEFAULT_IGNORE_PATH,
+  DEFAULT_APP_IDENTITIES_PATH
 };

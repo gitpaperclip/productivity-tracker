@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { migrateDay, todayKey, emptyDay } = require('./store');
+const { writeJson, validDateKey } = require('./json-file');
 
 function appVersion() {
   try {
@@ -73,7 +74,12 @@ function importBackup(store, obj, opts) {
     return result;
   }
 
-  const days = obj.days && typeof obj.days === 'object' ? obj.days : {};
+  // Validate the entire payload before replace can clear any user data.
+  try { validateBackup(obj); } catch (err) {
+    result.error = err.message;
+    return result;
+  }
+  const days = obj.days;
   const today = todayKey();
 
   if (mode === 'replace') {
@@ -81,7 +87,6 @@ function importBackup(store, obj, opts) {
   }
 
   for (const [key, raw] of Object.entries(days)) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
     const day = migrateDay(Object.assign({}, raw, { date: key }));
     if (key === today) {
       if (mode === 'replace') {
@@ -119,7 +124,58 @@ function importBackup(store, obj, opts) {
   }
 
   result.ok = true;
+  store.pruneOldHistory();
   return result;
+}
+
+function validateBackup(obj) {
+  const record = (value) => value && typeof value === 'object' && !Array.isArray(value);
+  const fail = (message) => { throw new Error('Invalid backup: ' + message); };
+  const number = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  const appMap = (map) => {
+    if (map == null) return;
+    if (!record(map)) fail('app totals must be an object');
+    for (const info of Object.values(map)) {
+      if (!record(info) || !number(info.seconds) || !['productive', 'unproductive', 'other', 'ignored'].includes(info.category)) fail('invalid app total');
+    }
+  };
+  const totals = (map) => {
+    if (map == null) return;
+    if (!record(map)) fail('category totals must be an object');
+    for (const cat of ['productive', 'unproductive', 'other']) {
+      if (map[cat] != null && !number(map[cat])) fail('invalid category total');
+    }
+  };
+  const tags = (list) => {
+    if (!Array.isArray(list) || list.some((x) => typeof x !== 'string')) fail('tags must be string arrays');
+  };
+  if (!record(obj.days)) fail('days must be an object');
+  for (const [key, day] of Object.entries(obj.days)) {
+    if (!validDateKey(key) || !record(day)) fail('invalid day');
+    appMap(day.byApp); totals(day.byCategory);
+    if (day.byHour != null) {
+      if (!Array.isArray(day.byHour) || day.byHour.length !== 24) fail('expected 24 hourly buckets');
+      for (const hour of day.byHour) {
+        if (!record(hour)) fail('invalid hour');
+        totals(hour); appMap(hour.byApp);
+      }
+    }
+  }
+  if (obj.settings != null && !record(obj.settings)) fail('invalid settings');
+  if (obj.rules != null) {
+    if (!record(obj.rules)) fail('invalid rules');
+    tags(obj.rules.productive); tags(obj.rules.unproductive);
+  }
+  if (obj.ignore != null) tags(Array.isArray(obj.ignore) ? obj.ignore : obj.ignore.ignore);
+  // Reject prototype setters even in optional settings before Object.assign.
+  const inspect = (value) => {
+    if (!value || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(key)) fail('unsafe object key');
+      inspect(child);
+    }
+  };
+  inspect(obj);
 }
 
 function mergeDays(a, b) {
@@ -133,18 +189,19 @@ function mergeDays(a, b) {
       out.byHour[h][cat] =
         (out.byHour[h][cat] || 0) + ((other.byHour[h] && other.byHour[h][cat]) || 0);
     }
+    mergeAppMap(out.byHour[h].byApp, other.byHour[h].byApp);
   }
-  for (const [name, info] of Object.entries(other.byApp || {})) {
-    if (!out.byApp[name]) {
-      out.byApp[name] = { seconds: info.seconds, category: info.category };
-    } else {
-      out.byApp[name].seconds += info.seconds || 0;
-      out.byApp[name].category = info.category || out.byApp[name].category;
-    }
-  }
+  mergeAppMap(out.byApp, other.byApp);
   out.unproductiveStreak = Math.max(out.unproductiveStreak || 0, other.unproductiveStreak || 0);
   out.lastReminderAt = Math.max(out.lastReminderAt || 0, other.lastReminderAt || 0);
   return out;
+}
+
+function mergeAppMap(target, source) {
+  for (const [key, info] of Object.entries(source || {})) {
+    if (!target[key]) target[key] = { ...info };
+    else target[key].seconds += info.seconds;
+  }
 }
 
 function mergeIntoToday(store, day) {
@@ -164,7 +221,7 @@ function clearAllHistory(store) {
 
 function writeBackupFile(filePath, payload) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2) + '\n', 'utf8');
+  writeJson(filePath, payload);
 }
 
 function readBackupFile(filePath) {
