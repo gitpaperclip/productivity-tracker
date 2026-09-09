@@ -104,6 +104,8 @@ Backup merge is additive: importing the same backup again adds its time again. I
 
 Imported settings apply the same behavior as Settings controls. In particular, importing **Keep session history: off** retains only the latest local session. That retained entry is saved successfully before older session files are removed.
 
+Malformed settings and session files are set aside as adjacent `.recovery-…` files, preserving their exact original contents. A recovery notice shows the saved location. Settings recovery restores defaults and pauses tracking until you review Settings and resume. Damaged sessions are not reconstructed automatically. File-access or preservation failures stop the operation instead of resetting data; startup failures display an error. Recovery files remain local and are not automatically pruned or included in exports.
+
 ## Project Status
 
 SydTrack is an actively developed Windows desktop application. Default browser tracking uses foreground titles; automatic website detection is deferred pending reliable browser-independent validation. It remains focused on simple productivity totals and reminders, without a browsing-history dashboard or background-tab monitoring.

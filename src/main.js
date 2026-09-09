@@ -266,6 +266,17 @@ function fireReminder(payload) {
   }
 }
 
+function reportRecovery({ filePath, recoveryPath }) {
+  const settingsReset = path.basename(filePath) === 'settings.json';
+  dialog.showMessageBox({
+    type: 'warning',
+    title: 'SydTrack data recovery',
+    message: `SydTrack could not read ${path.basename(filePath)}.`,
+    detail: `${settingsReset ? 'Settings were reset and tracking is paused. Review Settings before resuming.' : 'This session file was set aside. Its contents have not been restored.'}\n\nThe original contents are preserved at:\n${recoveryPath}`,
+    buttons: ['OK']
+  }).catch((err) => console.error('[recovery] notice failed', err.message));
+}
+
 /** Idempotent: load rules/ignore/store once. Tracker starts separately after show. */
 function startServices() {
   if (servicesStarted) return;
@@ -273,10 +284,11 @@ function startServices() {
   loadAppIdentities();
   loadAppRules();
   loadAppIgnore();
-  store = createStore(dataDir());
+  store = createStore(dataDir(), { onRecovery: reportRecovery });
   sessionManager = createSessionManager({
     dataDir: dataDir(),
-    getSettings: () => store.getSettings()
+    getSettings: () => store.getSettings(),
+    onRecovery: reportRecovery
   });
 
   // Force real tracking on Windows/macOS unless user opted into demo
@@ -362,6 +374,10 @@ app.whenReady().then(() => {
       mainWindow.focus();
     }
   });
+}).catch((err) => {
+  console.error('[startup] failed', err);
+  dialog.showErrorBox('SydTrack could not start', `Local data could not be loaded safely. Check file access and available disk space before restarting.\n\n${err.message}`);
+  app.quit();
 });
 
 app.on('window-all-closed', () => {

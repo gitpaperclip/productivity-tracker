@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { writeJson, validDateKey } = require('./json-file');
+const { writeJson, validDateKey, readRecoverableJson } = require('./json-file');
 
 function todayKey() {
   const d = new Date();
@@ -156,7 +156,7 @@ function moodFromCategories(byCategory) {
   return { id, emoji: m.emoji, label: m.label, ratio };
 }
 
-function createStore(dataDir) {
+function createStore(dataDir, { onRecovery = () => {} } = {}) {
   fs.mkdirSync(dataDir, { recursive: true });
   const historyDir = path.join(dataDir, 'history');
   fs.mkdirSync(historyDir, { recursive: true });
@@ -171,6 +171,10 @@ function createStore(dataDir) {
   }
 
 
+  let settingsRecovered = false;
+  const savedSettings = readRecoverableJson(settingsPath,
+    (value) => value !== null && typeof value === 'object' && !Array.isArray(value),
+    (report) => { settingsRecovered = true; onRecovery(report); });
   let settings = Object.assign(
     {
       thresholdSec: defaultThresholdSec(),
@@ -192,8 +196,12 @@ function createStore(dataDir) {
       sessionCustomMin: 45,
       notificationsEnabled: true
     },
-    loadJson(settingsPath) || {}
+    savedSettings || {}
   );
+  if (settingsRecovered) {
+    settings.trackingPaused = true;
+    persistSettings();
+  }
 
   if (process.env.SYDTRACK_THRESHOLD_SEC) {
     settings.thresholdSec = Number(process.env.SYDTRACK_THRESHOLD_SEC);

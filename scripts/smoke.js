@@ -400,6 +400,61 @@ const left = fs.readdirSync(histDir).filter((f) => f.endsWith(".json"));
 assert(left.length <= MAX_HISTORY_DAYS, "prune keeps at most 90 history files (" + left.length + ")");
 
 async function regressionChecks() {
+  const { readRecoverableJson } = require('../src/json-file');
+  const { createSessionManager: recoveryManager } = require('../src/sessions');
+  const recoveryDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-recovery-'));
+  try {
+    const notices = [];
+    const onRecovery = (report) => notices.push(report);
+    const settingsPath = path.join(recoveryDir, 'settings.json');
+    fs.writeFileSync(settingsPath, '{"trackingPaused":');
+    const recoveredStore = createStore(recoveryDir, { onRecovery });
+    assert(recoveredStore.getSettings().trackingPaused === true, 'recovered settings pause tracking');
+    assert(fs.readFileSync(notices[0].recoveryPath, 'utf8') === '{"trackingPaused":', 'settings recovery preserves original bytes');
+    assert(createStore(recoveryDir).getSettings().trackingPaused === true, 'recovery pause survives restart');
+    fs.writeFileSync(settingsPath, JSON.stringify({ dailyGoalSec: 1234, futureSetting: 'retain' }));
+    const legacy = createStore(recoveryDir, { onRecovery }).getSettings();
+    assert(legacy.dailyGoalSec === 1234 && legacy.futureSetting === 'retain' && legacy.idleTimeoutSec === 300, 'partial settings retain values and gain compatible defaults');
+    fs.writeFileSync(settingsPath, '[]');
+    createStore(recoveryDir, { onRecovery });
+    assert(notices.length === 2, 'wrong settings container is recovered');
+    fs.writeFileSync(path.join(recoveryDir, 'active-session.json'), '{broken');
+    const sessions = recoveryManager({ dataDir: recoveryDir, onRecovery });
+    assert(sessions.getActiveSession() === null && notices.length === 3, 'broken active session is recovered without inventing a session');
+    const dayPath = path.join(recoveryDir, 'sessions', `${todayKey()}.json`);
+    fs.writeFileSync(dayPath, '{broken history');
+    assert(sessions.getSessionsForDay(todayKey()).length === 0 && notices.length === 4, 'broken session history is reported');
+    assert(fs.readFileSync(notices[3].recoveryPath, 'utf8') === '{broken history', 'session recovery preserves original bytes');
+    sessions.getSessionsForDay(todayKey());
+    assert(notices.length === 4, 'recovered session file is not repeatedly reported');
+    fs.writeFileSync(dayPath, '{}');
+    sessions.getSessionsForDay(todayKey());
+    assert(notices.length === 5, 'wrong session history container is recovered');
+    fs.writeFileSync(dayPath, '{keep me');
+    const originalCopy = fs.copyFileSync;
+    let preservationFailed = false;
+    try {
+      fs.copyFileSync = () => { throw new Error('simulated preservation failure'); };
+      sessions.getSessionsForDay(todayKey());
+    } catch (_) { preservationFailed = true; }
+    finally { fs.copyFileSync = originalCopy; }
+    assert(preservationFailed && fs.readFileSync(dayPath, 'utf8') === '{keep me', 'failed preservation blocks recovery and leaves original intact');
+    const originalRead = fs.readFileSync;
+    let accessFailed = false;
+    try {
+      fs.readFileSync = () => { const err = new Error('access denied'); err.code = 'EACCES'; throw err; };
+      readRecoverableJson(dayPath, Array.isArray, onRecovery);
+    } catch (_) { accessFailed = true; }
+    finally { fs.readFileSync = originalRead; }
+    assert(accessFailed && notices.length === 5, 'IO errors propagate without resetting data');
+    fs.writeFileSync(dayPath, '[null]');
+    sessions.getSessionsForDay(todayKey());
+    assert(notices.length === 6, 'invalid session entries are preserved instead of reaching the UI');
+    fs.writeFileSync(path.join(recoveryDir, 'active-session.json'), '{"status":"running"}');
+    assert(recoveryManager({ dataDir: recoveryDir, onRecovery }).getActiveSession() === null && notices.length === 7, 'missing active session timing is preserved instead of inventing a completion');
+  } finally {
+    fs.rmSync(recoveryDir, { recursive: true, force: true });
+  }
   // Exercise real renderer handlers without Electron or writes to user app-data.
   const vm = require('vm');
   const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'renderer.js'), 'utf8');

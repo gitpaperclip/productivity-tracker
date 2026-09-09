@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { writeJson, validDateKey } = require('./json-file');
+const { writeJson, validDateKey, readRecoverableJson } = require('./json-file');
 const { todayKey, MAX_HISTORY_DAYS } = require('./store');
 
 const MODE_DEFS = {
@@ -25,15 +25,6 @@ function plannedSecFor(mode, customMin) {
 
 function newId() {
   return `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function loadJson(p) {
-  try {
-    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch (err) {
-    console.error('[sessions] read failed', p, err.message);
-  }
-  return null;
 }
 
 function topAppsFromByApp(byApp, limit) {
@@ -95,7 +86,7 @@ function publicActive(session) {
  * while a session is active (other/productive → unproductive = +1).
  * Ignored / SydTrack self windows do not count and do not update lastCategory.
  */
-function createSessionManager({ dataDir, getSettings }) {
+function createSessionManager({ dataDir, getSettings, onRecovery = () => {} }) {
   const sessionsDir = path.join(dataDir, 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
   const activePath = path.join(dataDir, 'active-session.json');
@@ -121,7 +112,8 @@ function createSessionManager({ dataDir, getSettings }) {
   }
 
   function readDay(dateKey) {
-    const raw = loadJson(dayPath(dateKey));
+    const raw = readRecoverableJson(dayPath(dateKey),
+      (value) => Array.isArray(value) && value.every((entry) => entry !== null && typeof entry === 'object' && !Array.isArray(entry)), onRecovery);
     return Array.isArray(raw) ? raw : [];
   }
 
@@ -249,7 +241,13 @@ function createSessionManager({ dataDir, getSettings }) {
   }
 
   function restoreActiveFromDisk() {
-    const raw = loadJson(activePath);
+    const raw = readRecoverableJson(activePath,
+      (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
+        && value.status === 'running'
+        && Number.isFinite(Number(value.startedAt)) && Number(value.startedAt) > 0
+        && Number.isFinite(Number(value.endsAt)) && Number(value.endsAt) >= Number(value.startedAt)
+        && Number.isFinite(Number(value.plannedSec)) && Number(value.plannedSec) > 0,
+      onRecovery);
     if (!raw || typeof raw !== 'object' || raw.status !== 'running') {
       active = null;
       return;

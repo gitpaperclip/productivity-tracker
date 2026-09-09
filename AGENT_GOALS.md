@@ -241,6 +241,7 @@ Actionable pending work (parked or not started). Shipped notes live under **Road
 North star: private · honest · alive. Local Windows companion with a daily loop (goal → Boost nudges → Roundup), not another guilt dashboard.
 
 ### Roadmap history (done / shipped)
+- **Recovery foundation (#9)**: malformed settings/session files are preserved beside the original path with `.recovery-…` names before reset; settings reset persists tracking paused. Session timing is checked before restoring. Native notices identify preserved files; startup read failures show an error. This does not implement the broader storage upgrade. Next: lifecycle coverage for sleep/wake, lock, midnight, and restart; restoration tooling and session-inclusive backups remain separate work.
 - ~~Side nav smooth expand/collapse animation~~ **done** (CSS width/opacity; respects reduced-motion; mobile rail unchanged)
 - ~~Stronger FocusBoost "hit the UI" press feedback~~ **done** (button punch + edge kick on arm; soft settle on disarm)
 - ~~Roundup tab (after Analytics)~~ **done (v1)**: headline, goal bar, highlights, story
