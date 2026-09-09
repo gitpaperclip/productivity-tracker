@@ -1,10 +1,11 @@
 <div align="center">
   <img src="./renderer/assets/logo-mark.png" width="200" alt="Logo">
   <br><br>
-  
-  <video src="https://github.com/gitpaperclip/sydtrack/raw/refs/heads/main/demo_vid.mp4" width="600" controls muted autoplay loop>
-    Your browser does not support the video tag.
-  </video>
+
+  <!-- This acts as a clickable video launcher banner -->
+  <a href="https://github.com" target="_blank">
+    <img src="./renderer/assets/logo-mark.png" width="500" alt="Click to Watch Demo">
+  </a>
 </div>
 
 SydTrack is a local-first Windows productivity tracker that watches your active window, classifies time as productive, unproductive, or other, and helps you understand where your day went.
