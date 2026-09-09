@@ -270,7 +270,7 @@ const ANALYTICS_SUBTITLES = {
   day: 'Today’s hours',
   week: 'Last 7 days',
   month: 'Last 30 days',
-  apps: 'Re-tag your top apps here.'
+  apps: 'Tag future activity. Past totals stay unchanged.'
 };
 
 function setAnalyticsSegment(segment) {
@@ -2338,6 +2338,7 @@ if ($('data-export')) {
 if ($('data-import')) {
   $('data-import').addEventListener('click', async () => {
     if (!api || !api.importData) return;
+    if (window.sydtrackProfilesUI && !window.sydtrackProfilesUI.mayDiscard()) return;
     $('data-status').textContent = 'Importing…';
     try {
       const res = await api.importData({ mode: 'merge' });
@@ -2349,6 +2350,7 @@ if ($('data-import')) {
         const state = await api.getState();
         if (state) renderStats(state.stats);
         await loadRulesAndIgnore();
+        if (window.sydtrackProfilesUI) await window.sydtrackProfilesUI.reload(true, true);
         refreshSessionLog();
       } else $('data-status').textContent = (res && res.error) || 'Import failed';
     } catch (err) {
@@ -2375,6 +2377,7 @@ if ($('profile-export')) {
 
 if ($('profile-import')) {
   $('profile-import').addEventListener('click', async () => {
+    if (window.sydtrackProfilesUI && !window.sydtrackProfilesUI.mayDiscard()) return;
     if (!api || !api.importProfilePack) return;
     $('profile-status').textContent = 'Importing profile…';
     try {
@@ -2388,6 +2391,7 @@ if ($('profile-import')) {
         bits.push((res.ignore || 0) + ' ignore');
         $('profile-status').textContent = 'Imported: ' + bits.join(', ');
         await loadRulesAndIgnore();
+        if (window.sydtrackProfilesUI) await window.sydtrackProfilesUI.reload(true, true);
       } else $('profile-status').textContent = (res && res.error) || 'Import failed';
     } catch (err) {
       $('profile-status').textContent = 'Import failed';

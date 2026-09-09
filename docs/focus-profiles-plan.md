@@ -1,8 +1,8 @@
 # Focus profiles: implementation handoff
 
-Status: design proposal, not implemented. Keep the product private and simple: at most five named profiles, managed in Focus Tags, with a Home switcher. No inferred activity scores, automatic switching, accounts, or per-profile dashboards in v1.
+Status: implemented locally. The user's revised UI request supersedes the original proposal below: five choices beneath FocusBoost, management in Settings, and empty new slots. Read README.md for current behavior, `docs/manual-focus-profiles-validation.md` for acceptance checks, and `docs/focus-profile-generation-guide.md` for the model handoff. No preset files or themes were added.
 
-## Proposed behavior
+## Original design decisions (implementation notes)
 
 - Start with one Default profile copied from the user's current productive/unproductive/ignore lists. Preserve the originals during migration. Each profile owns complete lists; avoid hidden overlays that make classification hard to explain.
 - Keep process identities global. Explicit unproductive process tags already override productive app identities; browser content still decides browser classification. A Writing profile can therefore mark Code unproductive without weakening process identity handling globally.
@@ -25,6 +25,6 @@ Status: design proposal, not implemented. Keep the product private and simple: a
 - Session and identity backup extensions with whole-payload validation; active timers remain protected during import.
 - Atomic JSON writes, malformed-file preservation, lifecycle invalidation, and bounded local error logs.
 
-## Remaining design decisions
+## Decisions adopted for this implementation
 
-Confirm the proposed Default-profile deletion rule, copy-current creation behavior, and whether users need a deliberate “reclassify history” action when editing tags. Switching itself must never rewrite history. No decisions about gamification, media recognition, or productivity scores are required to build this feature.
+Default cannot be deleted; new slots start empty rather than copying or generating presets. All tag editing and switching is future-only; no historical reclassification control was added. Profile management is in Settings and Focus Tags edits the active profile. Themes (Coral, Midnight, Dusk, Starlight) remain shelved. No decisions about gamification, media recognition, or productivity scores were needed.

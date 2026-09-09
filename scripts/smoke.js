@@ -1024,7 +1024,86 @@ async function historyLoadingChecks() {
   assert(targets['month-history'].textContent.includes('retry'), '#9 history failures show a retry instruction');
 }
 
-regressionChecks().then(lifecycleChecks).then(infrastructureChecks).then(historyLoadingChecks).then(browserProbeChecks).then(() => {
+async function focusProfileChecks() {
+  const { createFocusProfiles } = require('../src/focus-profiles');
+  const { createTracker } = require('../src/tracker');
+  const { createSessionManager } = require('../src/sessions');
+  const { parseProfilePack, buildProfilePack } = require('../src/profile-pack');
+  const vm = require('vm');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-profiles-'));
+  try {
+    const store = createStore(root); store.updateSettings({ demoMode: false, idleTimeoutSec: 0 });
+    const sessions = createSessionManager({ dataDir: root });
+    const rulesHolder = { rules: { ...rules, identities } }, ignoreHolder = { ignore: [] };
+    let time = new Date().setHours(12, 0, 0, 0);
+    let pending = false, resolveProbe;
+    const sample = { window: { owner: { name: 'Code' }, title: 'youtube-clone' } };
+    const tracker = createTracker({ store, sessionManager: sessions, rulesHolder, ignoreHolder, now: () => time,
+      backend: { getActiveWindow: () => pending ? new Promise(resolve => { resolveProbe = resolve; }) : Promise.resolve(sample) } });
+    const context = vm.createContext({ appliedProfile: '', tracker, sessionManager: sessions, rulesHolder, ignoreHolder,
+      rulesFilePath: '', ignoreFilePath: '', rulesIsCustom: false, ignoreIsCustom: false,
+      attachAppIdentities: value => ({ ...value, identities }), focusProfiles: null });
+    const main = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8');
+    vm.runInContext(main.slice(main.indexOf('function applyFocusProfile('), main.indexOf('function ensureTrackerStarted(')), context);
+    fs.writeFileSync(path.join(root, 'rules.json'), JSON.stringify(rules));
+    const originalRules = fs.readFileSync(path.join(root, 'rules.json'), 'utf8');
+    const manager = createFocusProfiles({ dataDir: root, rules, ignore: [], onChange: context.applyFocusProfile });
+    context.focusProfiles = manager; context.applyFocusProfile(manager.active());
+    assert(manager.snapshot().profiles.length === 1 && manager.active().id === 'default' && fs.readFileSync(path.join(root, 'rules.json'), 'utf8') === originalRules, 'profiles migrate only Default and preserve legacy tags');
+    const running = sessions.startSession({ mode: 'custom', customMin: 5 });
+    time += 1000; await tracker.poll();
+    const firstTotal = store.snapshot().byCategory.productive;
+    const saved = manager.save(null, { name: 'Writing', productive: ['word'], unproductive: ['code'], ignore: ['music'] });
+    const writing = saved.profiles[1];
+    pending = true; time += 1000; const inFlight = tracker.poll();
+    manager.activate(writing.id); resolveProbe(sample); await inFlight;
+    assert(store.snapshot().byCategory.productive === firstTotal && store.snapshot().byCategory.unproductive === 0, 'switch invalidates a pending probe without rewriting earned totals');
+    pending = false; time += 1000; await tracker.poll();
+    assert(store.snapshot().byCategory.productive === firstTotal && store.snapshot().byCategory.unproductive === 1, 'profile process tag changes only future classification');
+    assert(sessions.getActiveSession().endsAt === running.endsAt && sessions.getActiveSession().distractionCount === 0, 'profile switch preserves session deadline without inventing a distraction');
+    manager.save(writing.id, { ignore: ['code'] });
+    time += 1000; await tracker.poll();
+    assert(store.snapshot().byCategory.productive === firstTotal && store.snapshot().byCategory.unproductive === 1, 'new Ignore tags stop future tracking without hiding earlier totals');
+    const restored = createFocusProfiles({ dataDir: root, rules: { productive: [], unproductive: [] }, ignore: [] });
+    assert(restored.active().id === writing.id && restored.active().ignore.includes('code'), 'profile selection and edits survive restart');
+    const diskBefore = fs.readFileSync(manager.filePath, 'utf8');
+    const rename = fs.renameSync;
+    let failedWrite = false;
+    try { fs.renameSync = () => { throw new Error('simulated profile write failure'); }; manager.activate('default'); }
+    catch (_) { failedWrite = true; } finally { fs.renameSync = rename; }
+    assert(failedWrite && manager.active().id === writing.id && ignoreHolder.ignore.includes('code') && fs.readFileSync(manager.filePath, 'utf8') === diskBefore, 'failed profile write preserves disk, active selection, and live classification');
+    const reject = fn => { try { fn(); return false; } catch (_) { return true; } };
+    vm.runInContext(main.slice(main.indexOf('function assertActiveProfile('), main.indexOf("ipcMain.handle('profiles:get'")), context);
+    assert(reject(() => context.assertActiveProfile('default')), 'stale tag saves are rejected after a profile switch');
+    assert(reject(() => manager.remove('default')) && reject(() => manager.activate('missing')), 'Default deletion and invalid activation are rejected');
+    assert(reject(() => manager.save(null, { ...writing, name: ' writing ' })), 'profile names are unique ignoring case and whitespace');
+    assert(reject(() => manager.save(null, { ...writing, name: 'Bad', productive: ['site:bad/path'] })), 'malformed site tags cannot enter a profile');
+    for (const name of ['One', 'Two', 'Three']) manager.save(null, { name, productive: [], unproductive: [], ignore: [] });
+    assert(manager.snapshot().profiles.length === 5 && reject(() => manager.save(null, { ...writing, name: 'Six' })), 'five profile slots are enforced');
+    const pack = parseProfilePack(buildProfilePack(manager.active()));
+    assert(pack.name === 'Writing' && pack.ignore.includes('code'), 'named profile files roundtrip through the existing portable format');
+    const packPath = path.join(root, 'validation.sydtrack-profile');
+    fs.writeFileSync(packPath, JSON.stringify(pack));
+    const validation = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'validate-profile.js'), packPath], { encoding: 'utf8' });
+    assert(validation.status === 0 && validation.stdout.includes('Valid profile: Writing'), 'read-only profile CLI accepts a generated portable file');
+    const payload = buildExport(store, { focusProfiles: manager });
+    const destination = createStore(path.join(root, 'destination'));
+    const destinationProfiles = createFocusProfiles({ dataDir: destination.dataDir, rules, ignore: [] });
+    assert(importBackup(destination, payload, { focusProfiles: destinationProfiles }).ok && destinationProfiles.snapshot().profiles.length === 5 && destinationProfiles.active().id === writing.id, 'full backups restore profiles and active selection');
+    const invalid = structuredClone(payload); invalid.profiles.activeId = 'missing';
+    const destinationBefore = JSON.stringify(destination.getState());
+    assert(!importBackup(destination, invalid, { mode: 'replace', focusProfiles: destinationProfiles }).ok && JSON.stringify(destination.getState()) === destinationBefore, 'invalid profile backups are rejected before replacing history');
+    manager.remove(writing.id);
+    assert(manager.active().id === 'default' && classify(sample.window, rulesHolder.rules) === 'productive', 'deleting active profile returns to Default');
+    fs.writeFileSync(manager.filePath, '{broken');
+    let preserved;
+    const recovered = createFocusProfiles({ dataDir: root, rules, ignore: [], onRecovery: report => { preserved = report.recoveryPath; } });
+    assert(recovered.active().id === 'default' && fs.readFileSync(preserved, 'utf8') === '{broken', 'damaged profiles are preserved before Default recovery');
+    tracker.stop();
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+}
+
+regressionChecks().then(lifecycleChecks).then(infrastructureChecks).then(historyLoadingChecks).then(focusProfileChecks).then(browserProbeChecks).then(() => {
   console.log(failed ? `\n${failed} failed` : '\nall smoke checks passed');
   process.exitCode = failed ? 1 : 0;
 }).catch((err) => { console.error(err); process.exitCode = 1; });

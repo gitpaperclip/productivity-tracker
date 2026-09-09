@@ -11,6 +11,7 @@
     "start:demo": "node scripts/start.js --demo",
     "test": "node scripts/smoke.js",
     "test:ui": "node scripts/check-ui.js",
+    "test:profiles-ui": "node scripts/check-profiles-ui.js",
     "test:windows-backend": "node scripts/test-win.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win",

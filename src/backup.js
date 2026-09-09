@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { migrateDay, todayKey, emptyDay } = require('./store');
 const { writeJson, validDateKey } = require('./json-file');
+const { validateProfiles } = require('./focus-profiles');
 
 function appVersion() {
   try {
@@ -48,6 +49,7 @@ function buildExport(store, opts) {
 
   if (options.sessionManager) payload.sessions = options.sessionManager.exportHistory();
   if (options.identities) payload.identities = structuredClone(options.identities);
+  if (options.focusProfiles) payload.profiles = options.focusProfiles.snapshot();
   return payload;
 }
 
@@ -131,12 +133,14 @@ function importBackup(store, obj, opts) {
     result.appliedIdentities = true;
   }
   if (obj.sessions && options.sessionManager) result.sessionsImported = options.sessionManager.importHistory(obj.sessions, mode);
+  if (obj.profiles && options.focusProfiles) options.focusProfiles.restore(obj.profiles);
   result.ok = true;
   store.pruneOldHistory();
   return result;
 }
 
 function validateBackup(obj) {
+  if (obj.profiles != null) validateProfiles(obj.profiles);
   const record = (value) => value && typeof value === 'object' && !Array.isArray(value);
   const fail = (message) => { throw new Error('Invalid backup: ' + message); };
   const number = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0;

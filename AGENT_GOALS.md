@@ -164,7 +164,7 @@ Portable **tag lists only** — productive, unproductive, and ignore keywords. S
 
 **Available now:** Settings → Data → **Export profile pack** / **Import profile pack** writes or replaces the active rules + ignore lists (classifier picks them up immediately). Import does **not** touch day history or app settings.
 
-**Later (not built yet):** up to ~5 named Focus profiles and a Home hotswitch — see **To-dos**; this pack format is the infrastructure for that.
+**Named profiles now implemented:** five Home choices below FocusBoost; create/edit/delete/import/export in Settings. Existing Focus Tags edits the active profile. Read `docs/focus-profile-generation-guide.md` for the file-generation contract.
 
 ## FocusBoost
 
@@ -218,7 +218,7 @@ Tracking backends TBD. UI and store run; live capture may use active-win or demo
 
 Actionable pending work (parked or not started). Shipped notes live under **Roadmap history** below.
 
-- **Named Focus profiles + Home hotswitch** (<=5 profiles; switch active P/U/Ign lists; `.sydtrack-profile` pack format already exists — build multi-profile UI + Home switcher, not just export/import of the current lists)
+- **Named Focus profiles — implemented locally**: validate with `npm run test:profiles-ui` and `docs/manual-focus-profiles-validation.md`; review real user-generated profile files when supplied. No preset files bundled.
 - **Crash / error local log — implemented**: bounded logs under the Data location, including main warnings/errors and renderer errors/exits. Manual crash acceptance and startup failures before logger installation remain to verify.
 - **Tray + Downtime** (next after first `.exe` packaging pass): tray presence + FocusBoost in tray; tray menu (Pause, Boost, open Roundup/Home, pick Focus profile); **Downtime mode** (do not treat / do not log unproductive apps for evenings/breaks); tray icon state (active / downtime / paused)
 - **Nudges / FocusBoost analytics**: Analytics solo segment pill (right of toolbar) for reminder history — each toast logged (app, streak, time); counts; average time-to-refocus when measurable
@@ -226,7 +226,7 @@ Actionable pending work (parked or not started). Shipped notes live under **Road
 - **Disk usage display** with privacy/Data
 - **Gentle health insights** (short coach notes, no lectures)
 - **Privacy mode** (strip/hash window titles)
-- **Themes**: Sand, Coral, Night, Starlight; nav caret polish
+- **Themes — shelved until after profiles**: Coral, Midnight, Dusk, and Starlight (predominantly white with a subtle blurple tint).
 - **Focus share goal** (later): Settings target % focused vs unfocused; Roundup hit/miss alongside productive-hours goal
 - **Electron memory mitigations** (see Performance & memory) — fine for 8 GB+ as-is; revisit only if measured bloat
 - **Away notes** (parked — do not implement yet):
@@ -244,7 +244,7 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - **History performance (#9 scoped)**: production snapshots no longer read archived days; Analytics requests 7/30-day summaries with bounded 90-day reads, caching, loading/error handling, and late-response protection. A synthetic 90-day regression proves zero archive reads for repeated live snapshots. Existing files retained; no consolidated database or full #9 architecture rewrite.
 - **Backup completeness**: optional schema-1 sessions and identities included by the UI. Sessions deduplicate by ID and completed/later records supersede older checkpoints; live timers stay untouched. Legacy backups remain compatible. Multi-file rollback on disk failure remains future work.
 - **Local diagnostics**: errors/warnings and renderer exits captured in two rotating local log files under Data/logs; no upload or inclusion in backups. Native/manual crash acceptance remains outstanding.
-- **Focus profiles preparation only**: `docs/focus-profiles-plan.md` specifies migration, activation, UI, compatibility, tests, and remaining decisions. No named profile feature was implemented in this pass.
+- **Focus profiles implemented (#7 foundation)**: atomic profile collection with Default migration, five slots, Home button below FocusBoost, Settings editing/import/export, draft protection, future-only tagging, capture invalidation, session-boundary reset, and backup compatibility. `docs/focus-profile-generation-guide.md` is the handoff for another model; no demo profile files were generated. Default is protected; deletion of the active profile selects Default. Automatic/tray switching remains deferred.
 - **Lifecycle hardening (#14 groundwork)**: main-process power events suspend capture during sleep/lock; overlapping states and initial lock are handled independently of manual pause. In-flight probes are invalidated and stale reminder streaks reset with disk errors contained. Timer continuity distinguishes slow probes from unobserved gaps; intervals split across local hours/days, merging late samples into existing archives. Smoke simulations cover wake while locked, manual pause, session deadline/completion, startup streaks, stalled/slow probes, fractional boundary accounting, and disk failures. Physical sleep/wake/lock validation remains a release check; follow `docs/manual-lifecycle-validation.md`. This does not implement media-aware idle detection or alter the session schema.
 - **Recovery foundation (#9)**: malformed settings/session files are preserved beside the original path with `.recovery-…` names before reset; settings reset persists tracking paused. Session timing is checked before restoring. Native notices identify preserved files; startup read failures show an error. This does not implement the broader storage upgrade. Restoration tooling and session-inclusive backups remain separate work.
 - ~~Side nav smooth expand/collapse animation~~ **done** (CSS width/opacity; respects reduced-motion; mobile rail unchanged)
@@ -257,16 +257,16 @@ North star: private · honest · alive. Local Windows companion with a daily loo
 - ~~.exe packaging~~ **scaffolded**
 - Daily productivity goal shipped control; Focus share goal still in To-dos
 
-### Longer-term: Focus profiles (context-aware productivity)
+### Focus profiles (current scope and later extensions)
 Formerly "Focus modes" — named **Focus profiles** that swap what "productive" means for the task you're in (e.g. Writing, Coding, Homework, Deep reading).
 - **Cap: up to 5 profiles** (user-workshopped defaults later; add/remove within the cap)
-- Each profile owns its productive / unproductive / ignore Focus Tags (or overlays on a base set)
+- Each profile owns complete productive / unproductive / ignore lists; no overlays.
 - Example: Writing profile — VS Code / Cursor may count as unproductive; Word / Docs / LinkedIn editors count as productive
 - Example: Coding profile — Stack Overflow / docs productive; Netflix still isn't
-- **Lives on the Focus Tags page**: manage profiles there (create/edit/remove, see which tags belong to the active profile)
+- **Management lives in Settings**, per the user's updated request. Focus Tags edits the active profile.
 - **Home hotswitch**: quick switcher for the active Focus profile (later also tray)
-- **Multi-profile UI is a To-do** (see above) — pack export/import for the *current* lists already ships; named profiles + Home switch are not built yet
-- **Export / import** Focus profiles as **zip packs** the app loads into productive / unproductive / ignore tag lists (explicit lists in the pack — not magic auto-sort of arbitrary files). After switch + Tags UI work.
+- **Multi-profile UI implemented**: five-slot Home chooser beneath FocusBoost; empty slots open Settings.
+- **Export / import** uses the existing JSON `.sydtrack-profile` format, not ZIP. Full `.sydtrack` backups also include the named collection.
 - Adaptive angle (later): suggest profile from recent apps, or warn when current apps fight the active profile
 - **Downtime** profile/mode: pause unproductive scoring / reminders (and optionally skip logging U apps) without full app quit — pairs with tray
 - Keep fully local

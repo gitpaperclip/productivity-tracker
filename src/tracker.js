@@ -247,7 +247,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       store.markReminder();
       if (onReminder) {
         onReminder({
-          streak: store.snapshot(iHolder.ignore || [], { includeWeek: false }).unproductiveStreak,
+          streak: store.snapshot([], { includeWeek: false }).unproductiveStreak,
           threshold: settings.thresholdSec,
           app,
           title
@@ -275,7 +275,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
           trackingError
         },
         lastFocused,
-        stats: store.snapshot(iHolder.ignore || [], { includeWeek: false }),
+        stats: store.snapshot([], { includeWeek: false }),
         session: activeSession,
         sessionCompleted: (sessionInfo && sessionInfo.completed) || null
       });
@@ -328,7 +328,16 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
     resetStreakSafely();
   }
 
-  return { start, stop, poll, getLastFocused, setSystemInactive };
+  function invalidateClassification() {
+    generation++;
+    lastTick = clock();
+    lastHeartbeat = lastTick;
+    current.since = lastTick;
+    lastFocused = null;
+    resetStreakSafely();
+  }
+
+  return { start, stop, poll, getLastFocused, setSystemInactive, invalidateClassification };
 }
 
 module.exports = { createTracker, createRealBackend };

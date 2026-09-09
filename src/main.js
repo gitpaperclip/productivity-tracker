@@ -6,6 +6,9 @@ const { app, BrowserWindow, ipcMain, Notification, dialog, powerMonitor } = requ
 const { bindTrackingLifecycle } = require('./tracking-lifecycle');
 const { createErrorLog, installErrorLogging } = require('./error-log');
 let errorLog;
+const { createFocusProfiles } = require('./focus-profiles');
+let focusProfiles;
+let appliedProfile = '';
 const { createAppTray } = require('./tray');
 const { validateSiteTags } = require('./browser-rules');
 
@@ -131,6 +134,7 @@ function loadAppIgnore() {
 
 function rulesPayload() {
   return {
+    profileId: focusProfiles && focusProfiles.snapshot().activeId,
     browserApps: (identitiesHolder.identities && identitiesHolder.identities.browserApps) || [],
     productive: (rulesHolder.rules && rulesHolder.rules.productive) || [],
     unproductive: (rulesHolder.rules && rulesHolder.rules.unproductive) || [],
@@ -141,6 +145,7 @@ function rulesPayload() {
 
 function ignorePayload() {
   return {
+    profileId: focusProfiles && focusProfiles.snapshot().activeId,
     ignore: ignoreHolder.ignore || [],
     path: ignoreFilePath,
     isCustom: ignoreIsCustom
@@ -277,11 +282,13 @@ function fireReminder(payload) {
 
 function reportRecovery({ filePath, recoveryPath }) {
   const settingsReset = path.basename(filePath) === 'settings.json';
+  const profilesReset = path.basename(filePath) === 'focus-profiles.json';
+  if (profilesReset && store) store.updateSettings({ trackingPaused: true });
   dialog.showMessageBox({
     type: 'warning',
     title: 'SydTrack data recovery',
     message: `SydTrack could not read ${path.basename(filePath)}.`,
-    detail: `${settingsReset ? 'Settings were reset and tracking is paused. Review Settings before resuming.' : 'This session file was set aside. Its contents have not been restored.'}\n\nThe original contents are preserved at:\n${recoveryPath}`,
+    detail: `${settingsReset ? 'Settings were reset and tracking is paused. Review Settings before resuming.' : profilesReset ? 'Focus profiles were recovered from legacy tags into Default. Tracking is paused; review the profiles in Settings before resuming.' : 'This session file was set aside. Its contents have not been restored.'}\n\nThe original contents are preserved at:\n${recoveryPath}`,
     buttons: ['OK']
   }).catch((err) => console.error('[recovery] notice failed', err.message));
 }
@@ -300,6 +307,10 @@ function startServices() {
     onRecovery: reportRecovery
   });
 
+  focusProfiles = createFocusProfiles({ dataDir: dataDir(), rules: rulesHolder.rules, ignore: ignoreHolder.ignore,
+    onChange: applyFocusProfile, onRecovery: reportRecovery });
+  applyFocusProfile(focusProfiles.active());
+
   // Force real tracking on Windows/macOS unless user opted into demo
   if ((process.platform === 'win32' || process.platform === 'darwin') && process.env.SYDTRACK_DEMO == null) {
     const s = store.getSettings();
@@ -307,6 +318,18 @@ function startServices() {
       store.updateSettings({ demoMode: false });
     }
   }
+}
+
+function applyFocusProfile(profile) {
+  const signature = JSON.stringify(profile);
+  if (signature === appliedProfile) return;
+  appliedProfile = signature;
+  rulesHolder.rules = attachAppIdentities({ productive: profile.productive, unproductive: profile.unproductive });
+  ignoreHolder.ignore = profile.ignore;
+  rulesFilePath = ignoreFilePath = focusProfiles.filePath;
+  rulesIsCustom = ignoreIsCustom = true;
+  if (tracker) tracker.invalidateClassification();
+  if (sessionManager) sessionManager.resetClassification();
 }
 
 function ensureTrackerStarted() {
@@ -407,7 +430,7 @@ app.on('before-quit', () => {
 ipcMain.handle('state:get', async () => ({
   now: lastPayload.now || null,
   lastFocused: lastPayload.lastFocused || (tracker && tracker.getLastFocused && tracker.getLastFocused()) || null,
-  stats: store ? store.snapshot(ignoreHolder.ignore || [], { includeWeek: false }) : lastPayload.stats,
+  stats: store ? store.snapshot([], { includeWeek: false }) : lastPayload.stats,
   session: sessionManager ? sessionManager.getActiveSession() : lastPayload.session || null,
   platform: process.platform
 }));
@@ -417,52 +440,42 @@ ipcMain.handle('history:summary', async (_event, days) => store ? store.historyS
 ipcMain.handle('rules:get', async () => rulesPayload());
 
 ipcMain.handle('rules:set', async (_e, next) => {
+  assertActiveProfile(next && next.profileId);
   validateSiteTags(next);
-  const dest = userRulesPath();
-  rulesHolder.rules = attachAppIdentities(saveRules(dest, next || {}));
-  if (store && store.reclassifyStoredApps) store.reclassifyStoredApps(rulesHolder.rules);
-  rulesFilePath = dest;
-  rulesIsCustom = true;
+  focusProfiles.save(focusProfiles.snapshot().activeId, { productive: next.productive, unproductive: next.unproductive });
   return rulesPayload();
 });
 
-ipcMain.handle('rules:reset', async () => {
-  const dest = userRulesPath();
-  try {
-    if (fs.existsSync(dest)) fs.unlinkSync(dest);
-  } catch (err) {
-    console.warn('[main] could not remove custom rules', err.message);
-  }
-  rulesHolder.rules = attachAppIdentities(loadRulesFrom(DEFAULT_RULES_PATH));
-  if (store && store.reclassifyStoredApps) store.reclassifyStoredApps(rulesHolder.rules);
-  rulesFilePath = DEFAULT_RULES_PATH;
-  rulesIsCustom = false;
+ipcMain.handle('rules:reset', async (_event, profileId) => {
+  assertActiveProfile(profileId);
+  const defaults = loadRulesFrom(DEFAULT_RULES_PATH);
+  focusProfiles.save(focusProfiles.snapshot().activeId, { productive: defaults.productive, unproductive: defaults.unproductive });
   return rulesPayload();
 });
 
 ipcMain.handle('ignore:get', async () => ignorePayload());
 
 ipcMain.handle('ignore:set', async (_e, next) => {
-  const dest = userIgnorePath();
+  assertActiveProfile(next && next.profileId);
   const list = Array.isArray(next) ? next : (next && next.ignore) || [];
-  ignoreHolder.ignore = saveIgnore(dest, list);
-  ignoreFilePath = dest;
-  ignoreIsCustom = true;
+  focusProfiles.save(focusProfiles.snapshot().activeId, { ignore: list });
   return ignorePayload();
 });
 
-ipcMain.handle('ignore:reset', async () => {
-  const dest = userIgnorePath();
-  try {
-    if (fs.existsSync(dest)) fs.unlinkSync(dest);
-  } catch (err) {
-    console.warn('[main] could not remove custom ignore', err.message);
-  }
-  ignoreHolder.ignore = loadIgnoreFrom(DEFAULT_IGNORE_PATH);
-  ignoreFilePath = DEFAULT_IGNORE_PATH;
-  ignoreIsCustom = false;
+ipcMain.handle('ignore:reset', async (_event, profileId) => {
+  assertActiveProfile(profileId);
+  focusProfiles.save(focusProfiles.snapshot().activeId, { ignore: loadIgnoreFrom(DEFAULT_IGNORE_PATH) });
   return ignorePayload();
 });
+
+function assertActiveProfile(id) {
+  if (id != null && id !== focusProfiles.snapshot().activeId) throw new Error('Focus profile changed. Reload tags before saving.');
+}
+
+ipcMain.handle('profiles:get', async () => focusProfiles.snapshot());
+ipcMain.handle('profiles:save', async (_event, { id, fields }) => focusProfiles.save(id, fields));
+ipcMain.handle('profiles:activate', async (_event, id) => focusProfiles.activate(id));
+ipcMain.handle('profiles:delete', async (_event, id) => focusProfiles.remove(id));
 
 ipcMain.handle('settings:update', async (_e, partial) => {
   if (!store) return {};
@@ -495,7 +508,8 @@ ipcMain.handle('data:export', async (_e, opts) => {
     rules: rulesHolder.rules,
     ignore: ignoreHolder.ignore,
     sessionManager,
-    identities: identitiesHolder.identities
+    identities: identitiesHolder.identities,
+    focusProfiles
   });
   writeBackupFile(result.filePath, payload);
   return { ok: true, path: result.filePath };
@@ -523,8 +537,14 @@ ipcMain.handle('data:import', async (_e, opts) => {
     return { ok: false, error: err.message || 'Failed to read backup' };
   }
 
+  if (obj.profiles) {
+    const confirmation = await dialog.showMessageBox(mainWindow, { type: 'question', buttons: ['Cancel', 'Import backup'], defaultId: 0, cancelId: 0,
+      message: 'Replace your Focus profiles with this backup?', detail: 'This restores the saved profile collection and active selection. Activity totals will still be merged.' });
+    if (confirmation.response !== 1) return { ok: false, canceled: true };
+  }
   const imported = importBackup(store, obj, {
     sessionManager,
+    focusProfiles,
     onIdentities: (identities) => {
       identitiesHolder.identities = saveAppIdentities(userAppIdentitiesPath(), identities);
       attachAppIdentities(rulesHolder.rules);
@@ -532,16 +552,10 @@ ipcMain.handle('data:import', async (_e, opts) => {
     mode: options.mode === 'replace' ? 'replace' : 'merge',
     onSettings: applySettings,
     onRules: (rules) => {
-      const dest = userRulesPath();
-      rulesHolder.rules = attachAppIdentities(saveRules(dest, rules));
-      rulesFilePath = dest;
-      rulesIsCustom = true;
+      if (!obj.profiles) focusProfiles.save('default', { productive: rules.productive, unproductive: rules.unproductive });
     },
     onIgnore: (list) => {
-      const dest = userIgnorePath();
-      ignoreHolder.ignore = saveIgnore(dest, list);
-      ignoreFilePath = dest;
-      ignoreIsCustom = true;
+      if (!obj.profiles) focusProfiles.save('default', { ignore: list });
     }
   });
   return { ...imported, path: result.filePaths[0] };
@@ -551,6 +565,8 @@ ipcMain.handle('data:import', async (_e, opts) => {
 ipcMain.handle('profile:export', async (_e, opts) => {
   if (!mainWindow) return { ok: false, error: 'not ready' };
   const options = opts || {};
+  const selected = focusProfiles.snapshot().profiles.find(profile => profile.id === options.id) || focusProfiles.active();
+  options.name = selected.name;
   const baseName = (typeof options.name === 'string' && options.name.trim())
     ? options.name.trim().replace(/[^\w\-]+/g, '-').replace(/^-|-$/g, '') || 'focus'
     : 'focus';
@@ -566,9 +582,9 @@ ipcMain.handle('profile:export', async (_e, opts) => {
 
   const pack = buildProfilePack({
     name: typeof options.name === 'string' ? options.name : undefined,
-    productive: (rulesHolder.rules && rulesHolder.rules.productive) || [],
-    unproductive: (rulesHolder.rules && rulesHolder.rules.unproductive) || [],
-    ignore: ignoreHolder.ignore || []
+    productive: selected.productive,
+    unproductive: selected.unproductive,
+    ignore: selected.ignore
   });
   writeProfilePackFile(result.filePath, pack);
   return { ok: true, path: result.filePath, name: pack.name || null };
@@ -595,20 +611,10 @@ ipcMain.handle('profile:import', async () => {
     return { ok: false, error: err.message || 'Failed to read profile pack' };
   }
 
-  // Replace active productive / unproductive / ignore tags; tracker holds
-  // mutable refs so classification picks up the new lists immediately.
-  const rulesDest = userRulesPath();
-  rulesHolder.rules = attachAppIdentities(saveRules(rulesDest, {
-    productive: pack.productive,
-    unproductive: pack.unproductive
-  }));
-  rulesFilePath = rulesDest;
-  rulesIsCustom = true;
-
-  const ignoreDest = userIgnorePath();
-  ignoreHolder.ignore = saveIgnore(ignoreDest, pack.ignore);
-  ignoreFilePath = ignoreDest;
-  ignoreIsCustom = true;
+  const confirmation = await dialog.showMessageBox(mainWindow, { type: 'question', buttons: ['Cancel', 'Replace tags'], defaultId: 0, cancelId: 0,
+    message: `Replace tags in ${focusProfiles.active().name}?`, detail: 'Historical totals will not change.' });
+  if (confirmation.response !== 1) return { ok: false, canceled: true };
+  focusProfiles.save(focusProfiles.snapshot().activeId, { productive: pack.productive, unproductive: pack.unproductive, ignore: pack.ignore });
 
   return {
     ok: true,
@@ -622,16 +628,25 @@ ipcMain.handle('profile:import', async () => {
   };
 });
 
+ipcMain.handle('profiles:import', async () => {
+  if (focusProfiles.snapshot().profiles.length >= 5) throw new Error('All five slots are used. Delete a profile before importing another.');
+  const result = await dialog.showOpenDialog(mainWindow, { title: 'Add Focus profile', properties: ['openFile'], filters: [{ name: 'Focus profile', extensions: ['sydtrack-profile', 'json'] }] });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const pack = readProfilePackFile(result.filePaths[0]);
+  return focusProfiles.save(null, { name: pack.name || path.basename(result.filePaths[0], path.extname(result.filePaths[0])).slice(0, 40),
+    productive: pack.productive, unproductive: pack.unproductive, ignore: pack.ignore });
+});
+
 ipcMain.handle('data:clearToday', async () => {
   if (!store) return { ok: false };
   store.clearToday();
-  return { ok: true, stats: store.snapshot(ignoreHolder.ignore || []) };
+  return { ok: true, stats: store.snapshot() };
 });
 
 ipcMain.handle('data:clearAll', async () => {
   if (!store) return { ok: false };
   store.clearAllHistory();
-  return { ok: true, stats: store.snapshot(ignoreHolder.ignore || []) };
+  return { ok: true, stats: store.snapshot() };
 });
 
 ipcMain.handle('session:start', async (_e, opts) => {

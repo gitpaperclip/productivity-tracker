@@ -18,6 +18,7 @@ SydTrack is a local-first Windows productivity tracker that watches your active 
 - **Roundup:** daily goal progress, top focus, biggest distraction, peak hour, focus share, and a daily story.
 - **Focus sessions:** Pomodoro, deep work, or custom timers with session history and distraction counts.
 - **Focus Tags:** editable productive, unproductive, and ignore keywords.
+- **Focus profiles:** five slots, a Home chooser below FocusBoost, and a Settings editor. Your existing tags become Default; no additional presets are installed.
 - **Live tag search:** reflects current editor drafts immediately, including unsaved additions and removals; quick-add moves a tag between lists.
 - **FocusBoost:** shorter reminders for unproductive streaks, with optional schedules.
 - **Portable data:** local `.sydtrack` backups and `.sydtrack-profile` focus-tag packs.
@@ -94,6 +95,18 @@ System sleep and screen lock suspend capture independently of your idle timeout.
 Slow foreground probes retain elapsed time while regular timer callbacks continue. A gap in those callbacks (over five seconds at the default polling rate), a backward clock change, or a sleep/lock event invalidates uncertain time. Activity intervals split across local hour/day boundaries, including fractional seconds and samples arriving after the day was archived. A failed reminder-streak write is logged without escaping the sleep/lock handler; the in-memory streak still resets. Lifecycle behavior has automated simulation coverage; physical Windows sleep/lock acceptance testing remains outstanding. See the [manual validation guide](docs/manual-lifecycle-validation.md).
 
 Pause takes effect even while a foreground-window check is pending. Reading the session timer from the tray or UI does not consume its completion event, and tray settings changes do not replay completed events.
+
+## Focus profiles
+
+Use **Home → Profile** (under FocusBoost) to switch profiles. The chooser always shows five slots; empty slots open Settings. In **Settings → Focus profiles**, select a slot, name it, enter Productive/Unproductive/Ignore tags, and Save. Saving does not activate an inactive profile; choose **Use profile** or select it from Home. Default cannot be deleted. Deleting another active profile returns to Default.
+
+Each profile owns complete lists, with global process identities retained. Focus Tags and quick-tagging edit the active profile. All tag edits and profile switches now affect future tracking only: historical totals are neither reclassified nor hidden by new Ignore tags. Running focus sessions keep their deadlines and app totals; switching resets the reminder/classification boundary and discards pending capture. Unsaved editor changes require confirmation before switching; canceled or failed saves retain drafts.
+
+The first upgrade creates `focus-profiles.json` in your Data folder from existing rules/ignore lists. Legacy files stay untouched but are no longer the active source; edit profiles through the UI. Profile writes are atomic and the selection survives restart. A malformed profile collection is preserved with a recovery filename before falling back to Default from legacy tags; tracking pauses for review. Downgrading to an older version uses the preserved legacy tags and does not understand newer named profiles.
+
+**Add from file…** creates an inactive profile from a `.sydtrack-profile` file in an empty slot. **Export profile…** exports the selected saved profile. The older Data → Import profile pack action replaces the active profile's tags after confirmation. Full backups now include the profile collection and active selection; importing one asks before replacing your profiles. Older backups update Default's lists without replacing other named profiles. Backups remain schema 1; older apps ignore the added profile collection.
+
+Give another model the [profile generation guide](docs/focus-profile-generation-guide.md), then validate its files with `node scripts/validate-profile.js <file>`. Follow the [manual Focus profile checks](docs/manual-focus-profiles-validation.md) for local acceptance. No generated profile files are bundled. Coral, Midnight, Dusk, and Starlight themes are deferred until after this feature.
 
 ## Data
 

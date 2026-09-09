@@ -481,6 +481,7 @@ function createSessionManager({ dataDir, getSettings, onRecovery = () => {} }) {
       return imported;
     },
     startSession,
+    resetClassification: () => { if (active) { active.lastCategory = null; persistActive(); } },
     stopSession,
     onTrackerTick,
     getActiveSession,
