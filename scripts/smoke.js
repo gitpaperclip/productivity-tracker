@@ -1146,6 +1146,20 @@ async function appCorrectionChecks() {
 }
 
 async function activityReasonChecks() {
+  const { createFocusProfiles } = require('../src/focus-profiles');
+  const defaults = require('../src/default-focus-profiles.json');
+  const seedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-bundled-profiles-'));
+  const seedOptions = { dataDir: seedRoot, rules: { productive: ['custom'], unproductive: [] }, ignore: [] };
+  let seeded = createFocusProfiles(seedOptions);
+  seeded.save('default', { name: 'My rules' });
+  seeded = createFocusProfiles({ ...seedOptions, defaults });
+  assert(seeded.snapshot().profiles.length === 5 && seeded.active().name === 'My rules' && seeded.active().productive.includes('custom'), 'Bundled profiles fill empty slots while preserving existing default and selection');
+  seeded.remove('coding');
+  seeded = createFocusProfiles({ ...seedOptions, defaults });
+  assert(seeded.snapshot().profiles.length === 4, 'Deleted bundled profiles are not recreated on restart');
+  const freshRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-fresh-profiles-'));
+  const fresh = createFocusProfiles({ ...seedOptions, dataDir: freshRoot, defaults });
+  assert(fresh.snapshot().profiles.length === 5 && fresh.active().name === 'General', 'Fresh install gets all five bundled profiles with General active');
   const { classifyWithReason } = require('../src/classifier');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-reasons-'));
   const store = createStore(root);

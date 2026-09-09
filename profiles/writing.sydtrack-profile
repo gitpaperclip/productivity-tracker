@@ -1,0 +1,8 @@
+{
+  "format": "sydtrack-profile",
+  "schemaVersion": 1,
+  "name": "Writing",
+  "productive": ["notion", "obsidian", "word", "winword", "google docs", "docs.google", "overleaf", "zotero", "onenote", "chatgpt", "chat.openai", "claude.ai"],
+  "unproductive": ["vscode", "cursor", "visual studio", "terminal", "youtube", "reddit", "netflix", "twitch", "instagram", "tiktok", "facebook", "twitter", "x.com", "discord"],
+  "ignore": []
+}

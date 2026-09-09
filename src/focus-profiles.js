@@ -27,7 +27,7 @@ function validateProfiles(value) {
   return { schemaVersion: 1, activeId: value.activeId, profiles };
 }
 
-function createFocusProfiles({ dataDir, rules, ignore, onChange = () => {}, onRecovery }) {
+function createFocusProfiles({ dataDir, rules, ignore, onChange = () => {}, onRecovery, defaults }) {
   const filePath = path.join(dataDir, 'focus-profiles.json');
   const valid = value => { try { validateProfiles(value); return true; } catch (_) { return false; } };
   let state = readRecoverableJson(filePath, valid, onRecovery);
@@ -35,8 +35,28 @@ function createFocusProfiles({ dataDir, rules, ignore, onChange = () => {}, onRe
     state = validateProfiles({ schemaVersion: 1, activeId: 'default', profiles: [
       { id: 'default', name: 'Default', productive: rules.productive || [], unproductive: rules.unproductive || [], ignore: ignore || [] }
     ] });
+    const fs = require('fs');
+    if (defaults && !fs.existsSync(path.join(dataDir, 'rules.json')) && !fs.existsSync(path.join(dataDir, 'ignore.json'))) {
+      const bundled = validateProfiles(defaults);
+      state.profiles[0] = bundled.profiles.find(profile => profile.id === 'default');
+    }
     writeJson(filePath, state); // Leave the legacy files untouched for recovery/downgrades.
   } else state = validateProfiles(state);
+  // Install bundled profiles once. Deleted slots stay empty on later launches.
+  const fs = require('fs');
+  const seedMarker = path.join(dataDir, 'focus-profiles-seeded-v1.json');
+  if (defaults && !fs.existsSync(seedMarker)) {
+    const bundled = validateProfiles(defaults);
+    const next = structuredClone(state);
+    for (const profile of bundled.profiles) {
+      if (next.profiles.length >= 5) break;
+      if (next.profiles.some(existing => existing.id === profile.id || existing.name.toLowerCase() === profile.name.toLowerCase())) continue;
+      next.profiles.push(profile);
+    }
+    state = validateProfiles(next);
+    writeJson(filePath, state);
+    writeJson(seedMarker, { version: 1 });
+  }
   const snapshot = () => structuredClone(state);
   const active = () => structuredClone(state.profiles.find(profile => profile.id === state.activeId));
   function commit(next) {

@@ -308,6 +308,7 @@ function startServices() {
   });
 
   focusProfiles = createFocusProfiles({ dataDir: dataDir(), rules: rulesHolder.rules, ignore: ignoreHolder.ignore,
+    defaults: require('./default-focus-profiles.json'),
     onChange: applyFocusProfile, onRecovery: reportRecovery });
   applyFocusProfile(focusProfiles.active());
 

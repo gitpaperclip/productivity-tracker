@@ -1,0 +1,8 @@
+{
+  "format": "sydtrack-profile",
+  "schemaVersion": 1,
+  "name": "Coding",
+  "productive": ["vscode", "cursor", "visual studio", "jetbrains", "terminal", "windows terminal", "powershell", "github", "gitlab", "bitbucket", "stackoverflow", "stack overflow", "mdn", "docs.microsoft", "learn.microsoft", "chatgpt", "chat.openai", "claude.ai", "copilot"],
+  "unproductive": ["youtube", "reddit", "netflix", "twitch", "instagram", "tiktok", "facebook", "twitter", "x.com", "discord"],
+  "ignore": []
+}
