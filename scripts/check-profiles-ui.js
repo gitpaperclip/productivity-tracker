@@ -22,6 +22,8 @@ app.whenReady().then(async () => {
     'profiles:get': () => profiles.snapshot(),
     'profiles:save': (_e, { id, fields }) => profiles.save(id, fields),
     'profiles:activate': (_e, id) => profiles.activate(id),
+    'rules:set': (_e, fields) => { profiles.save(profiles.snapshot().activeId, { productive: fields.productive, unproductive: fields.unproductive }); return { ...profiles.active(), profileId: profiles.snapshot().activeId }; },
+    'ignore:set': (_e, fields) => { profiles.save(profiles.snapshot().activeId, { ignore: fields.ignore }); return { ignore: profiles.active().ignore, profileId: profiles.snapshot().activeId }; },
     'profiles:delete': (_e, id) => profiles.remove(id),
     'rules:get': () => ({ ...profiles.active(), profileId: profiles.snapshot().activeId }),
     'ignore:get': () => ({ ignore: profiles.active().ignore, profileId: profiles.snapshot().activeId }),
@@ -44,30 +46,33 @@ app.whenReady().then(async () => {
     await window.sydtrackProfilesUI.reload();
     check(document.getElementById('profile-name').value === '', 'Empty slot should not contain generated tags');
     document.getElementById('profile-name').value = 'Coding';
-    document.getElementById('profile-productive').value = 'code';
     document.getElementById('profile-save-named').click();
-    await wait(() => document.getElementById('profiles-status').textContent === 'Profile saved.' && !document.getElementById('profile-save-named').disabled);
-    document.querySelector('.nav-btn[data-tab="home"]').click();
-    document.getElementById('focus-profile-btn').click();
-    await wait(() => !document.getElementById('focus-profile-menu').classList.contains('hidden'));
-    document.querySelectorAll('.profile-choice')[1].click();
     await wait(() => document.getElementById('focus-profile-label').textContent === 'Coding');
-    check((await window.sydtrack.getProfiles()).profiles.length === 2, 'Save should create one profile');
-    document.querySelector('.nav-btn[data-tab="settings"]').click();
-    await window.sydtrackProfilesUI.reload();
+    check(!document.getElementById('view-tags').classList.contains('hidden'), 'New slot opens Focus Tags');
+    check(!document.querySelector('#view-settings #profile-settings'), 'No duplicate Settings editor');
+    document.getElementById('tags-quick-input').value = 'code';
+    await tagsQuickAdd('productive');
+    check((await window.sydtrack.getProfiles()).profiles.find(p => p.name === 'Coding').productive.includes('code'), 'Quick Add saves active profile');
+    document.getElementById('rules-prod-edit').value = 'unsaved';
+    window.confirm = () => false;
+    const selector = document.getElementById('profile-editor-select');
+    selector.value = 'default'; selector.dispatchEvent(new Event('change'));
+    check(document.getElementById('rules-prod-edit').value === 'unsaved' && selector.value !== 'default', 'Canceled switch preserves draft and selection');
+    document.getElementById('profile-rename-named').click();
     document.getElementById('profile-name').value = 'Default';
     document.getElementById('profile-save-named').click();
     await wait(() => document.getElementById('profiles-status').textContent.includes('already exists'));
-    check(document.getElementById('profile-name').value === 'Default', 'Failed save must preserve the draft');
-    window.confirm = () => false;
-    document.querySelector('.nav-btn[data-tab="home"]').click();
-    document.getElementById('focus-profile-btn').click();
-    await wait(() => !document.getElementById('focus-profile-menu').classList.contains('hidden'));
-    document.querySelectorAll('.profile-choice')[0].click();
-    check(document.getElementById('focus-profile-label').textContent === 'Coding', 'Canceling discard must preserve active profile');
+    check(document.getElementById('rules-prod-edit').value === 'unsaved', 'Failed rename preserves tags');
+    document.getElementById('profile-name').value = 'Development';
+    document.getElementById('profile-save-named').click();
+    await wait(() => document.getElementById('focus-profile-label').textContent === 'Development');
+    check(document.getElementById('rules-prod-edit').value === 'unsaved', 'Rename preserves unsaved tags');
+    check((await window.sydtrack.getProfiles()).profiles.find(p => p.name === 'Development').productive.includes('code'), 'Rename does not save tag draft');
     window.confirm = () => true;
-    document.querySelectorAll('.profile-choice')[0].click();
-    await wait(() => document.getElementById('focus-profile-label').textContent === 'Default');
+    selector.value = 'default'; selector.dispatchEvent(new Event('change'));
+    await wait(() => document.getElementById('focus-profile-label').textContent === 'default');
+    check(document.getElementById('rules-prod-edit').value === '', 'Switch loads selected profile tags');
+    document.querySelector('.nav-btn[data-tab="home"]').click();
     document.getElementById('focus-profile-btn').click();
     await wait(() => !document.getElementById('focus-profile-menu').classList.contains('hidden'));
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
@@ -92,7 +97,7 @@ app.whenReady().then(async () => {
     if (width === 1040) fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-profiles-home.png'), (await win.webContents.capturePage()).toPNG());
     await win.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
   }
-  await win.webContents.executeJavaScript(`(async () => { document.querySelector('.nav-btn[data-tab="settings"]').click(); await window.sydtrackProfilesUI.reload(); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); })()`);
+  await win.webContents.executeJavaScript(`(async () => { document.querySelector('.nav-btn[data-tab="tags"]').click(); await window.sydtrackProfilesUI.reload(); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); })()`);
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-profiles-settings.png'), (await win.webContents.capturePage()).toPNG());
   console.log('Profile UI checks passed: create, activate, failed save, draft cancellation, five slots, keyboard dismissal.');
   app.exit(0);

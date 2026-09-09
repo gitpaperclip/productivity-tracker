@@ -1,3 +1,5 @@
+Current UI: profile management is consolidated on Focus Tags; this supersedes earlier Settings placement below. See README.md for current behavior.
+
 # Focus profiles: implementation handoff
 
 Status: implemented locally. The user's revised UI request supersedes the original proposal below: five choices beneath FocusBoost, management in Settings, and empty new slots. Read README.md for current behavior, `docs/manual-focus-profiles-validation.md` for acceptance checks, and `docs/focus-profile-generation-guide.md` for the model handoff. No preset files or themes were added.

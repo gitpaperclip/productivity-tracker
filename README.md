@@ -18,7 +18,7 @@ SydTrack is a local-first Windows productivity tracker that watches your active 
 - **Roundup:** daily goal progress, top focus, biggest distraction, peak hour, focus share, and a daily story.
 - **Focus sessions:** Pomodoro, deep work, or custom timers with session history and distraction counts.
 - **Focus Tags:** editable productive, unproductive, and ignore keywords.
-- **Focus profiles:** five slots, a Home chooser below FocusBoost, and a Settings editor. Your existing tags become Default; no additional presets are installed.
+- **Focus profiles:** five slots, a Home chooser below FocusBoost, and management on Focus Tags. Your existing tags become Default; no additional presets are installed.
 - **Live tag search:** reflects current editor drafts immediately, including unsaved additions and removals; quick-add moves a tag between lists.
 - **FocusBoost:** shorter reminders for unproductive streaks, with optional schedules.
 - **Portable data:** local `.sydtrack` backups and `.sydtrack-profile` focus-tag packs.
@@ -98,13 +98,13 @@ Pause takes effect even while a foreground-window check is pending. Reading the 
 
 ## Focus profiles
 
-Use **Home → Profile** (under FocusBoost) to switch profiles. The chooser always shows five slots; empty slots open Settings. In **Settings → Focus profiles**, select a slot, name it, enter Productive/Unproductive/Ignore tags, and Save. Saving does not activate an inactive profile; choose **Use profile** or select it from Home. Default cannot be deleted. Deleting another active profile returns to Default.
+Use **Home → focusprofile** (under FocusBoost) or the **Active profile** selector at the top of **Focus Tags** to switch profiles. All profile controls live on Focus Tags: New profile, Rename, Delete, Import, and Export. New profiles start empty and become active immediately. The lists below and Quick Add edit that active profile; there is no duplicate Settings editor. Switching asks before discarding unsaved edits. Default cannot be deleted; deleting the active profile returns to Default.
 
 Each profile owns complete lists, with global process identities retained. Focus Tags and quick-tagging edit the active profile. All tag edits and profile switches now affect future tracking only: historical totals are neither reclassified nor hidden by new Ignore tags. Running focus sessions keep their deadlines and app totals; switching resets the reminder/classification boundary and discards pending capture. Unsaved editor changes require confirmation before switching; canceled or failed saves retain drafts.
 
 The first upgrade creates `focus-profiles.json` in your Data folder from existing rules/ignore lists. Legacy files stay untouched but are no longer the active source; edit profiles through the UI. Profile writes are atomic and the selection survives restart. A malformed profile collection is preserved with a recovery filename before falling back to Default from legacy tags; tracking pauses for review. Downgrading to an older version uses the preserved legacy tags and does not understand newer named profiles.
 
-**Add from file…** creates an inactive profile from a `.sydtrack-profile` file in an empty slot. **Export profile…** exports the selected saved profile. The older Data → Import profile pack action replaces the active profile's tags after confirmation. Full backups now include the profile collection and active selection; importing one asks before replacing your profiles. Older backups update Default's lists without replacing other named profiles. Backups remain schema 1; older apps ignore the added profile collection.
+**Import profile…** adds a `.sydtrack-profile` file to an empty slot and activates it. **Export profile…** exports the saved active profile; save tag drafts first. Full backups in Settings include the profile collection and active selection; importing one asks before replacing profiles. Older backups update Default’s lists without replacing other named profiles. The schema and existing files are unchanged.
 
 Give another model the [profile generation guide](docs/focus-profile-generation-guide.md), then validate its files with `node scripts/validate-profile.js <file>`. Follow the [manual Focus profile checks](docs/manual-focus-profiles-validation.md) for local acceptance. No generated profile files are bundled. Coral, Midnight, Dusk, and Starlight themes are deferred until after this feature.
 

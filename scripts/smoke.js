@@ -1055,6 +1055,10 @@ async function focusProfileChecks() {
     const firstTotal = store.snapshot().byCategory.productive;
     const saved = manager.save(null, { name: 'Writing', productive: ['word'], unproductive: ['code'], ignore: ['music'] });
     const writing = saved.profiles[1];
+    manager.save(writing.id, { name: 'Writing renamed' });
+    const renamed = manager.snapshot().profiles.find(p => p.id === writing.id);
+    assert(renamed.productive.includes('word') && renamed.unproductive.includes('code') && renamed.ignore.includes('music') && manager.snapshot().activeId === 'default', 'profile rename preserves saved lists and active selection');
+    manager.save(writing.id, { name: writing.name });
     pending = true; time += 1000; const inFlight = tracker.poll();
     manager.activate(writing.id); resolveProbe(sample); await inFlight;
     assert(store.snapshot().byCategory.productive === firstTotal && store.snapshot().byCategory.unproductive === 0, 'switch invalidates a pending probe without rewriting earned totals');

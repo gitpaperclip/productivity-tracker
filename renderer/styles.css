@@ -2795,7 +2795,7 @@ body[data-boost="on"]::after {
 .history-row span:not(:first-child) { text-align: right; overflow-wrap: anywhere; }
 .history-head { margin-top: 12px; font-weight: 600; }
 .home-focus-actions { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; max-width: 50%; }
-.profile-trigger { justify-content: center; gap: 10px; font-size: 13px; padding: 10px 16px; min-width: 210px; max-width: 100%; }
+.profile-trigger { justify-content: center; gap: 10px; font-size: 13px; padding: 10px 16px 10px 32px; min-width: 230px; max-width: 100%; }
 .profile-trigger .fb-wordmark { flex-shrink: 0; }
 #focus-profile-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
 .profile-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 50; width: 240px; max-width: 65vw; background: #171b25; border: 1px solid #424858; border-radius: 14px; padding: 6px; box-shadow: 0 12px 35px #0008; text-align: left; }
@@ -2813,3 +2813,8 @@ body[data-boost="on"]::after {
 .profile-settings .rules-textarea { min-height: 130px; }
 .home-focus-actions #home-profile-status:empty { display: none; }
 @media (max-width: 900px) { .profile-tag-fields { grid-template-columns: 1fr; } }
+
+.profile-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 13px; line-height: 1; }
+
+#profile-settings > .field { border-bottom: 0; }
+#view-tags .tags-textarea { font-family: inherit; }

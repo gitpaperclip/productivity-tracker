@@ -314,7 +314,7 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
     if (tab === 'analytics') setAnalyticsSegment(analyticsSegment);
     if (tab === 'sessions') refreshSessionLog();
-    if (tab === 'tags' || tab === 'focus-tags') loadRulesAndIgnore();
+    if ((tab === 'tags' || tab === 'focus-tags') && !window.sydtrackProfilesUI) loadRulesAndIgnore();
   });
 });
 
@@ -2068,7 +2068,8 @@ async function loadRulesAndIgnore() {
 }
 
 async function saveRulesFromEditors(statusId) {
-  if (!api || !api.setRules) return;
+  if (!api || !api.setRules || tagsQuickSaving) return;
+    tagsQuickSaving = true;
   const status = $(statusId);
   if (status) status.textContent = 'Saving…';
   try {
@@ -2082,11 +2083,12 @@ async function saveRulesFromEditors(statusId) {
     if (other) other.textContent = 'Saved — live now';
   } catch (err) {
     if (status) status.textContent = 'Save failed';
-  }
+  } finally { tagsQuickSaving = false; }
 }
 
 async function resetRulesFromEditors(statusId) {
-  if (!api || !api.resetRules) return;
+  if (!api || !api.resetRules || tagsQuickSaving) return;
+    tagsQuickSaving = true;
   const status = $(statusId);
   if (status) status.textContent = 'Resetting…';
   try {
@@ -2097,7 +2099,7 @@ async function resetRulesFromEditors(statusId) {
     if (other) other.textContent = 'Defaults restored';
   } catch (err) {
     if (status) status.textContent = 'Reset failed';
-  }
+  } finally { tagsQuickSaving = false; }
 }
 
 if ($('rules-save')) {
@@ -2118,7 +2120,8 @@ if ($('rules-unprod-reset')) {
 
 if ($('ignore-save')) {
   $('ignore-save').addEventListener('click', async () => {
-    if (!api || !api.setIgnore) return;
+    if (!api || !api.setIgnore || tagsQuickSaving) return;
+    tagsQuickSaving = true;
     $('ignore-status').textContent = 'Saving…';
     try {
       const next = await api.setIgnore(linesToList($('ignore-edit').value));
@@ -2126,13 +2129,14 @@ if ($('ignore-save')) {
       $('ignore-status').textContent = 'Saved — live now';
     } catch (err) {
       $('ignore-status').textContent = 'Save failed';
-    }
+    } finally { tagsQuickSaving = false; }
   });
 }
 
 if ($('ignore-reset')) {
   $('ignore-reset').addEventListener('click', async () => {
-    if (!api || !api.resetIgnore) return;
+    if (!api || !api.resetIgnore || tagsQuickSaving) return;
+    tagsQuickSaving = true;
     $('ignore-status').textContent = 'Resetting…';
     try {
       const next = await api.resetIgnore();
@@ -2140,7 +2144,7 @@ if ($('ignore-reset')) {
       $('ignore-status').textContent = 'Defaults restored';
     } catch (err) {
       $('ignore-status').textContent = 'Reset failed';
-    }
+    } finally { tagsQuickSaving = false; }
   });
 }
 
@@ -2359,45 +2363,6 @@ if ($('data-import')) {
   });
 }
 
-
-if ($('profile-export')) {
-  $('profile-export').addEventListener('click', async () => {
-    if (!api || !api.exportProfilePack) return;
-    $('profile-status').textContent = 'Exporting profile…';
-    try {
-      const res = await api.exportProfilePack({});
-      if (res && res.canceled) $('profile-status').textContent = 'Export canceled';
-      else if (res && res.ok) $('profile-status').textContent = 'Profile pack exported';
-      else $('profile-status').textContent = (res && res.error) || 'Export failed';
-    } catch (err) {
-      $('profile-status').textContent = 'Export failed';
-    }
-  });
-}
-
-if ($('profile-import')) {
-  $('profile-import').addEventListener('click', async () => {
-    if (window.sydtrackProfilesUI && !window.sydtrackProfilesUI.mayDiscard()) return;
-    if (!api || !api.importProfilePack) return;
-    $('profile-status').textContent = 'Importing profile…';
-    try {
-      const res = await api.importProfilePack();
-      if (res && res.canceled) $('profile-status').textContent = 'Import canceled';
-      else if (res && res.ok) {
-        const bits = [];
-        if (res.name) bits.push(res.name);
-        bits.push((res.productive || 0) + ' productive');
-        bits.push((res.unproductive || 0) + ' unproductive');
-        bits.push((res.ignore || 0) + ' ignore');
-        $('profile-status').textContent = 'Imported: ' + bits.join(', ');
-        await loadRulesAndIgnore();
-        if (window.sydtrackProfilesUI) await window.sydtrackProfilesUI.reload(true, true);
-      } else $('profile-status').textContent = (res && res.error) || 'Import failed';
-    } catch (err) {
-      $('profile-status').textContent = 'Import failed';
-    }
-  });
-}
 
 if ($('data-clear-today')) {
   $('data-clear-today').addEventListener('click', async () => {

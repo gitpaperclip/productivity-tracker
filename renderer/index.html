@@ -84,7 +84,7 @@
               <span id="focusboost-label" class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">boost</span></span>
             </button>
             <button type="button" id="focus-profile-btn" class="focusboost-btn profile-trigger" data-boost="off" aria-expanded="false" aria-controls="focus-profile-menu">
-              <span class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">profile</span></span><span id="focus-profile-label">Default</span><span aria-hidden="true">▾</span>
+              <span class="profile-icon" aria-hidden="true">🎯</span><span class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">profile</span></span><span id="focus-profile-label">default</span><span aria-hidden="true">▾</span>
             </button>
             <div id="focus-profile-menu" class="profile-menu hidden" role="group" aria-label="Choose Focus profile"></div>
             <span id="home-profile-status" class="muted tiny" role="status"></span>
@@ -373,6 +373,24 @@
           </div>
         </header>
 
+        <article class="card profile-settings" id="profile-settings">
+          <h3>Focus profiles</h3>
+          <label class="field"><span>Active profile</span><select id="profile-editor-select" aria-label="Active profile"></select></label>
+          <div class="profile-edit-actions">
+            <button id="profile-new-named" class="btn" type="button">New profile</button>
+            <button id="profile-rename-named" class="btn" type="button">Rename</button>
+            <button id="profile-delete-named" class="btn" type="button">Delete</button>
+            <button id="profile-import-named" class="btn" type="button">Import profile…</button>
+            <button id="profile-export-named" class="btn" type="button">Export profile…</button>
+          </div>
+          <div id="profile-name-form" class="hidden">
+            <label class="field"><span>Profile name</span><input id="profile-name" type="text" maxlength="40" /></label>
+            <button id="profile-save-named" class="btn primary" type="button">Save name</button>
+            <button id="profile-cancel-name" class="btn" type="button">Cancel</button>
+          </div>
+          <p id="profiles-status" class="muted tiny" role="status"></p>
+        </article>
+
         <article class="card tags-card tags-quick-card">
           <div class="lf-kicker tag-kicker">Quick add</div>
           <p class="hint tags-hint">Add a keyword like youtube or github from the page title. Browser tracking uses the foreground title, regardless of browser engine. Ignore is for whole apps. Existing site: rules apply only when a website address is available.</p>
@@ -427,7 +445,7 @@
       <!-- SETTINGS -->
       <section id="view-settings" class="view hidden">
         <header class="page-head">
-          <div><h1>Settings</h1><p class="muted">Tracking, profiles, reminders, and data</p></div>
+          <div><h1>Settings</h1><p class="muted">Tracking, reminders, and data</p></div>
         </header>
         <article class="card">
           <h3>Tracker</h3>
@@ -531,12 +549,6 @@
             <button type="button" id="data-import" class="btn">Import backup…</button>
             <span id="data-status" class="muted tiny"></span>
           </div>
-          <p class="hint" style="margin-top:0.75rem">Focus profile pack — productive / unproductive / ignore tags only (not history). Infra for future Focus profiles; export/import of current tags is available now.</p>
-          <div class="rules-actions data-actions">
-            <button type="button" id="profile-export" class="btn">Export profile pack…</button>
-            <button type="button" id="profile-import" class="btn">Import profile pack…</button>
-            <span id="profile-status" class="muted tiny"></span>
-          </div>
           <div class="danger-zone">
             <h4 class="danger-heading">Clear data</h4>
             <p class="hint">Permanent. Confirm before proceeding.</p>
@@ -547,25 +559,7 @@
           </div>
         </article>
 
-        <article class="card profile-settings" id="profile-settings">
-          <h2>Focus profiles</h2>
-          <p class="hint">Five slots. Each profile has its own Focus Tags. Switching or editing affects future tracking; recorded totals stay unchanged.</p>
-          <label class="field"><span>Profile to edit</span><select id="profile-editor-select" aria-label="Profile to edit"></select></label>
-          <label class="field"><span>Name</span><input id="profile-name" type="text" maxlength="40" placeholder="Name this profile" /></label>
-          <div class="profile-tag-fields">
-            <label class="field"><span>Productive</span><textarea id="profile-productive" class="rules-textarea" rows="5" placeholder="One keyword per line"></textarea></label>
-            <label class="field"><span>Unproductive</span><textarea id="profile-unproductive" class="rules-textarea" rows="5" placeholder="One keyword per line"></textarea></label>
-            <label class="field"><span>Ignore</span><textarea id="profile-ignore" class="rules-textarea" rows="5" placeholder="Whole apps only"></textarea></label>
-          </div>
-          <div class="profile-edit-actions">
-            <button id="profile-save-named" class="btn primary" type="button">Save profile</button>
-            <button id="profile-use-named" class="btn" type="button">Use profile</button>
-            <button id="profile-delete-named" class="btn" type="button">Delete</button>
-            <button id="profile-import-named" class="btn" type="button">Add from file…</button>
-            <button id="profile-export-named" class="btn" type="button">Export profile…</button>
-          </div>
-          <p id="profiles-status" class="muted tiny" role="status"></p>
-        </article>
+
       </section>
     </main>
   </div>

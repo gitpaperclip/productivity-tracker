@@ -278,3 +278,6 @@ Formerly "Focus modes" — named **Focus profiles** that swap what "productive" 
 ## License
 
 MIT
+
+### Focus Tags consolidation
+Profile management now lives at the top of Focus Tags, with one active-profile selector and one set of tag editors. Home retains five choices; empty choices open creation on Focus Tags. New/imported profiles activate immediately; rename changes only the name and preserves tag drafts. Settings retains full backups, not duplicate profile controls. No data migration.
