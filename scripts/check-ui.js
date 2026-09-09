@@ -54,11 +54,53 @@ app.whenReady().then(async () => {
     return { loaded, removed };
   })()`);
   console.log('Tag input checks:', JSON.stringify(tagChecks));
+  const segmentChecks = await win.webContents.executeJavaScript(`(() => {
+    document.querySelector('[data-segment="week"]').click();
+    document.querySelector('[data-session-mode="custom"]').click();
+    const analyticsPreserved = document.querySelector('[data-segment="week"]').classList.contains('active');
+    document.querySelector('[data-segment="apps"]').click();
+    const sessionPreserved = document.querySelector('[data-session-mode="custom"]').classList.contains('active');
+    return { analyticsPreserved, sessionPreserved };
+  })()`);
+  console.log('Independent segment checks:', JSON.stringify(segmentChecks));
+  const hoverChecks = await win.webContents.executeJavaScript(`(async () => {
+    const results = [];
+    document.querySelectorAll('.view').forEach(view => view.classList.toggle('hidden', view.id !== 'view-analytics'));
+    document.querySelector('.main').scrollTop = 0;
+    for (const mode of ['day', 'week']) {
+      setAnalyticsSegment(mode);
+      const stats = { date: '2026-09-09', byHour: Array.from({length: 24}, () => ({productive: 0, unproductive: 0, other: 0, byApp: {}})), week: [] };
+      const update = (i) => {
+        stats.byHour[12] = { productive: 60 + i, unproductive: 0, other: 0, byApp: { ['Refresh ' + i]: {seconds: 60 + i, category: 'productive'} } };
+        stats.week = [{date: '2026-09-09', byCategory: {productive: 60 + i}, topApps: [{name: 'Refresh ' + i, seconds: 60 + i, category: 'productive'}]}];
+        (mode === 'day' ? renderDay : renderWeek)(stats);
+      };
+      update(0);
+      const chart = document.getElementById(mode + '-chart');
+      chart.scrollIntoView({block: 'center'});
+      const col = chart.querySelector('.day-col:not(.empty)');
+      const rect = col.getBoundingClientRect();
+      col.dispatchEvent(new MouseEvent('mousemove', {bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2}));
+      const tip = document.getElementById(mode + '-tip');
+      let stayedVisible = !tip.classList.contains('hidden');
+      for (let i = 1; i <= 3; i++) {
+        await new Promise(resolve => setTimeout(resolve, 750));
+        update(i);
+        stayedVisible = stayedVisible && !tip.classList.contains('hidden') && tip.textContent.includes('Refresh ' + i);
+      }
+      chart.dispatchEvent(new MouseEvent('mouseleave'));
+      update(4);
+      const leftHidden = tip.classList.contains('hidden');
+      results.push({mode, stayedVisible, leftHidden});
+    }
+    return results;
+  })()`);
+  console.log('Stationary hover checks:', JSON.stringify(hoverChecks));
   await win.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   const screenshot = await win.webContents.capturePage();
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-home.png'), screenshot.toPNG());
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-results.json'), JSON.stringify(results.flat(), null, 2));
-  const failed = results.flat().some((r) => r.overflow || !r.timeInside) || !tagChecks.loaded || !tagChecks.removed;
+  const failed = results.flat().some((r) => r.overflow || !r.timeInside) || !tagChecks.loaded || !tagChecks.removed || hoverChecks.some(r => !r.stayedVisible || !r.leftHidden) || !segmentChecks.analyticsPreserved || !segmentChecks.sessionPreserved;
   app.exit(failed ? 1 : 0);
 }).catch((error) => { console.error(error); app.exit(1); });
 

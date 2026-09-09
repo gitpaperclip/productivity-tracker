@@ -78,6 +78,8 @@ Browser activity is stored by category, so switching from a productive GitHub ta
 
 Idle tracking pauses at the configured timeout and retains time earned before that timeout. Paused or idle ticks do not add session distractions. Sessions that expire while the app is closed finish at their original deadline.
 
+Pause takes effect even while a foreground-window check is pending. Reading the session timer from the tray or UI does not consume its completion event, and tray settings changes do not replay completed events.
+
 ## Data
 
 During development, SydTrack stores local data under `data/`. Packaged builds use Electron's user data directory. Data includes daily statistics, hourly buckets, history, settings, and focus sessions.
@@ -88,6 +90,8 @@ Settings can export:
 - `.sydtrack-profile` files containing portable focus tags only.
 
 Backup merge is additive: importing the same backup again adds its time again. Imports validate day data before replacing history and preserve hourly app/category breakdowns. Backups currently exclude sessions and custom app identities; copy those separately when moving all configuration. Daily statistics, settings, and session writes replace complete JSON files to reduce the risk of truncation. Malformed stored statistics are preserved and reported rather than silently reset.
+
+Imported settings apply the same behavior as Settings controls. In particular, importing **Keep session history: off** retains only the latest local session. That retained entry is saved successfully before older session files are removed.
 
 ## Project Status
 

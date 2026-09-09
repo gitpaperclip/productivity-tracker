@@ -256,11 +256,13 @@ const ANALYTICS_SUBTITLES = {
 };
 
 function setAnalyticsSegment(segment) {
+  hideChartTip('day-tip');
+  hideChartTip('week-tip');
   if (segment !== 'day' && segment !== 'week' && segment !== 'month' && segment !== 'apps') {
     segment = 'day';
   }
   analyticsSegment = segment;
-  document.querySelectorAll('.segment-btn').forEach((b) => {
+  document.querySelectorAll('.segment-btn[data-segment]').forEach((b) => {
     const on = b.getAttribute('data-segment') === segment;
     b.classList.toggle('active', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -275,6 +277,8 @@ function setAnalyticsSegment(segment) {
 
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
+    hideChartTip('day-tip');
+    hideChartTip('week-tip');
     document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     const tab = btn.getAttribute('data-tab');
@@ -294,7 +298,7 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
   });
 });
 
-document.querySelectorAll('.segment-btn').forEach((btn) => {
+document.querySelectorAll('.segment-btn[data-segment]').forEach((btn) => {
   btn.addEventListener('click', () => {
     setAnalyticsSegment(btn.getAttribute('data-segment') || 'day');
   });
@@ -810,6 +814,8 @@ function renderHomeWeekBars(stats) {
   if (!wrap) return;
   const week = (stats && stats.week) || [];
   if (!week.length) {
+    hideChartTip('week-tip');
+    weekHoverDays = [];
     wrap.hidden = true;
     return;
   }
@@ -1008,7 +1014,6 @@ function renderWeek(stats) {
     other: h.other,
     topApps: Array.isArray(h.topApps) ? h.topApps.slice(0, 3) : []
   }));
-  hideChartTip('week-tip');
   chart.innerHTML = days
     .map((h, i) => {
       const sum = h.productive + h.unproductive + h.other;
@@ -1047,6 +1052,7 @@ function renderWeek(stats) {
     })
     .join('');
 
+  refreshChartTip('week-tip', showWeekChartTip);
   if (total <= 0) {
     setMetrics('—', 'No productive time yet', '0 min', 'All categories · last 7 days', '—', 'Of productive + unproductive');
     return;
@@ -1277,10 +1283,21 @@ function normalizeByHour(raw) {
 
 let dayHoverHours = [];
 let weekHoverDays = [];
+const chartHoverPointers = Object.create(null);
 
 function hideChartTip(id) {
+  delete chartHoverPointers[id];
   const tip = $(id);
   if (tip) tip.classList.add('hidden');
+}
+
+function refreshChartTip(id, show) {
+  const pointer = chartHoverPointers[id];
+  if (!pointer) return;
+  // Bars are replaced on every tick; resolve the new element under the same pointer.
+  const target = document.elementFromPoint(pointer.clientX, pointer.clientY);
+  if (!target) { hideChartTip(id); return; }
+  show({ ...pointer, target });
 }
 
 function placeChartTip(tip, wrap, clientX, clientY) {
@@ -1326,10 +1343,11 @@ function showDayChartTip(ev) {
   const tip = $('day-tip');
   const wrap = chart && chart.closest('.chart-tip-wrap');
   const col = ev.target.closest && ev.target.closest('.day-col');
-  if (!chart || !tip || !wrap || !col || col.classList.contains('empty')) {
+  if (!chart || !tip || !wrap || !col || !chart.contains(col) || col.classList.contains('empty')) {
     hideChartTip('day-tip');
     return;
   }
+  chartHoverPointers['day-tip'] = { clientX: ev.clientX, clientY: ev.clientY };
   const idx = Number(col.getAttribute('data-hour'));
   const h = dayHoverHours[idx];
   if (!h) {
@@ -1360,10 +1378,11 @@ function showWeekChartTip(ev) {
   const tip = $('week-tip');
   const wrap = chart && chart.closest('.chart-tip-wrap');
   const col = ev.target.closest && ev.target.closest('.day-col');
-  if (!chart || !tip || !wrap || !col || col.classList.contains('empty')) {
+  if (!chart || !tip || !wrap || !col || !chart.contains(col) || col.classList.contains('empty')) {
     hideChartTip('week-tip');
     return;
   }
+  chartHoverPointers['week-tip'] = { clientX: ev.clientX, clientY: ev.clientY };
   const idx = Number(col.getAttribute('data-day'));
   const d = weekHoverDays[idx];
   if (!d) {
@@ -1420,7 +1439,6 @@ function renderDay(stats) {
   }
 
   dayHoverHours = hours;
-  hideChartTip('day-tip');
   chart.innerHTML = hours
     .map((h, i) => {
       const sum = h.productive + h.unproductive + h.other;
@@ -1459,6 +1477,7 @@ function renderDay(stats) {
     })
     .join('');
 
+  refreshChartTip('day-tip', showDayChartTip);
   const peakVal = $('day-peak-value');
   const peakSub = $('day-peak-sub');
   if (peakVal) {

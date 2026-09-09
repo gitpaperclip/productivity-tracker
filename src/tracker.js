@@ -93,6 +93,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   const demo = createDemoBackend();
   let timer = null;
   let pollInFlight = false;
+  let generation = 0;
   let lastTick = clock();
   let current = {
     window: null,
@@ -106,11 +107,14 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   let lastFocused = null;
 
   async function pollOnce() {
+    const pollGeneration = generation;
     const now = clock();
-    const elapsed = Math.min(5, Math.max(0, (now - lastTick) / 1000));
+    let elapsed = Math.min(5, Math.max(0, (now - lastTick) / 1000));
     lastTick = now;
 
-    const settings = store.getSettings();
+    let settings = store.getSettings();
+    const startedPaused = !!settings.trackingPaused;
+    const startedDemo = !!settings.demoMode;
     let win = null;
     let source = 'idle';
     let trackingError = null;
@@ -129,6 +133,10 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       source = win ? 'real' : 'idle';
     }
 
+    if (pollGeneration !== generation) return;
+    settings = store.getSettings();
+    if (!!settings.demoMode !== startedDemo) return;
+    if (startedPaused) elapsed = 0;
     const ignored = win ? isIgnored(win, iHolder.ignore || [], rHolder.rules && rHolder.rules.identities) : false;
     const idleTimeoutSec = Math.max(0, Number(settings.idleTimeoutSec) || 0);
     const idle = !settings.demoMode && idleTimeoutSec > 0 && idleSec >= idleTimeoutSec;
@@ -270,6 +278,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   }
 
   function stop() {
+    generation += 1;
     if (timer) {
       clearInterval(timer);
       timer = null;

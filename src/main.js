@@ -19,6 +19,7 @@ const {
 const { createStore } = require('./store');
 const { createTracker } = require('./tracker');
 const { createSessionManager } = require('./sessions');
+const { updateAppSettings } = require('./settings-service');
 const {
   buildExport,
   importBackup,
@@ -432,21 +433,14 @@ ipcMain.handle('ignore:reset', async () => {
 
 ipcMain.handle('settings:update', async (_e, partial) => {
   if (!store) return {};
-  const prev = store.getSettings();
-  const next = store.updateSettings(partial || {});
-  if (
-    sessionManager &&
-    partial &&
-    Object.prototype.hasOwnProperty.call(partial, 'sessionHistoryEnabled') &&
-    !!partial.sessionHistoryEnabled !== !!prev.sessionHistoryEnabled
-  ) {
-    sessionManager.applyHistorySetting(!!next.sessionHistoryEnabled);
-  }
-  if (appTray && typeof appTray.refresh === 'function') {
-    appTray.refresh();
-  }
-  return next;
+  return applySettings(partial);
 });
+
+function applySettings(partial) {
+  return updateAppSettings(store, sessionManager, partial, () => {
+    if (appTray && typeof appTray.refresh === 'function') appTray.refresh();
+  });
+}
 
 ipcMain.handle('data:export', async (_e, opts) => {
   if (!store || !mainWindow) return { ok: false, error: 'not ready' };
@@ -496,6 +490,7 @@ ipcMain.handle('data:import', async (_e, opts) => {
 
   const imported = importBackup(store, obj, {
     mode: options.mode === 'replace' ? 'replace' : 'merge',
+    onSettings: applySettings,
     onRules: (rules) => {
       const dest = userRulesPath();
       rulesHolder.rules = attachAppIdentities(saveRules(dest, rules));

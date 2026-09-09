@@ -402,6 +402,40 @@ async function regressionChecks() {
   // Exercise real renderer handlers without Electron or writes to user app-data.
   const vm = require('vm');
   const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'renderer.js'), 'utf8');
+  const modeButton = { active: true, getAttribute: () => null,
+    classList: { toggle(_name, value) { modeButton.active = value; } }, setAttribute() {}, addEventListener(_name, fn) { this.click = fn; } };
+  const weekButton = { active: false, getAttribute: () => 'week',
+    classList: { toggle(_name, value) { weekButton.active = value; } }, setAttribute() {}, addEventListener(_name, fn) { this.click = fn; } };
+  const segmentContext = vm.createContext({ $: () => null, hideChartTip() {}, analyticsSegment: 'day', ANALYTICS_SUBTITLES: {},
+    document: { querySelectorAll(selector) {
+      if (selector === '.segment-btn[data-segment]') return [weekButton];
+      if (selector === '.segment-btn') return [weekButton, modeButton];
+      return [];
+    } } });
+  vm.runInContext(rendererSource.slice(rendererSource.indexOf('function setAnalyticsSegment('), rendererSource.indexOf("document.querySelectorAll('.nav-btn').forEach")), segmentContext);
+  segmentContext.setAnalyticsSegment('week');
+  assert(weekButton.active && modeButton.active, '#3 changing Analytics preserves the selected Session mode');
+  const segmentBindings = rendererSource.indexOf("document.querySelectorAll('.segment-btn", rendererSource.indexOf("document.querySelectorAll('.nav-btn').forEach"));
+  vm.runInContext(rendererSource.slice(segmentBindings, rendererSource.indexOf('const navToggle =')), segmentContext);
+  assert(typeof weekButton.click === 'function' && !modeButton.click, '#3 Analytics handlers do not attach to Session controls');
+  const pointerState = { 'day-tip': { clientX: 20, clientY: 30 } };
+  let resolvedTarget = { id: 'replacement-bar' };
+  let tooltipHidden = false;
+  let refreshedTarget;
+  const hoverContext = vm.createContext({ chartHoverPointers: pointerState,
+    $: () => ({ classList: { add() { tooltipHidden = true; } } }),
+    document: { elementFromPoint: () => resolvedTarget } });
+  vm.runInContext(rendererSource.slice(rendererSource.indexOf('function hideChartTip('), rendererSource.indexOf('function placeChartTip(')), hoverContext);
+  hoverContext.refreshChartTip('day-tip', (event) => { refreshedTarget = event.target; });
+  assert(refreshedTarget === resolvedTarget && !tooltipHidden, 'chart refresh resolves the replacement bar without dismissing stationary hover');
+  hoverContext.hideChartTip('day-tip');
+  refreshedTarget = null;
+  hoverContext.refreshChartTip('day-tip', (event) => { refreshedTarget = event.target; });
+  assert(tooltipHidden && refreshedTarget === null, 'leaving a chart prevents tooltip resurrection on the next tick');
+  pointerState['day-tip'] = { clientX: 20, clientY: 30 };
+  resolvedTarget = null;
+  hoverContext.refreshChartTip('day-tip', () => {});
+  assert(!pointerState['day-tip'], 'hover is cleared when no element remains under the pointer');
   const elements = {};
   const ids = ['rules-prod-edit', 'rules-unprod-edit', 'ignore-edit', 'tags-quick-input', 'tags-quick-status', 'tags-quick-prod', 'tags-quick-unprod', 'tags-quick-ignore'];
   for (const id of ids) elements[id] = { value: '', textContent: '', disabled: false, listeners: {}, addEventListener(event, handler) { this.listeners[event] = handler; } };
@@ -486,6 +520,60 @@ async function regressionChecks() {
   assert(classify({ owner: { name: 'chrome', path: 'C:/youtube/chrome.exe' }, title: 'New Tab' }, identityRules) === 'productive', '#7 browser install directory does not classify content');
   assert(!isBrowserProcess({ owner: { name: 'knowledge-editor' } }), '#7 unrelated edge substring is not a browser');
   const { createSessionManager } = require('../src/sessions');
+  const completionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-completion-'));
+  const completionManager = createSessionManager({ dataDir: completionDir });
+  const realNow = Date.now;
+  let sessionNow = realNow();
+  try {
+    Date.now = () => sessionNow;
+    const first = completionManager.startSession({ mode: 'custom', customMin: 1 });
+    sessionNow += 60001;
+    assert(completionManager.getActiveSession() === null, 'reading an expired session finalizes it');
+    completionManager.getActiveSession(); // Mimic repeated tray and renderer reads.
+    const next = completionManager.startSession({ mode: 'custom', customMin: 1 });
+    const completionTick = completionManager.onTrackerTick({ app: 'Code', category: 'productive', elapsedSec: 0 });
+    assert(completionTick.completed.id === first.id && completionTick.active.id === next.id, 'completion survives timer reads and starting another session');
+    assert(completionManager.onTrackerTick({ elapsedSec: 0 }).completed === null, 'completion is delivered only once');
+    sessionNow += 60001;
+    assert(completionManager.onTrackerTick({ elapsedSec: 0 }).completed.id === next.id, 'tracker expiry also delivers completion');
+  } finally { Date.now = realNow; }
+  const settingsStore = createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-settings-import-')));
+  const settingsSessions = createSessionManager({ dataDir: settingsStore.dataDir, getSettings: () => settingsStore.getSettings() });
+  settingsSessions.startSession({}); settingsSessions.stopSession();
+  settingsSessions.startSession({}); settingsSessions.stopSession();
+  const sessionLogPath = path.join(settingsSessions.sessionsDir, todayKey() + '.json');
+  const sessionLogBefore = fs.readFileSync(sessionLogPath, 'utf8');
+  const previousRename = fs.renameSync;
+  const previousError = console.error;
+  let retentionFailed = false;
+  try {
+    console.error = () => {};
+    fs.renameSync = () => { throw new Error('simulated retention write failure'); };
+    settingsSessions.applyHistorySetting(false);
+  } catch (_) { retentionFailed = true; }
+  finally { fs.renameSync = previousRename; console.error = previousError; }
+  assert(retentionFailed && fs.readFileSync(sessionLogPath, 'utf8') === sessionLogBefore, 'failed session retention write preserves the original log');
+  const { updateAppSettings } = require('../src/settings-service');
+  const settingsBackup = { format: 'sydtrack-backup', schemaVersion: 1, days: {}, settings: { sessionHistoryEnabled: false } };
+  importBackup(settingsStore, settingsBackup, { applySettings: false, onSettings: () => { throw new Error('must not apply'); } });
+  assert(JSON.parse(fs.readFileSync(sessionLogPath, 'utf8')).length === 2, 'skipping imported settings preserves session history');
+  let refreshed = false;
+  importBackup(settingsStore, settingsBackup, { onSettings: (partial) => updateAppSettings(settingsStore, settingsSessions, partial, () => { refreshed = true; }) });
+  assert(refreshed && JSON.parse(fs.readFileSync(sessionLogPath, 'utf8')).length === 1, 'backup settings apply session retention and notify the UI');
+  let trayMenu;
+  let trayPayload;
+  const trayContext = vm.createContext({ module: { exports: {} }, __dirname: path.join(__dirname, '..', 'src'), console,
+    require: (name) => name === 'electron' ? {
+      Tray: class { setToolTip() {} setContextMenu(menu) { trayMenu = menu; } on() {} },
+      Menu: { buildFromTemplate: (menu) => menu },
+      nativeImage: { createFromPath: () => ({ isEmpty: () => true }), createEmpty: () => ({}) }
+    } : require(name), process: { platform: 'win32' } });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'tray.js'), 'utf8'), trayContext);
+  trayContext.module.exports.createAppTray({ getMainWindow: () => null, getStore: () => settingsStore,
+    getSessionManager: () => null, getLastPayload: () => ({ sessionCompleted: { id: 'already-delivered' } }),
+    sendTrackerUpdate: (payload) => { trayPayload = payload; } });
+  trayMenu.find(item => item.label === 'Pause tracking').click();
+  assert(trayPayload.sessionCompleted === null, 'tray settings refresh does not replay a session completion event');
   const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-session-regression-'));
   const manager = createSessionManager({ dataDir: sessionDir });
   manager.startSession({ mode: 'custom', customMin: 1 });
@@ -505,6 +593,36 @@ async function regressionChecks() {
   let clock = 10000;
   let idleSec = 6;
   const { createTracker } = require('../src/tracker');
+  const raceStore = createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-pause-race-')));
+  raceStore.updateSettings({ demoMode: false, thresholdSec: 1, idleTimeoutSec: 0 });
+  let resolveProbe;
+  let raceClock = 10000;
+  let reminders = 0;
+  let ticks = 0;
+  let sessionElapsed;
+  const raceTracker = createTracker({ store: raceStore, rules: identityRules, now: () => raceClock,
+    backend: { getActiveWindow: () => new Promise(resolve => { resolveProbe = resolve; }) },
+    sessionManager: { onTrackerTick(tick) { sessionElapsed = tick.elapsedSec; return {}; } },
+    onReminder: () => { reminders++; }, onTick: () => { ticks++; } });
+  raceClock += 2000;
+  const pausedPoll = raceTracker.poll();
+  raceStore.updateSettings({ trackingPaused: true });
+  resolveProbe({ window: { owner: { name: 'chrome' }, title: 'YouTube' } });
+  await pausedPoll;
+  assert(raceStore.snapshot().byCategory.unproductive === 0 && reminders === 0 && sessionElapsed === 0 && raceTracker.getLastFocused() === null, 'pausing during a probe suppresses time, reminders, session activity, and focus changes');
+  raceClock += 2000;
+  const resumedPoll = raceTracker.poll();
+  raceStore.updateSettings({ trackingPaused: false });
+  resolveProbe({ window: { owner: { name: 'Code' } } });
+  await resumedPoll;
+  assert(raceStore.snapshot().byCategory.productive === 0, 'resuming during a paused probe does not backfill paused time');
+  raceClock += 2000;
+  const stoppedPoll = raceTracker.poll();
+  raceTracker.stop();
+  const ticksBeforeStop = ticks;
+  resolveProbe({ window: { owner: { name: 'Code' } } });
+  await stoppedPoll;
+  assert(ticks === ticksBeforeStop && raceStore.snapshot().byCategory.productive === 0, 'stopping invalidates an in-flight probe');
   const idleTracker = createTracker({ store: idleStore, rules: identityRules, now: () => clock,
     backend: { getActiveWindow: async () => ({ window: { owner: { name: 'Code' } }, idleSec }) } });
   for (let i = 0; i < 20; i++) { clock += 1000; idleSec += 1; await idleTracker.poll(); }

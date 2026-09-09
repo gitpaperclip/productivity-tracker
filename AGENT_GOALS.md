@@ -10,6 +10,16 @@ Timers don't update second by second , impl needs to be optimized
 
 ## UI follow-up — 2026-09-09, gpt6-astra
 
+Core follow-up (supersedes the pending items in the earlier checkpoint):
+- Session completion is queued until the next tracker tick; timer/tray reads cannot consume it, and tray settings refreshes cannot replay an old completion. The event queue is in memory; completed history continues to use the existing disk format.
+- Tracking rechecks settings after foreground probes. Pause suppresses pending activity/reminders; resume does not backfill a probe that started paused; stop invalidates pending results.
+- `src/settings-service.js` provides a shared settings path for UI edits and backup imports, including session retention and tray refresh. Backup's optional `onSettings` hook preserves existing standalone callers.
+- Session retention writes the retained log before deleting other days and propagates failures. No new data schema or dependency is required.
+- **#3 interaction fix:** Session mode and Analytics segment buttons now have independent selectors/listeners. The separate sidebar/custom-timer layout work remains pending; do not close #3 solely for this patch.
+- Verified with smoke regressions (expiry reads, event delivery, tray replay, delayed probes, retention write failures, import behavior, independent controls) and isolated Electron UI checks. Existing tooltip and tag checks still pass. Demo launcher isolation, settings validation, malformed-session recovery, and broader #7/#9/#13/#14 infrastructure remain future work.
+
+- **Analytics hover follow-up:** Day/Week redraws no longer dismiss stationary tooltips. They resolve the replacement bar under the remembered pointer and refresh its current values. Leaving the chart, switching views, or losing the hovered bar clears hover state. Smoke regressions and isolated Electron checks (three redraws over 2.25 seconds for each chart, then mouse leave) pass. Packaged Windows validation is deferred at the user's request.
+
 - **#1 completed locally:** bounded grid columns keep long app names ellipsized and durations inside pie, hourly, and weekly chart tooltips. The isolated Electron test reproduced overflow before the fix and passed afterward at 800, 1040, and 1600 pixel window widths.
 - **#4 completed locally:** search reads current editor drafts (including removals), refreshes immediately on editor input and rule/ignore loads, and announces status accessibly. Quick-add prevents overlapping saves, resolves duplicate list membership, restores controls on failure, and preserves the latest query during slow saves.
 - Verification: `npm test` includes renderer regression cases; `npm run test:ui` loads the real renderer in a hidden Electron window with no preload or tracking service and temporary userData. It measures all three tooltip layouts and dispatches tag editor input events. A captured tooltip screenshot was inspected. No tracking data migration or real-data app launch is needed for these UI changes.

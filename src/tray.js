@@ -85,6 +85,8 @@ function createAppTray(deps) {
     const payload = Object.assign({}, last, {
       stats: snapshot.stats || last.stats,
       session: snapshot.session,
+      // Completion is a one-time event, not part of a settings refresh.
+      sessionCompleted: null,
       settings: snapshot.settings
     });
     // Ensure renderer sees updated settings via stats.settings when possible

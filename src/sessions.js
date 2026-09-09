@@ -101,6 +101,7 @@ function createSessionManager({ dataDir, getSettings }) {
   const activePath = path.join(dataDir, 'active-session.json');
 
   let active = null;
+  const pendingCompletions = [];
 
   function persistActive() {
     try {
@@ -176,17 +177,10 @@ function createSessionManager({ dataDir, getSettings }) {
 
   /** Keep only the single most recent completed session on disk. */
   function pruneToMostRecent(keepEntry) {
-    try {
-      for (const key of listSessionDates()) {
-        try {
-          fs.unlinkSync(dayPath(key));
-        } catch (_) {}
-      }
-      if (keepEntry && keepEntry.date) {
-        writeDay(keepEntry.date, [keepEntry]);
-      }
-    } catch (err) {
-      console.error('[sessions] pruneToMostRecent failed', err.message);
+    // Secure the retained entry before deleting anything. Failures remain visible.
+    if (keepEntry && keepEntry.date) writeDay(keepEntry.date, [keepEntry]);
+    for (const key of listSessionDates()) {
+      if (!keepEntry || key !== keepEntry.date) fs.unlinkSync(dayPath(key));
     }
   }
 
@@ -239,6 +233,7 @@ function createSessionManager({ dataDir, getSettings }) {
     const entry = toLogEntry(active, status, status === 'completed' ? active.endsAt : Date.now());
     // Save the completed record before removing its recoverable active copy.
     appendCompleted(entry);
+    if (status === 'completed') pendingCompletions.push(entry);
     active = null;
     persistActive();
     return entry;
@@ -331,9 +326,10 @@ function createSessionManager({ dataDir, getSettings }) {
    * @param {{ app: string, category: string, elapsedSec: number }} tick
    */
   function onTrackerTick(tick) {
-    const completed = checkExpiry();
+    checkExpiry();
+    const result = () => ({ completed: pendingCompletions.shift() || null, active: publicActive(active) });
     if (!active || active.status !== 'running') {
-      return { completed, active: publicActive(active) };
+      return result();
     }
     const category = tick && tick.category;
     const app = tick && tick.app;
@@ -342,7 +338,7 @@ function createSessionManager({ dataDir, getSettings }) {
     // Ignored / SydTrack self: do not count time or distractions; freeze lastCategory
     if (!category || category === 'ignored' || !app || elapsed <= 0) {
       persistActive();
-      return { completed, active: publicActive(active) };
+      return result();
     }
 
     // Edge-triggered distraction: other/productive → unproductive
@@ -366,11 +362,8 @@ function createSessionManager({ dataDir, getSettings }) {
     // Periodic persist (cheap overwrite)
     persistActive();
 
-    const maybeDone = checkExpiry();
-    return {
-      completed: completed || maybeDone,
-      active: publicActive(active)
-    };
+    checkExpiry();
+    return result();
   }
 
   function getActiveSession() {
