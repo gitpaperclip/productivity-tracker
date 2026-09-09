@@ -260,10 +260,40 @@ async function loadAnalyticsHistory(fetchHistory = api && api.getHistorySummary)
     const days = await fetchHistory(segment === 'week' ? 7 : 30);
     if (request !== historyRequest || analyticsSegment !== segment) return;
     if (segment === 'week') { historicalWeek = days; renderWeek({ week: days }); }
-    else if (target) target.innerHTML = days.map(day => '<div class="history-row"><span>' + esc(day.date) + '</span><span>' +
-      esc(fmtFriendly(day.byCategory.productive)) + '</span><span>' + esc(fmtFriendly(day.byCategory.unproductive)) +
-      '</span><span>' + esc(fmtFriendly(day.byCategory.other)) + '</span></div>').join('');
+    else if (target) target.innerHTML = monthMarkup(days);
   } catch (_) { if (request === historyRequest && target) target.textContent = 'Could not load history. Reopen this tab to retry.'; }
+}
+
+function monthMarkup(days) {
+  const totals = { productive: 0, unproductive: 0, other: 0 };
+  const apps = new Map();
+  let activeDays = 0;
+  for (const day of days) {
+    let daily = 0;
+    for (const category of Object.keys(totals)) { const value = Math.max(0, Number(day.byCategory[category]) || 0); totals[category] += value; daily += value; }
+    if (daily > 0) activeDays++;
+    for (const app of day.apps || []) {
+      if (app.category === 'ignored') continue;
+      const key = app.name.toLowerCase();
+      const previous = apps.get(key) || { name: app.name, seconds: 0 };
+      previous.seconds += Math.max(0, Number(app.seconds) || 0); apps.set(key, previous);
+    }
+  }
+  const total = totals.productive + totals.unproductive + totals.other;
+  const classified = totals.productive + totals.unproductive;
+  const share = classified ? Math.round(totals.productive / classified * 100) + '%' : '—';
+  const p = total ? totals.productive / total * 360 : 0;
+  const u = total ? (totals.productive + totals.unproductive) / total * 360 : 0;
+  const gradient = total ? 'conic-gradient(var(--prod) 0deg ' + p + 'deg,var(--unprod) ' + p + 'deg ' + u + 'deg,var(--other) ' + u + 'deg 360deg)' : 'var(--line-strong)';
+  const top = [...apps.values()].sort((a, b) => b.seconds - a.seconds).slice(0, 5);
+  return '<article class="card month-pie-card"><div class="month-pie-wrap"><div class="pie-chart" role="img" aria-label="Last 30 days: ' + share + ' focus share" style="background:' + gradient + '"></div>' +
+    '<div class="pie-center"><div id="month-focus-share" class="pie-total">' + share + '</div><div class="muted tiny">focus share</div></div></div>' +
+    '<p class="muted tiny">Of productive + unproductive time</p><div class="month-legend">' +
+    [['productive', 'Productive'], ['unproductive', 'Unproductive'], ['other', 'Other']].map(([key, label]) => '<span><i class="month-dot ' + key + '"></i>' + label + ' <strong>' + esc(fmtFriendly(totals[key])) + '</strong></span>').join('') +
+    '</div></article><div class="month-summary"><article class="card"><h3>Last 30 days</h3><div class="month-stat"><span class="muted">Total tracked</span><strong>' + esc(fmtFriendly(total)) + '</strong></div>' +
+    '<div class="month-stat"><span class="muted">Days with activity</span><strong>' + activeDays + '</strong></div>' +
+    '<div class="month-stat"><span class="muted">Average per active day</span><strong>' + esc(fmtFriendly(activeDays ? total / activeDays : 0)) + '</strong></div></article>' +
+    '<article class="card"><h3>Top apps</h3>' + (top.length ? top.map(app => '<div class="month-stat"><span class="month-app" title="' + esc(app.name) + '">' + esc(app.name) + '</span><strong>' + esc(fmtFriendly(app.seconds)) + '</strong></div>').join('') : '<p class="muted">No activity recorded yet</p>') + '</article></div>';
 }
 
 const ANALYTICS_SUBTITLES = {
@@ -1279,6 +1309,7 @@ function topAppsFromByApp(byApp, limit) {
 }
 
 function appEntryNameFromKey(key) {
+  try { if (String(key).startsWith('@activity:')) return JSON.parse(key.slice(10))[0]; } catch (_) {}
   const text = String(key);
   const marker = text.lastIndexOf('::');
   if (marker < 0) return text;
@@ -1739,33 +1770,30 @@ function renderStats(stats) {
 function renderAppList(stats) {
   const list = $('app-list');
   if (!list) return;
-  const apps = ((stats && (stats.analyticsApps || stats.topApps)) || []).slice(0, 10);
-  const corrections = (stats && stats.appCorrections) || {};
+  const apps = (stats && (stats.activityRows || stats.topApps)) || [];
   if (!apps.length) { list.innerHTML = '<li class="empty">No time logged yet</li>'; return; }
   list.innerHTML = apps.map(a => {
-    const key = a.name.toLowerCase();
-    const ignored = cachedIgnore.some(tag => key.includes(String(tag).toLowerCase()));
-    const category = corrections[key] || (ignored ? 'ignored' : a.category);
+    const category = a.category;
     const chip = category === 'mixed' ? { className: 'chip other', label: 'mixed' } : chipDisplay(category, a.name);
-    return '<li class="app-row"><span class="app-name app-trunc" title="' + esc(a.name) + '">' + esc(a.name) + '</span>' +
+    return '<li class="app-row"><span class="app-name app-trunc" title="' + esc(a.name) + '">' + esc(a.name) + '<small class="app-match-reason">' + esc(a.reason || 'Keyword not recorded') + '</small></span>' +
       '<span class="' + chip.className + '">' + chip.label + '</span><span class="secs">' + fmt(a.seconds) + '</span>' +
-      '<span class="reclass" data-app="' + encodeURIComponent(a.name) + '">' +
+      '<span class="reclass" data-app="' + encodeURIComponent(a.id || '') + '">' +
       [['productive', 'prod', 'P'], ['unproductive', 'unprod', 'U'], ['ignored', 'ignore', 'ign']].map(([value, cls, label]) =>
         '<button type="button" class="btn-mini ' + cls + (category === value ? ' selected' : '') + '" aria-pressed="' + (category === value) +
-        '" data-action="' + value + '" title="' + (value === 'ignored' && category === 'ignored' ? 'Unignore for today' : 'Mark ' + value + ' for today') + '">' + label + '</button>').join('') + '</span></li>';
+        '" data-action="' + value + '" title="' + (value === 'ignored' && category === 'ignored' ? 'Unignore for today' : 'Mark this activity ' + value + ' for today') + '">' + label + '</button>').join('') + '</span></li>';
   }).join('');
 }
 
 $('app-list').addEventListener('click', async ev => {
   const btn = ev.target.closest('button[data-action]');
-  if (!btn || !api || !api.correctAppToday) return;
+  if (!btn || !api || !api.correctActivityToday) return;
   const wrap = btn.closest('.reclass');
   const name = decodeURIComponent(wrap.getAttribute('data-app'));
   let category = btn.dataset.action;
   if (category === 'ignored' && btn.getAttribute('aria-pressed') === 'true') category = 'other';
   btn.disabled = true;
   try {
-    const stats = await api.correctAppToday(name, category);
+    const stats = await api.correctActivityToday(name, category);
     historicalWeek = null;
     historyRequest++;
     renderStats(stats);

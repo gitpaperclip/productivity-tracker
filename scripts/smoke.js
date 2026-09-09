@@ -1019,7 +1019,12 @@ async function historyLoadingChecks() {
   requests[0].resolve([]); await first;
   assert(rendered === 0, '#9 late week responses cannot overwrite a newer segment');
   requests[1].resolve([{ date: '<test>', byCategory: { productive: 1, unproductive: 2, other: 3 } }]); await second;
-  assert(requests[1].days === 30 && targets['month-history'].innerHTML.includes('&lt;test>'), '#9 month requests 30 days and escapes history text');
+  assert(requests[1].days === 30 && targets['month-history'].innerHTML.includes('33%'), '#9 month requests 30 days and calculates focus share excluding Other');
+  const markup = context.monthMarkup([{ byCategory: { productive: 10, unproductive: 10, other: 80 }, apps: [
+    { name: '<editor>', seconds: 10, category: 'productive' }, { name: '<editor>', seconds: 5, category: 'unproductive' },
+    { name: 'ignored-app', seconds: 999, category: 'ignored' }] }]);
+  assert(markup.includes('50%') && markup.includes('&lt;editor>') && markup.includes('15') && !markup.includes('ignored-app'), 'Month merges app categories, escapes labels, and excludes ignored apps');
+  assert(context.monthMarkup([]).includes('—'), 'Empty month shows no fabricated focus percentage');
   const error = context.loadAnalyticsHistory(); requests[2].reject(new Error('test')); await error;
   assert(targets['month-history'].textContent.includes('retry'), '#9 history failures show a retry instruction');
 }
@@ -1140,7 +1145,44 @@ async function appCorrectionChecks() {
   assert(!restarted.getAppCorrection('Chrome'), 'Corrections expire on the next local day');
 }
 
-regressionChecks().then(lifecycleChecks).then(infrastructureChecks).then(historyLoadingChecks).then(focusProfileChecks).then(appCorrectionChecks).then(browserProbeChecks).then(() => {
+async function activityReasonChecks() {
+  const { classifyWithReason } = require('../src/classifier');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-reasons-'));
+  const store = createStore(root);
+  const rules = { productive: ['github'], unproductive: ['youtube', 'reddit'], identities: { productiveApps: ['code'] } };
+  const match = title => classifyWithReason({ owner: { name: 'Chrome' }, title }, rules);
+  assert(match('YouTube').reason === 'youtube' && match('Reddit').reason === 'reddit', 'Browser matching records distinct actual keywords');
+  assert(classifyWithReason({ owner: { name: 'Code' }, title: 'youtube project' }, rules).reason === 'App identity', 'Process precedence has an honest reason');
+  assert(classifyWithReason({ owner: { name: 'Chrome' }, url: 'https://docs.example.com', title: 'youtube' }, { productive: ['site:docs.example.com'], unproductive: ['youtube'] }).reason === 'site:docs.example.com', 'Domain precedence records the winning domain rule');
+  store.addSeconds('Chrome', 'productive', 5);
+  store.addSeconds('Chrome', 'unproductive', 20, match('YouTube'));
+  store.addSeconds('Chrome', 'unproductive', 10, match('Reddit'));
+  store.addSeconds('Chrome', 'productive', 30, match('GitHub'));
+  let rows = store.snapshot().activityRows;
+  assert(rows.length === 4 && rows.some(row => row.reason === 'Keyword not recorded'), 'Legacy and attributed activity remain separate without invented keywords');
+  const youtube = rows.find(row => row.reason === 'youtube');
+  store.correctActivityToday(youtube.id, 'productive');
+  rows = store.snapshot().activityRows;
+  assert(rows.find(row => row.reason === 'reddit').category === 'unproductive' && rows.find(row => row.reason === 'youtube').category === 'productive' && store.snapshot().byCategory.productive === 55, 'Correcting YouTube leaves Reddit and other browser usage unchanged');
+  store.correctActivityToday(youtube.id, 'ignored');
+  assert(store.snapshot().byCategory.productive === 35 && store.snapshot().activityRows.find(row => row.id === youtube.id).seconds === 20, 'Row Ignore retains recoverable time and updates only that row');
+  const restarted = createStore(root);
+  assert(restarted.getActivityCorrection('Chrome', match('YouTube')) === 'ignored' && !restarted.getActivityCorrection('Chrome', match('Reddit')), 'Row corrections and attribution survive restart without broadening to the process');
+  restarted.correctActivityToday(youtube.id, 'productive');
+  const { mergeDays } = require('../src/backup');
+  const merged = mergeDays(restarted.getState(), restarted.getState());
+  assert(Object.values(merged.byApp).reduce((n, app) => n + app.seconds, 0) === 130 && Object.keys(merged.byApp).some(key => key.includes('youtube')), 'Backup merge preserves attributed activity and exact seconds');
+  const { createTracker } = require('../src/tracker');
+  restarted.updateSettings({ idleTimeoutSec: 0 });
+  let time = Date.now(), title = 'YouTube';
+  const tracker = createTracker({ store: restarted, rules, ignore: [], now: () => time,
+    backend: { getActiveWindow: async () => ({ window: { owner: { name: 'Chrome' }, title } }) } });
+  time += 1000; await tracker.poll(); title = 'Reddit'; time += 1000; await tracker.poll();
+  rows = restarted.snapshot().activityRows;
+  assert(rows.find(row => row.reason === 'youtube').seconds > 20 && rows.find(row => row.reason === 'reddit').category === 'unproductive', 'Live row override does not make all browser tabs productive');
+}
+
+regressionChecks().then(lifecycleChecks).then(infrastructureChecks).then(historyLoadingChecks).then(focusProfileChecks).then(appCorrectionChecks).then(activityReasonChecks).then(browserProbeChecks).then(() => {
   console.log(failed ? `\n${failed} failed` : '\nall smoke checks passed');
   process.exitCode = failed ? 1 : 0;
 }).catch((err) => { console.error(err); process.exitCode = 1; });

@@ -210,6 +210,16 @@ function classify(win, rules) {
   return 'other';
 }
 
+function classifyWithReason(win, rules = {}) {
+  if (isBrowserProcess(win, rules.identities)) return require('./browser-rules').browserMatch(win, rules);
+  const category = classify(win, rules);
+  const processTag = normalizeKeywords(rules.unproductive).find(tag => matchesProcess(win, [tag]));
+  if (processTag) return { category, reason: processTag };
+  if (appMatchesIdentity(win, rules.identities) === 'productive') return { category, reason: 'App identity' };
+  const reason = normalizeKeywords(rules[category]).find(tag => !tag.startsWith('site:') && haystack(win).includes(tag));
+  return { category, reason: reason || 'No matching keyword' };
+}
+
 function appLabel(win) {
   if (!win) return 'Unknown';
   return (win.owner && win.owner.name) || win.title || 'Unknown';
@@ -241,6 +251,7 @@ module.exports = {
   normalizeIgnore,
   normalizeAppIdentities,
   classify,
+  classifyWithReason,
   isIgnored,
   appLabel,
   haystack,

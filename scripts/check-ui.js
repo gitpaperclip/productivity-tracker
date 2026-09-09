@@ -137,6 +137,15 @@ app.whenReady().then(async () => {
     return results;
   })()`);
   console.log('Stationary hover checks:', JSON.stringify(hoverChecks));
+  await win.webContents.executeJavaScript(`(() => {
+    renderAppList({ activityRows: [
+      { id: 'a', name: 'Chrome', reason: 'youtube', category: 'unproductive', seconds: 20 },
+      { id: 'b', name: 'Chrome', reason: 'github', category: 'productive', seconds: 10 },
+      { id: 'c', name: 'Chrome', reason: '<legacy>', category: 'ignored', seconds: 5 }
+    ] });
+    const list = document.getElementById('app-list');
+    if (list.children.length !== 3 || list.querySelectorAll('button.selected').length !== 3 || !list.textContent.includes('youtube') || list.querySelector('legacy')) throw new Error('Activity rows/reasons/highlights failed');
+  })()`);
   const historyChecks = await win.webContents.executeJavaScript(`(async () => {
     document.querySelector('[data-tab="analytics"]').click();
     setAnalyticsSegment('month');
@@ -145,7 +154,7 @@ app.whenReady().then(async () => {
       byCategory: {productive: 3600, unproductive: 1200, other: 600}
     })));
     const panel = document.getElementById('month-history');
-    return { rows: panel.children.length, visible: !document.getElementById('panel-month').classList.contains('hidden'),
+    return { share: document.getElementById('month-focus-share').textContent, visible: !document.getElementById('panel-month').classList.contains('hidden'),
       overflow: panel.scrollWidth > panel.clientWidth + 1 };
   })()`);
   console.log('History checks:', JSON.stringify(historyChecks));
@@ -156,7 +165,7 @@ app.whenReady().then(async () => {
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-home.png'), screenshot.toPNG());
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-results.json'), JSON.stringify(results.flat(), null, 2));
   const failed = results.flat().some((r) => r.overflow || !r.timeInside) || !tagChecks.loaded || !tagChecks.removed || hoverChecks.some(r => !r.stayedVisible || !r.leftHidden) || !segmentChecks.analyticsPreserved || !segmentChecks.sessionPreserved;
-  app.exit(failed || historyChecks.rows !== 30 || !historyChecks.visible || historyChecks.overflow || layoutChecks.some(r => !r.sidebarAligned || !r.mobileRail || !r.customAligned || !r.controlsInside) ? 1 : 0);
+  app.exit(failed || historyChecks.share !== '75%' || !historyChecks.visible || historyChecks.overflow || layoutChecks.some(r => !r.sidebarAligned || !r.mobileRail || !r.customAligned || !r.controlsInside) ? 1 : 0);
 }).catch((error) => { console.error(error); app.exit(1); });
 
 setTimeout(() => { console.error('UI checks timed out'); app.exit(1); }, 20000).unref();

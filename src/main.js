@@ -158,7 +158,7 @@ function createWindow() {
     height: 760,
     minWidth: 800,
     minHeight: 600,
-    title: 'SydTrack',
+    title: 'sydtrack',
     backgroundColor: '#0b0d12',
     autoHideMenuBar: true,
     show: false,
@@ -434,6 +434,13 @@ ipcMain.handle('state:get', async () => ({
   session: sessionManager ? sessionManager.getActiveSession() : lastPayload.session || null,
   platform: process.platform
 }));
+
+ipcMain.handle('apps:correctActivityToday', async (_event, { id, category }) => {
+  const stats = store.correctActivityToday(id, category);
+  if (tracker) tracker.invalidateClassification();
+  if (sessionManager) sessionManager.resetClassification();
+  return stats;
+});
 
 ipcMain.handle('apps:correctToday', async (_event, { name, category }) => {
   const stats = store.correctAppToday(name, category);

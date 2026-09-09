@@ -36,7 +36,7 @@
     return host && host.split('.').every((part) => part && !part.startsWith('-') && !part.endsWith('-')) ? host : '';
   }
 
-  function classifySite(url, rules) {
+  function siteMatch(url, rules) {
     const host = hostname(url);
     if (!host) return null;
     let best = '', category = null;
@@ -50,21 +50,24 @@
         }
       }
     }
-    return category;
+    return category ? { category, reason: 'site:' + best } : null;
   }
 
-  function classifyBrowser(entry, rules) {
-    const site = classifySite(entry.url, rules);
+  function classifySite(url, rules) { return siteMatch(url, rules)?.category || null; }
+  function browserMatch(entry, rules) {
+    const site = siteMatch(entry.url, rules);
     if (site) return site;
     const text = `${entry.title || ''} ${entry.url || ''}`.toLowerCase();
     for (const type of ['unproductive', 'productive']) {
-      if (((rules && rules[type]) || []).some((tag) => {
+      const match = ((rules && rules[type]) || []).find((tag) => {
         const key = String(tag || '').trim().toLowerCase();
         return key && !key.startsWith('site:') && text.includes(key);
-      })) return type;
+      });
+      if (match) return { category: type, reason: String(match).trim().toLowerCase() };
     }
-    return 'productive';
+    return { category: 'productive', reason: 'Browser default' };
   }
+  function classifyBrowser(entry, rules) { return browserMatch(entry, rules).category; }
 
   function validateSiteTags(rules) {
     for (const type of ['productive', 'unproductive']) {
@@ -76,7 +79,7 @@
     }
   }
 
-  const api = { hostname, siteDomain, classifySite, classifyBrowser, validateSiteTags, browserNames, isBrowserName };
+  const api = { browserMatch, hostname, siteDomain, classifySite, classifyBrowser, validateSiteTags, browserNames, isBrowserName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.sydtrackBrowserRules = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

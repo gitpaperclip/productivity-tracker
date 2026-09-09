@@ -143,7 +143,7 @@ body {
   line-height: 1.1;
 }
 .logo-syd { font-weight: 700; }
-.logo-track { font-weight: 400; font-style: italic; }
+.logo-track { font-weight: 700; font-style: normal; }
 .logo-sub { color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0.02em; }
 .nav-label {
   display: inline-block;
@@ -2875,3 +2875,22 @@ body[data-boost="on"]::after {
 .profile-add:disabled { color: var(--muted); cursor: not-allowed; }
 @media (hover: none) { .profile-trash, .profile-add { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .profile-trash, .profile-add { transition: none; } }
+
+.month-pie-card { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 34px 22px; }
+.month-pie-wrap { width: min(280px, 65vw); aspect-ratio: 1; position: relative; }
+.month-pie-card > p { margin: 0; }
+.month-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; font-size: 13px; color: var(--muted); }
+.month-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.month-legend strong { color: var(--text); }
+.month-dot { width: 10px; height: 10px; border-radius: 3px; }
+.month-dot.productive { background: var(--prod); }
+.month-dot.unproductive { background: var(--unprod); }
+.month-dot.other { background: var(--other); }
+.month-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.month-summary > .card { min-width: 0; }
+.month-stat { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 9px 0; font-size: 13px; }
+.month-stat strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.month-app { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+@media (max-width: 900px) { .month-summary { grid-template-columns: 1fr; } }
+
+.app-match-reason { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; }

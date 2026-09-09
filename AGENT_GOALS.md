@@ -283,3 +283,7 @@ MIT
 Profile management now lives at the top of Focus Tags, with one active-profile selector and one set of tag editors. Home retains five choices; empty choices open creation on Focus Tags. New/imported profiles activate immediately; rename changes only the name and preserves tag drafts. Settings retains full backups, not duplicate profile controls. No data migration.
 
 - Analytics Apps now supports explicit today-only corrections, separate from future-only Focus Tags. Top ten distinct apps; retained ignored seconds remain recoverable; daily/hourly totals recalculate. Previous days and session logs stay unchanged. Overrides expire at midnight.
+
+- Month analytics redesigned as a 30-day pie and summary tiles. Monthly top apps aggregate complete per-day app summaries, not truncated daily rankings.
+
+- Apps detail now separates the top ten apps by original category and matched keyword. New capture records attribution; legacy rows say Keyword not recorded. Today-only corrections target the individual activity row, not the entire browser. Regression coverage includes precedence, cross-keyword isolation, ignore restoration, restart, and backup merging.

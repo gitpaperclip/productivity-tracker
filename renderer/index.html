@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'" />
-  <title>SydTrack</title>
+  <title>sydtrack</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -292,19 +292,13 @@
         </div>
 
         <div id="panel-month" class="analytics-panel hidden" data-panel="month">
-          <article class="card month-empty-card">
-            <div class="history-summary">
-              <div class="month-empty-title">Last 30 days</div>
-              <div class="history-row history-head"><span>Date</span><span>Productive</span><span>Unproductive</span><span>Other</span></div>
-              <div id="month-history" class="muted" aria-live="polite"></div>
-            </div>
-          </article>
+          <div id="month-history" aria-live="polite"></div>
         </div>
 
         <div id="panel-apps" class="analytics-panel hidden" data-panel="apps">
           <article class="card">
             <h3>Top apps today</h3>
-            <p class="hint">P/U/ign corrects this app’s recorded time and classification for today only. Ignored time already recorded stays recoverable; time skipped during Ignore cannot be recovered. Mixed means both productive and unproductive usage.</p>
+            <p class="hint">Top 10 apps, split by activity and matched keyword. P/U/ign corrects only that row for today. Older activity may have no recorded keyword.</p>
                         <ul id="app-list" class="app-list">
               <li class="empty">No time logged yet</li>
             </ul>
