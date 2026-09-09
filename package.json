@@ -1,6 +1,6 @@
 {
   "name": "sydtrack",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "description": "Desktop productivity tracker — active window time, classification, and focus reminders",
   "main": "src/main.js",
   "author": "SydTrack",
@@ -10,7 +10,9 @@
     "start:electron": "electron . --no-sandbox --disable-gpu",
     "start:demo": "node scripts/start.js --demo",
     "test": "node scripts/smoke.js",
-    "test:windows-backend": "node scripts/test-windows-backend.js",
+    "test:ui": "node scripts/check-ui.js",
+    "test:profiles-ui": "node scripts/check-profiles-ui.js",
+    "test:windows-backend": "node scripts/test-win.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win",
     "dist:portable": "electron-builder --win portable"
@@ -35,9 +37,14 @@
       "package.json"
     ],
     "asar": true,
+    "extraResources": [
+      { "from": "renderer/assets/sydtrack.ico", "to": "sydtrack.ico" },
+      { "from": "scripts/get-foreground.ps1", "to": "get-foreground.ps1" },
+      { "from": "scripts/get-browser-address.ps1", "to": "get-browser-address.ps1" }
+    ],
     "win": {
-      "icon": "renderer/assets/logo-wordmark.png",
-      "signAndEditExecutable": false,
+      "icon": "renderer/assets/sydtrack.ico",
+      "signAndEditExecutable": true,
       "target": [
         {
           "target": "nsis",

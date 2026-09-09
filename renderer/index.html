@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'" />
-  <title>SydTrack</title>
+  <title>sydtrack</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -26,7 +26,7 @@
           <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 1.5"/></svg></span><span class="nav-label">Sessions</span>
         </button>
 <button class="nav-btn" data-tab="roundup" type="button" title="Roundup">
-          <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 0 1 2-2z"/><path d="M9 9h6M9 13h4"/></svg></span><span class="nav-label">Roundup</span>
+          <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 0 1 2-2z"/><path d="M8 9h8M8 13h5"/></svg></span><span class="nav-label">Roundup</span>
         </button>
 <button class="nav-btn" data-tab="analytics" type="button" title="Analytics">
           <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M7 16V10"/><path d="M12 16V6"/><path d="M17 16v-4"/></svg></span><span class="nav-label">Analytics</span>
@@ -78,10 +78,17 @@
               </div>
             </div>
 
+            <div class="home-focus-actions">
             <button type="button" id="focusboost-btn" class="focusboost-btn" data-boost="off" title="~3 min unproductive reminder" aria-label="focusboost">
               <span class="fb-bolt" aria-hidden="true">⚡</span>
               <span id="focusboost-label" class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">boost</span></span>
             </button>
+            <button type="button" id="focus-profile-btn" class="focusboost-btn profile-trigger" data-boost="off" aria-expanded="false" aria-controls="focus-profile-menu">
+              <span class="profile-icon" aria-hidden="true">🎯</span><span class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">profile</span></span><span id="focus-profile-label">default</span><span aria-hidden="true">▾</span>
+            </button>
+            <div id="focus-profile-menu" class="profile-menu hidden" role="group" aria-label="Choose Focus profile"></div>
+            <span id="home-profile-status" class="muted tiny" role="status"></span>
+            </div>
           </div>
 
           <div class="pie-wrap">
@@ -285,17 +292,13 @@
         </div>
 
         <div id="panel-month" class="analytics-panel hidden" data-panel="month">
-          <article class="card month-empty-card">
-            <div class="month-empty">
-              <div class="month-empty-title">Month view coming soon</div>
-              <p class="muted month-empty-note">History builds over time as you track — up to 90 days are kept. Check back once more days are on file.</p>
-            </div>
-          </article>
+          <div id="month-history" aria-live="polite"></div>
         </div>
 
         <div id="panel-apps" class="analytics-panel hidden" data-panel="apps">
           <article class="card">
-            <h3>Top apps</h3>
+            <h3>Top apps today</h3>
+            <p class="hint">Top 10 apps, split by activity and matched keyword. P/U/ign corrects only that row for today. Older activity may have no recorded keyword.</p>
                         <ul id="app-list" class="app-list">
               <li class="empty">No time logged yet</li>
             </ul>
@@ -365,9 +368,18 @@
           </div>
         </header>
 
+        <div class="tags-profile-switch">
+          <div class="focusboost-btn profile-trigger" data-boost="off">
+            <span class="profile-icon" aria-hidden="true">🎯</span>
+            <span class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">profile</span></span>
+            <span id="tags-profile-label" class="profile-active-name">default</span><span aria-hidden="true">▾</span>
+          </div>
+          <select id="profile-editor-select" aria-label="Active Focus profile"></select>
+        </div>
+
         <article class="card tags-card tags-quick-card">
           <div class="lf-kicker tag-kicker">Quick add</div>
-          <p class="hint tags-hint">Search existing tags or add a keyword (for browsers, use a title/URL keyword like youtube or github). Moves it if it’s already on another list.</p>
+          <p class="hint tags-hint">Add a keyword like youtube or github from the page title. Browser tracking uses the foreground title, regardless of browser engine. Ignore is for whole apps. Existing site: rules apply only when a website address is available.</p>
           <div class="tags-quick-row">
             <input type="text" id="tags-quick-input" class="tags-quick-input" placeholder="Type a keyword…" spellcheck="false" autocomplete="off" />
             <div class="tags-quick-btns" role="group" aria-label="Add keyword to list">
@@ -376,55 +388,80 @@
               <button type="button" id="tags-quick-ignore" class="btn tags-quick-btn ignore">Ignore</button>
             </div>
           </div>
-          <p id="tags-quick-status" class="muted tiny tags-quick-status">Type a keyword to see which list it is in.</p>
+          <p id="tags-quick-status" class="muted tiny tags-quick-status" role="status" aria-live="polite">Type a keyword to see which list it is in.</p>
         </article>
 
-        <article class="card tags-card">
+        <div class="profile-tag-fields">
+        <div class="card profile-tag-column">
           <div class="lf-kicker tag-kicker prod">Productive</div>
           <p class="hint tags-hint">One keyword per line: editors, docs, work sites.</p>
-          <textarea id="rules-prod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="12" placeholder="one keyword per line"></textarea>
+          <textarea id="rules-prod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="5" placeholder="one keyword per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="rules-save" class="btn primary">Save keywords</button>
             <button type="button" id="rules-reset" class="btn ghost">Reset to defaults</button>
             <span id="rules-status" class="muted tiny"></span>
           </div>
-          <p class="hint">Active file: <code id="rules-path">src/rules.json</code> <span id="rules-custom-label"></span></p>
-        </article>
+        </div>
 
-        <article class="card tags-card">
+        <div class="card profile-tag-column">
           <div class="lf-kicker tag-kicker unprod">Unproductive</div>
           <p class="hint tags-hint">One keyword per line: social, video, rabbit holes. Unproductive wins when both lists match.</p>
-          <textarea id="rules-unprod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="12" placeholder="one keyword per line"></textarea>
+          <textarea id="rules-unprod-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="5" placeholder="one keyword per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="rules-unprod-save" class="btn primary">Save keywords</button>
             <button type="button" id="rules-unprod-reset" class="btn ghost">Reset to defaults</button>
             <span id="rules-unprod-status" class="muted tiny"></span>
           </div>
-          <p class="hint">Active file: <code id="rules-unprod-path">src/rules.json</code> <span id="rules-unprod-custom-label"></span></p>
-        </article>
+        </div>
 
-        <article class="card tags-card">
+        <div class="card profile-tag-column">
           <div class="lf-kicker tag-kicker ignore">Ignore</div>
           <p class="hint tags-hint">Shown in tracking status but not logged (no time, no streak). One process name per line.</p>
-          <textarea id="ignore-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="10" placeholder="one process name per line"></textarea>
+          <textarea id="ignore-edit" class="rules-textarea tags-textarea" spellcheck="false" rows="5" placeholder="one process name per line"></textarea>
           <div class="rules-actions">
             <button type="button" id="ignore-save" class="btn primary">Save ignore list</button>
             <button type="button" id="ignore-reset" class="btn ghost">Reset to defaults</button>
             <span id="ignore-status" class="muted tiny"></span>
           </div>
-          <p class="hint">File: <code id="ignore-path">src/ignore.json</code> <span id="ignore-custom-label"></span></p>
+        </div>
+
+        </div>
+        <article class="card profile-settings" id="profile-settings">
+          <div class="profile-management-row">
+            <div class="profile-identity">
+              <div class="profile-name-row">
+                <span id="profile-management-name" class="muted">default</span>
+                <button id="profile-rename-named" class="profile-rename" type="button">RENAME</button>
+                <button id="profile-delete-named" class="profile-trash" type="button" title="Delete profile" aria-label="Delete profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v6M14 11v6"/></svg></button>
+              </div>
+            </div>
+          <div class="profile-edit-actions">
+
+
+
+            <button id="profile-import-named" class="btn" type="button">Import profile…</button>
+            <button id="profile-export-named" class="btn" type="button">Export profile…</button>
+          </div>
+          </div>
+          <p class="profile-file muted tiny">Active file: <code id="rules-path">data/focus-profiles.json</code></p>
+          <button id="profile-new-named" class="profile-add" type="button" aria-label="New profile" title="New profile">+</button>
+          <p id="profiles-status" class="muted tiny" role="status"></p>
         </article>
+          <article id="profile-name-form" class="card profile-settings hidden">
+            <h3 id="profile-name-heading">Edit profile name</h3>
+            <input id="profile-name" type="text" maxlength="40" aria-labelledby="profile-name-heading" placeholder="Name your profile" />
+            <div class="profile-name-actions">
+            <button id="profile-save-named" class="btn primary" type="button">Save name</button>
+            <button id="profile-cancel-name" class="btn" type="button">Cancel</button>
+            </div>
+          </article>
       </section>
 
       <!-- SETTINGS -->
       <section id="view-settings" class="view hidden">
         <header class="page-head">
-          <div>
-            <h1>Settings</h1>
-            <p class="muted">Tracking, reminders, and data</p>
-          </div>
+          <div><h1>Settings</h1><p class="muted">Tracking, reminders, and data</p></div>
         </header>
-
         <article class="card">
           <h3>Tracker</h3>
           <!-- Toggles first: Pause → session history → focusboost schedule (last) -->
@@ -491,7 +528,7 @@
             <label class="field">
               <div>
                 <div class="switch-title">Idle timeout (minutes)</div>
-                <div class="hint">Set the inactivity timeout length. If you're inactive, tracking will reset to your last activity and pause until you're active. Set to 0 to disable idle tracking.</div>
+                <div class="hint">Tracking pauses after this much inactivity and resumes on input. Time earned before the timeout is kept. Set to 0 to disable idle tracking.</div>
               </div>
               <input type="number" id="idle-timeout-min" min="0" step="0.5" value="5" />
             </label>
@@ -520,17 +557,12 @@
             <strong>Privacy warning</strong>
             <p>Exports include app names, window titles, and time history. Treat a <code>.sydtrack</code> file like a personal diary. There is <em>no cloud sync</em> — only you choose where to save or open a backup on this machine (or copy the file yourself between PCs).</p>
           </div>
-          <p class="hint">Portable backup for moving history between your own computers. Import merges by default.</p>
+          <p class="hint">Includes activity, sessions, settings, Focus Tags, and app identities. Import adds activity totals; matching session IDs are kept once. A running session is exported as a stopped checkpoint and never auto-started on import.</p>
+          <p class="hint">Local error logs are kept in the <code>logs</code> folder inside the Data location above (two files, approximately 256 KB each). Logs are never uploaded or included in backups.</p>
           <div class="rules-actions data-actions">
             <button type="button" id="data-export" class="btn primary">Export backup…</button>
             <button type="button" id="data-import" class="btn">Import backup…</button>
             <span id="data-status" class="muted tiny"></span>
-          </div>
-          <p class="hint" style="margin-top:0.75rem">Focus profile pack — productive / unproductive / ignore tags only (not history). Infra for future Focus profiles; export/import of current tags is available now.</p>
-          <div class="rules-actions data-actions">
-            <button type="button" id="profile-export" class="btn">Export profile pack…</button>
-            <button type="button" id="profile-import" class="btn">Import profile pack…</button>
-            <span id="profile-status" class="muted tiny"></span>
           </div>
           <div class="danger-zone">
             <h4 class="danger-heading">Clear data</h4>
@@ -541,10 +573,14 @@
             </div>
           </div>
         </article>
+
+
       </section>
     </main>
   </div>
   <div id="name-tip" class="name-tip pie-tip hidden" role="tooltip"></div>
+  <script src="../src/browser-rules.js"></script>
   <script src="renderer.js"></script>
+  <script src="focus-profiles-ui.js"></script>
 </body>
 </html>

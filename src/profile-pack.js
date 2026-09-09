@@ -118,7 +118,7 @@ function parseProfilePack(objOrString) {
 function writeProfilePackFile(filePath, pack) {
   const fs = require('fs');
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(pack, null, 2) + '\n', 'utf8');
+  require('./json-file').writeJson(filePath, pack);
 }
 
 function readProfilePackFile(filePath) {

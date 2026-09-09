@@ -1,0 +1,22 @@
+{
+  "productiveApps": [
+    "code",
+    "visual studio code",
+    "cursor",
+    "devenv",
+    "visual studio",
+    "notepad++",
+    "idea",
+    "intellij idea",
+    "pycharm",
+    "webstorm",
+    "goland",
+    "rider",
+    "clion"
+  ],
+  "ignoredApps": [
+    "explorer",
+    "runtimebroker",
+    "searchhost"
+  ]
+}

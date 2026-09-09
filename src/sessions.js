@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { writeJson, validDateKey, readRecoverableJson } = require('./json-file');
 const { todayKey, MAX_HISTORY_DAYS } = require('./store');
 
 const MODE_DEFS = {
@@ -24,15 +25,6 @@ function plannedSecFor(mode, customMin) {
 
 function newId() {
   return `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function loadJson(p) {
-  try {
-    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch (err) {
-    console.error('[sessions] read failed', p, err.message);
-  }
-  return null;
 }
 
 function topAppsFromByApp(byApp, limit) {
@@ -94,12 +86,13 @@ function publicActive(session) {
  * while a session is active (other/productive → unproductive = +1).
  * Ignored / SydTrack self windows do not count and do not update lastCategory.
  */
-function createSessionManager({ dataDir, getSettings }) {
+function createSessionManager({ dataDir, getSettings, onRecovery = () => {} }) {
   const sessionsDir = path.join(dataDir, 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
   const activePath = path.join(dataDir, 'active-session.json');
 
   let active = null;
+  const pendingCompletions = [];
 
   function persistActive() {
     try {
@@ -107,27 +100,30 @@ function createSessionManager({ dataDir, getSettings }) {
         if (fs.existsSync(activePath)) fs.unlinkSync(activePath);
         return;
       }
-      fs.writeFileSync(activePath, JSON.stringify(active, null, 2));
+      writeJson(activePath, active);
     } catch (err) {
       console.error('[sessions] persist active failed', err.message);
     }
   }
 
   function dayPath(dateKey) {
+    if (!validDateKey(dateKey)) throw new Error('Invalid session date');
     return path.join(sessionsDir, `${dateKey}.json`);
   }
 
   function readDay(dateKey) {
-    const raw = loadJson(dayPath(dateKey));
+    const raw = readRecoverableJson(dayPath(dateKey),
+      (value) => Array.isArray(value) && value.every((entry) => entry !== null && typeof entry === 'object' && !Array.isArray(entry)), onRecovery);
     return Array.isArray(raw) ? raw : [];
   }
 
   function writeDay(dateKey, list) {
     try {
       fs.mkdirSync(sessionsDir, { recursive: true });
-      fs.writeFileSync(dayPath(dateKey), JSON.stringify(list, null, 2));
+      writeJson(dayPath(dateKey), list);
     } catch (err) {
       console.error('[sessions] write day failed', err.message);
+      throw err;
     }
   }
 
@@ -152,7 +148,6 @@ function createSessionManager({ dataDir, getSettings }) {
   function pruneOldSessionDays() {
     try {
       const dates = listSessionDates();
-      if (dates.length <= MAX_HISTORY_DAYS) return;
       const cutoff = new Date();
       cutoff.setHours(0, 0, 0, 0);
       cutoff.setDate(cutoff.getDate() - MAX_HISTORY_DAYS);
@@ -174,17 +169,10 @@ function createSessionManager({ dataDir, getSettings }) {
 
   /** Keep only the single most recent completed session on disk. */
   function pruneToMostRecent(keepEntry) {
-    try {
-      for (const key of listSessionDates()) {
-        try {
-          fs.unlinkSync(dayPath(key));
-        } catch (_) {}
-      }
-      if (keepEntry && keepEntry.date) {
-        writeDay(keepEntry.date, [keepEntry]);
-      }
-    } catch (err) {
-      console.error('[sessions] pruneToMostRecent failed', err.message);
+    // Secure the retained entry before deleting anything. Failures remain visible.
+    if (keepEntry && keepEntry.date) writeDay(keepEntry.date, [keepEntry]);
+    for (const key of listSessionDates()) {
+      if (!keepEntry || key !== keepEntry.date) fs.unlinkSync(dayPath(key));
     }
   }
 
@@ -234,10 +222,12 @@ function createSessionManager({ dataDir, getSettings }) {
 
   function finishActive(status) {
     if (!active) return null;
-    const entry = toLogEntry(active, status, Date.now());
+    const entry = toLogEntry(active, status, status === 'completed' ? active.endsAt : Date.now());
+    // Save the completed record before removing its recoverable active copy.
+    appendCompleted(entry);
+    if (status === 'completed') pendingCompletions.push(entry);
     active = null;
     persistActive();
-    appendCompleted(entry);
     return entry;
   }
 
@@ -251,7 +241,13 @@ function createSessionManager({ dataDir, getSettings }) {
   }
 
   function restoreActiveFromDisk() {
-    const raw = loadJson(activePath);
+    const raw = readRecoverableJson(activePath,
+      (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
+        && value.status === 'running'
+        && Number.isFinite(Number(value.startedAt)) && Number(value.startedAt) > 0
+        && Number.isFinite(Number(value.endsAt)) && Number(value.endsAt) >= Number(value.startedAt)
+        && Number.isFinite(Number(value.plannedSec)) && Number(value.plannedSec) > 0,
+      onRecovery);
     if (!raw || typeof raw !== 'object' || raw.status !== 'running') {
       active = null;
       return;
@@ -276,8 +272,10 @@ function createSessionManager({ dataDir, getSettings }) {
   }
 
   restoreActiveFromDisk();
+  pruneOldSessionDays();
 
   function startSession(opts) {
+    checkExpiry();
     const options = opts || {};
     const mode = MODE_DEFS[options.mode] ? options.mode : 'pomodoro';
     const settings = (getSettings && getSettings()) || {};
@@ -326,18 +324,19 @@ function createSessionManager({ dataDir, getSettings }) {
    * @param {{ app: string, category: string, elapsedSec: number }} tick
    */
   function onTrackerTick(tick) {
-    const completed = checkExpiry();
+    checkExpiry();
+    const result = () => ({ completed: pendingCompletions.shift() || null, active: publicActive(active) });
     if (!active || active.status !== 'running') {
-      return { completed, active: publicActive(active) };
+      return result();
     }
     const category = tick && tick.category;
     const app = tick && tick.app;
     const elapsed = Math.max(0, Number(tick && tick.elapsedSec) || 0);
 
     // Ignored / SydTrack self: do not count time or distractions; freeze lastCategory
-    if (!category || category === 'ignored' || !app) {
+    if (!category || category === 'ignored' || !app || elapsed <= 0) {
       persistActive();
-      return { completed, active: publicActive(active) };
+      return result();
     }
 
     // Edge-triggered distraction: other/productive → unproductive
@@ -361,11 +360,8 @@ function createSessionManager({ dataDir, getSettings }) {
     // Periodic persist (cheap overwrite)
     persistActive();
 
-    const maybeDone = checkExpiry();
-    return {
-      completed: completed || maybeDone,
-      active: publicActive(active)
-    };
+    checkExpiry();
+    return result();
   }
 
   function getActiveSession() {
@@ -451,7 +447,41 @@ function createSessionManager({ dataDir, getSettings }) {
   }
 
   return {
+    exportHistory: () => {
+      checkExpiry();
+      const days = Object.fromEntries(listSessionDates().map(key => [key, readDay(key)]));
+      // Portable checkpoint, not an instruction to start a timer on another machine.
+      if (active) {
+        const entry = toLogEntry(active, 'stopped', Date.now());
+        days[entry.date] = [...(days[entry.date] || []).filter(e => e.id !== entry.id), entry];
+      }
+      return days;
+    },
+    importHistory: (days, mode = 'merge') => {
+      let imported = 0;
+      for (const [key, incoming] of Object.entries(days)) {
+        const existing = mode === 'replace' ? [] : readDay(key);
+        const entries = new Map(existing.map(entry => [entry.id, entry]));
+        for (const entry of incoming) {
+          if (entry.id === (active && active.id)) continue;
+          const previous = entries.get(entry.id);
+          // A later backup may contain the completion of an earlier portable checkpoint.
+          if (!previous || (previous.status !== 'completed' && entry.status === 'completed') ||
+            (previous.status === entry.status && entry.endedAt > previous.endedAt)) {
+            entries.set(entry.id, entry);
+            imported++;
+          }
+        }
+        if (entries.size) writeDay(key, [...entries.values()].sort((a, b) => a.startedAt - b.startedAt));
+      }
+      if (mode === 'replace') {
+        for (const key of listSessionDates()) if (!Object.hasOwn(days, key) || !days[key].length) fs.unlinkSync(dayPath(key));
+      }
+      applyHistorySetting(historyEnabled());
+      return imported;
+    },
     startSession,
+    resetClassification: () => { if (active) { active.lastCategory = null; persistActive(); } },
     stopSession,
     onTrackerTick,
     getActiveSession,

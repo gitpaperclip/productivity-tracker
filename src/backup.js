@@ -3,6 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const { migrateDay, todayKey, emptyDay } = require('./store');
+const { writeJson, validDateKey } = require('./json-file');
+const { validateProfiles } = require('./focus-profiles');
 
 function appVersion() {
   try {
@@ -45,6 +47,9 @@ function buildExport(store, opts) {
       : (options.ignore.ignore || []).slice();
   }
 
+  if (options.sessionManager) payload.sessions = options.sessionManager.exportHistory();
+  if (options.identities) payload.identities = structuredClone(options.identities);
+  if (options.focusProfiles) payload.profiles = options.focusProfiles.snapshot();
   return payload;
 }
 
@@ -73,7 +78,12 @@ function importBackup(store, obj, opts) {
     return result;
   }
 
-  const days = obj.days && typeof obj.days === 'object' ? obj.days : {};
+  // Validate the entire payload before replace can clear any user data.
+  try { validateBackup(obj); } catch (err) {
+    result.error = err.message;
+    return result;
+  }
+  const days = obj.days;
   const today = todayKey();
 
   if (mode === 'replace') {
@@ -81,7 +91,6 @@ function importBackup(store, obj, opts) {
   }
 
   for (const [key, raw] of Object.entries(days)) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
     const day = migrateDay(Object.assign({}, raw, { date: key }));
     if (key === today) {
       if (mode === 'replace') {
@@ -104,7 +113,8 @@ function importBackup(store, obj, opts) {
   }
 
   if (obj.settings && typeof obj.settings === 'object' && options.applySettings !== false) {
-    store.updateSettings(obj.settings);
+    if (options.onSettings) options.onSettings(obj.settings);
+    else store.updateSettings(obj.settings);
     result.appliedSettings = true;
   }
 
@@ -118,8 +128,85 @@ function importBackup(store, obj, opts) {
     result.appliedIgnore = true;
   }
 
+  if (obj.identities && options.onIdentities) {
+    options.onIdentities(obj.identities);
+    result.appliedIdentities = true;
+  }
+  if (obj.sessions && options.sessionManager) result.sessionsImported = options.sessionManager.importHistory(obj.sessions, mode);
+  if (obj.profiles && options.focusProfiles) options.focusProfiles.restore(obj.profiles);
   result.ok = true;
+  store.pruneOldHistory();
   return result;
+}
+
+function validateBackup(obj) {
+  if (obj.profiles != null) validateProfiles(obj.profiles);
+  const record = (value) => value && typeof value === 'object' && !Array.isArray(value);
+  const fail = (message) => { throw new Error('Invalid backup: ' + message); };
+  const number = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  const appMap = (map) => {
+    if (map == null) return;
+    if (!record(map)) fail('app totals must be an object');
+    for (const info of Object.values(map)) {
+      if (!record(info) || !number(info.seconds) || !['productive', 'unproductive', 'other', 'ignored'].includes(info.category)) fail('invalid app total');
+    }
+  };
+  const totals = (map) => {
+    if (map == null) return;
+    if (!record(map)) fail('category totals must be an object');
+    for (const cat of ['productive', 'unproductive', 'other']) {
+      if (map[cat] != null && !number(map[cat])) fail('invalid category total');
+    }
+  };
+  const tags = (list) => {
+    if (!Array.isArray(list) || list.some((x) => typeof x !== 'string')) fail('tags must be string arrays');
+  };
+  if (!record(obj.days)) fail('days must be an object');
+  for (const [key, day] of Object.entries(obj.days)) {
+    if (!validDateKey(key) || !record(day)) fail('invalid day');
+    appMap(day.byApp); totals(day.byCategory);
+    if (day.byHour != null) {
+      if (!Array.isArray(day.byHour) || day.byHour.length !== 24) fail('expected 24 hourly buckets');
+      for (const hour of day.byHour) {
+        if (!record(hour)) fail('invalid hour');
+        totals(hour); appMap(hour.byApp);
+      }
+    }
+  }
+  if (obj.settings != null && !record(obj.settings)) fail('invalid settings');
+  if (obj.rules != null) {
+    if (!record(obj.rules)) fail('invalid rules');
+    tags(obj.rules.productive); tags(obj.rules.unproductive);
+  }
+  if (obj.ignore != null) tags(Array.isArray(obj.ignore) ? obj.ignore : obj.ignore.ignore);
+  if (obj.identities != null) {
+    if (!record(obj.identities)) fail('invalid identities');
+    for (const key of ['productiveApps', 'ignoredApps']) tags(obj.identities[key]);
+    if (obj.identities.browserApps != null) tags(obj.identities.browserApps);
+  }
+  if (obj.sessions != null) {
+    if (!record(obj.sessions)) fail('invalid sessions');
+    const ids = new Set();
+    for (const [date, entries] of Object.entries(obj.sessions)) {
+      if (!validDateKey(date) || !Array.isArray(entries)) fail('invalid session day');
+      for (const entry of entries) {
+        if (!record(entry) || typeof entry.id !== 'string' || !entry.id || ids.has(entry.id) || entry.date !== date ||
+          !['completed', 'stopped'].includes(entry.status) || !number(entry.startedAt) || !number(entry.endedAt) || entry.endedAt < entry.startedAt ||
+          !number(entry.plannedSec) || !number(entry.elapsedSec) || !number(entry.distractionCount) || !Array.isArray(entry.topApps)) fail('invalid session');
+        ids.add(entry.id);
+        for (const app of entry.topApps) if (!record(app) || typeof app.name !== 'string' || !number(app.seconds) || !['productive', 'unproductive', 'other', 'ignored'].includes(app.category)) fail('invalid session app');
+      }
+    }
+  }
+  // Reject prototype setters even in optional settings before Object.assign.
+  const inspect = (value) => {
+    if (!value || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(key)) fail('unsafe object key');
+      inspect(child);
+    }
+  };
+  inspect(obj);
 }
 
 function mergeDays(a, b) {
@@ -133,18 +220,19 @@ function mergeDays(a, b) {
       out.byHour[h][cat] =
         (out.byHour[h][cat] || 0) + ((other.byHour[h] && other.byHour[h][cat]) || 0);
     }
+    mergeAppMap(out.byHour[h].byApp, other.byHour[h].byApp);
   }
-  for (const [name, info] of Object.entries(other.byApp || {})) {
-    if (!out.byApp[name]) {
-      out.byApp[name] = { seconds: info.seconds, category: info.category };
-    } else {
-      out.byApp[name].seconds += info.seconds || 0;
-      out.byApp[name].category = info.category || out.byApp[name].category;
-    }
-  }
+  mergeAppMap(out.byApp, other.byApp);
   out.unproductiveStreak = Math.max(out.unproductiveStreak || 0, other.unproductiveStreak || 0);
   out.lastReminderAt = Math.max(out.lastReminderAt || 0, other.lastReminderAt || 0);
   return out;
+}
+
+function mergeAppMap(target, source) {
+  for (const [key, info] of Object.entries(source || {})) {
+    if (!target[key]) target[key] = { ...info };
+    else target[key].seconds += info.seconds;
+  }
 }
 
 function mergeIntoToday(store, day) {
@@ -164,7 +252,7 @@ function clearAllHistory(store) {
 
 function writeBackupFile(filePath, payload) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2) + '\n', 'utf8');
+  writeJson(filePath, payload);
 }
 
 function readBackupFile(filePath) {

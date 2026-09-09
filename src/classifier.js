@@ -2,20 +2,15 @@
 
 const fs = require('fs');
 const path = require('path');
+const { writeJson } = require('./json-file');
+const { classifyBrowser, browserNames, isBrowserName } = require('./browser-rules');
 
 const DEFAULT_RULES_PATH = path.join(__dirname, 'rules.json');
 const DEFAULT_IGNORE_PATH = path.join(__dirname, 'ignore.json');
+const DEFAULT_APP_IDENTITIES_PATH = path.join(__dirname, 'app-identities.json');
 
-/** Known browser process-name fragments — bare browsers default to productive. */
-const BROWSER_PROCESSES = [
-  'chrome',
-  'msedge',
-  'edge',
-  'firefox',
-  'brave',
-  'opera',
-  'chromium'
-];
+/** Shared app identities, independent of browser engine or address-bar layout. */
+const BROWSER_PROCESSES = browserNames;
 
 /**
  * Normalize keyword arrays: trimmed, lowercase, unique, non-empty.
@@ -23,7 +18,8 @@ const BROWSER_PROCESSES = [
 function normalizeKeywords(list) {
   const seen = new Set();
   const out = [];
-  for (const item of list || []) {
+  for (const item of Array.isArray(list) ? list : []) {
+    if (typeof item !== 'string') continue;
     const s = String(item).trim().toLowerCase();
     if (!s || seen.has(s)) continue;
     seen.add(s);
@@ -42,6 +38,14 @@ function normalizeRules(parsed) {
 function normalizeIgnore(parsed) {
   if (Array.isArray(parsed)) return normalizeKeywords(parsed);
   return normalizeKeywords(parsed && parsed.ignore);
+}
+
+function normalizeAppIdentities(parsed) {
+  return {
+    productiveApps: normalizeKeywords(parsed && parsed.productiveApps),
+    ignoredApps: normalizeKeywords(parsed && parsed.ignoredApps),
+    browserApps: normalizeKeywords(parsed && parsed.browserApps)
+  };
 }
 
 /**
@@ -78,6 +82,21 @@ function loadIgnore(filePath) {
   return loadIgnoreFrom(filePath || DEFAULT_IGNORE_PATH);
 }
 
+function loadAppIdentitiesFrom(filePath) {
+  return normalizeAppIdentities(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+}
+
+function loadAppIdentities(filePath) {
+  return loadAppIdentitiesFrom(filePath || DEFAULT_APP_IDENTITIES_PATH);
+}
+
+function saveAppIdentities(filePath, identities) {
+  const normalized = normalizeAppIdentities(identities || {});
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  writeJson(filePath, normalized);
+  return normalized;
+}
+
 function saveIgnore(filePath, ignoreList) {
   const ignore = normalizeKeywords(ignoreList || []);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -108,10 +127,25 @@ function processNameParts(win) {
   return { owner, base, baseNoExt, label };
 }
 
-function isBrowserProcess(win) {
-  const { owner, base, baseNoExt } = processNameParts(win);
-  const hay = `${owner} ${base} ${baseNoExt}`;
-  return BROWSER_PROCESSES.some((b) => hay.includes(b));
+function isBrowserProcess(win, identities) {
+  const { owner, base } = processNameParts(win);
+  return isBrowserName(owner, identities && identities.browserApps) || isBrowserName(base, identities && identities.browserApps);
+}
+
+function matchesProcess(win, identities) {
+  const { owner, baseNoExt } = processNameParts(win);
+  const normalize = (value) => String(value || '').trim().toLowerCase().replace(/\.exe$/, '');
+  const values = [owner, baseNoExt].map(normalize).filter(Boolean);
+  return normalizeKeywords(identities).some((identity) => values.includes(normalize(identity)));
+}
+
+/** Match process/app fields only, never window titles or URLs. */
+function appMatchesIdentity(win, identities) {
+  if (!win || !identities) return null;
+  const matches = (list) => matchesProcess(win, list);
+  if (matches(identities.ignoredApps)) return 'ignored';
+  if (matches(identities.productiveApps)) return 'productive';
+  return null;
 }
 
 /**
@@ -120,8 +154,9 @@ function isBrowserProcess(win) {
  * Match against owner.name, path basename, and app label — not arbitrary title text
  * (except the SydTrack self-exclusion rule).
  */
-function isIgnored(win, ignoreList) {
+function isIgnored(win, ignoreList, identities) {
   if (!win) return false;
+  if (appMatchesIdentity(win, identities) === 'ignored') return true;
 
   const title = (win.title || '').toLowerCase();
   const { owner, base, baseNoExt, label } = processNameParts(win);
@@ -153,22 +188,36 @@ function isIgnored(win, ignoreList) {
  * Known browsers without keyword hits → productive; explicit unproductive keywords win above.
  */
 function classify(win, rules) {
+  rules = rules || { productive: [], unproductive: [] };
+  const browser = isBrowserProcess(win, rules.identities);
+  if (browser) return classifyBrowser(win, rules);
+  // Explicit app tags remain editable; project/title words cannot override an identity.
+  if (matchesProcess(win, rules.unproductive)) return 'unproductive';
+  if (appMatchesIdentity(win, rules.identities) === 'productive') return 'productive';
   const hay = haystack(win);
   if (!hay.trim()) return 'other';
 
-  for (const keyword of rules.unproductive) {
-    if (keyword && hay.includes(keyword)) {
+  for (const keyword of normalizeKeywords(rules.unproductive)) {
+    if (!keyword.startsWith('site:') && hay.includes(keyword)) {
       return 'unproductive';
     }
   }
-  for (const keyword of rules.productive) {
-    if (keyword && hay.includes(keyword)) {
+  for (const keyword of normalizeKeywords(rules.productive)) {
+    if (!keyword.startsWith('site:') && hay.includes(keyword)) {
       return 'productive';
     }
   }
-  // Browsers are productive by default; unproductive keyword hits win above.
-  if (isBrowserProcess(win)) return 'productive';
   return 'other';
+}
+
+function classifyWithReason(win, rules = {}) {
+  if (isBrowserProcess(win, rules.identities)) return require('./browser-rules').browserMatch(win, rules);
+  const category = classify(win, rules);
+  const processTag = normalizeKeywords(rules.unproductive).find(tag => matchesProcess(win, [tag]));
+  if (processTag) return { category, reason: processTag };
+  if (appMatchesIdentity(win, rules.identities) === 'productive') return { category, reason: 'App identity' };
+  const reason = normalizeKeywords(rules[category]).find(tag => !tag.startsWith('site:') && haystack(win).includes(tag));
+  return { category, reason: reason || 'No matching keyword' };
 }
 
 function appLabel(win) {
@@ -194,16 +243,23 @@ module.exports = {
   loadIgnore,
   loadIgnoreFrom,
   saveIgnore,
+  loadAppIdentities,
+  loadAppIdentitiesFrom,
+  saveAppIdentities,
   normalizeKeywords,
   normalizeRules,
   normalizeIgnore,
+  normalizeAppIdentities,
   classify,
+  classifyWithReason,
   isIgnored,
   appLabel,
   haystack,
   appMatchesIgnore,
   isBrowserProcess,
+  appMatchesIdentity,
   BROWSER_PROCESSES,
   DEFAULT_RULES_PATH,
-  DEFAULT_IGNORE_PATH
+  DEFAULT_IGNORE_PATH,
+  DEFAULT_APP_IDENTITIES_PATH
 };

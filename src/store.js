@@ -2,9 +2,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const { writeJson, validDateKey, readRecoverableJson } = require('./json-file');
 
-function todayKey() {
-  const d = new Date();
+function todayKey(at) {
+  const d = at === undefined ? new Date() : new Date(at);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -14,7 +15,7 @@ function todayKey() {
 const MAX_HISTORY_DAYS = 90;
 
 function emptyHour() {
-  return { productive: 0, unproductive: 0, other: 0, byApp: {} };
+  return { productive: 0, unproductive: 0, other: 0, byApp: Object.create(null) };
 }
 
 function emptyByHour() {
@@ -28,7 +29,23 @@ function appCategoryKey(app, category) {
   return String(app);
 }
 
+function activityKey(app, category, activity) {
+  return activity ? '@activity:' + JSON.stringify([app, activity.category, activity.reason, category]) : appCategoryKey(app, category);
+}
+function activityParts(key) {
+  try {
+    if (!String(key).startsWith('@activity:')) return null;
+    const value = JSON.parse(key.slice(10));
+    return Array.isArray(value) && value.length === 4 && value.every(v => typeof v === 'string') ? value : null;
+  } catch (_) { return null; }
+}
+function activityId(key, info) {
+  const parts = activityParts(key);
+  return JSON.stringify(parts ? parts.slice(0, 3) : [appEntryName(key), info.category, 'Keyword not recorded']);
+}
+
 function appEntryName(key) {
+  const parts = activityParts(key); if (parts) return parts[0];
   const text = String(key);
   const marker = text.lastIndexOf('::');
   if (marker < 0) return text;
@@ -42,7 +59,7 @@ function mergeAppEntries(entries) {
   const merged = new Map();
   for (const entry of entries || []) {
     const category =
-      entry.category === 'productive' || entry.category === 'unproductive'
+      entry.category === 'productive' || entry.category === 'unproductive' || entry.category === 'ignored'
         ? entry.category
         : 'other';
     const key = entry.name + '\u0000' + category;
@@ -58,6 +75,12 @@ function mergeAppEntries(entries) {
 
 function categoryForStoredApp(name, current, rules) {
   const text = String(name || '').toLowerCase();
+  const { isBrowserProcess, classify } = require('./classifier');
+  const win = { owner: { name } };
+  // Original browser titles/URLs are unavailable in history. Preserve their categories.
+  if (isBrowserProcess(win, rules && rules.identities)) return current;
+  const classified = classify(win, rules);
+  if (classified !== 'other') return classified;
   const unproductive = (rules && rules.unproductive) || [];
   const productive = (rules && rules.productive) || [];
   if (unproductive.some((keyword) => text.includes(String(keyword).toLowerCase()))) {
@@ -72,7 +95,7 @@ function categoryForStoredApp(name, current, rules) {
 function emptyDay(date) {
   return {
     date: date || todayKey(),
-    byApp: {},
+    byApp: Object.create(null),
     byCategory: { productive: 0, unproductive: 0, other: 0 },
     byHour: emptyByHour(),
     unproductiveStreak: 0,
@@ -85,7 +108,7 @@ function migrateDay(raw) {
   if (!raw || typeof raw !== 'object') return emptyDay();
   const day = {
     date: raw.date || todayKey(),
-    byApp: raw.byApp && typeof raw.byApp === 'object' ? raw.byApp : {},
+    byApp: cloneAppMap(raw.byApp),
     byCategory: Object.assign(
       { productive: 0, unproductive: 0, other: 0 },
       raw.byCategory || {}
@@ -95,14 +118,30 @@ function migrateDay(raw) {
           const base = emptyHour();
           const src = h && typeof h === 'object' ? h : {};
           const byApp =
-            src.byApp && typeof src.byApp === 'object' ? { ...src.byApp } : {};
+            cloneAppMap(src.byApp);
           return Object.assign(base, src, { byApp });
         })
       : emptyByHour(),
     unproductiveStreak: Number(raw.unproductiveStreak) || 0,
+    activityCorrections: Object.fromEntries(Object.entries(raw.activityCorrections || {}).filter(([key, value]) => ['productive', 'unproductive', 'ignored', 'other'].includes(value))),
+    appCorrections: Object.fromEntries(Object.entries(raw.appCorrections || {}).filter(([name, category]) => name && ['productive', 'unproductive', 'ignored', 'other'].includes(category))),
     lastReminderAt: Number(raw.lastReminderAt) || 0
   };
   return day;
+}
+
+function cloneAppMap(map) {
+  const out = Object.create(null);
+  for (const [key, info] of Object.entries(map || {})) {
+    if (!info || typeof info !== 'object') continue;
+    const category = ['productive', 'unproductive', 'ignored'].includes(info.category) ? info.category : 'other';
+    const name = activityParts(key) ? key : appCategoryKey(appEntryName(key), category);
+    const seconds = Number(info.seconds);
+    if (!Number.isFinite(seconds) || seconds < 0) continue;
+    if (!out[name]) out[name] = { seconds: 0, category };
+    out[name].seconds += seconds;
+  }
+  return out;
 }
 
 /**
@@ -135,12 +174,13 @@ function moodFromCategories(byCategory) {
   return { id, emoji: m.emoji, label: m.label, ratio };
 }
 
-function createStore(dataDir) {
+function createStore(dataDir, { onRecovery = () => {} } = {}) {
   fs.mkdirSync(dataDir, { recursive: true });
   const historyDir = path.join(dataDir, 'history');
   fs.mkdirSync(historyDir, { recursive: true });
   const filePath = path.join(dataDir, 'stats.json');
   const settingsPath = path.join(dataDir, 'settings.json');
+  const summaryCache = new Map();
 
   let state = migrateDay(loadJson(filePath) || emptyDay());
   if (state.date !== todayKey()) {
@@ -150,6 +190,10 @@ function createStore(dataDir) {
   }
 
 
+  let settingsRecovered = false;
+  const savedSettings = readRecoverableJson(settingsPath,
+    (value) => value !== null && typeof value === 'object' && !Array.isArray(value),
+    (report) => { settingsRecovered = true; onRecovery(report); });
   let settings = Object.assign(
     {
       thresholdSec: defaultThresholdSec(),
@@ -171,8 +215,12 @@ function createStore(dataDir) {
       sessionCustomMin: 45,
       notificationsEnabled: true
     },
-    loadJson(settingsPath) || {}
+    savedSettings || {}
   );
+  if (settingsRecovered) {
+    settings.trackingPaused = true;
+    persistSettings();
+  }
 
   if (process.env.SYDTRACK_THRESHOLD_SEC) {
     settings.thresholdSec = Number(process.env.SYDTRACK_THRESHOLD_SEC);
@@ -194,29 +242,33 @@ function createStore(dataDir) {
   }
 
   function archiveDay(day) {
-    if (!day || !day.date) return;
+    summaryCache.clear();
+    if (!day || !validDateKey(day.date)) throw new Error('Invalid history date');
     try {
       fs.mkdirSync(historyDir, { recursive: true });
       const dest = path.join(historyDir, `${day.date}.json`);
-      fs.writeFileSync(dest, JSON.stringify(day, null, 2));
+      writeJson(dest, day);
     } catch (err) {
       console.error('[store] archive day failed', err.message);
+      throw err;
     }
   }
 
   function persistStats() {
     try {
-      fs.writeFileSync(filePath, JSON.stringify(state, null, 2));
+      writeJson(filePath, state);
     } catch (err) {
       console.error('[store] persist stats failed', err.message);
+      throw err;
     }
   }
 
   function persistSettings() {
     try {
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      writeJson(settingsPath, settings);
     } catch (err) {
       console.error('[store] persist settings failed', err.message);
+      throw err;
     }
   }
 
@@ -230,16 +282,23 @@ function createStore(dataDir) {
     }
   }
 
-  function addSeconds(app, category, seconds) {
+  function addSeconds(app, category, seconds, activity) {
     rollIfNeeded();
-    const sec = Math.max(0, Number(seconds) || 0);
+    if (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || category === 'ignored') return state;
+    addToDay(state, app, category, seconds, new Date().getHours(), activity);
+    persistStats();
+    return state;
+  }
+
+  function addToDay(state, app, category, seconds, hour, activity) {
+    const sec = Number.isFinite(Number(seconds)) ? Math.max(0, Number(seconds)) : 0;
     if (sec === 0) return state;
     // Never persist ignored category into totals
     if (category === 'ignored') return state;
 
     const cat =
       category === 'productive' || category === 'unproductive' ? category : 'other';
-    const entryKey = appCategoryKey(app, cat);
+    const entryKey = activityKey(app, cat, activity);
     if (!state.byApp[entryKey]) {
       state.byApp[entryKey] = { seconds: 0, category: cat };
     }
@@ -252,7 +311,6 @@ function createStore(dataDir) {
     if (!Array.isArray(state.byHour) || state.byHour.length !== 24) {
       state.byHour = emptyByHour();
     }
-    const hour = new Date().getHours();
     if (!state.byHour[hour]) state.byHour[hour] = emptyHour();
     state.byHour[hour][cat] = (state.byHour[hour][cat] || 0) + sec;
     if (!state.byHour[hour].byApp || typeof state.byHour[hour].byApp !== 'object') {
@@ -266,12 +324,33 @@ function createStore(dataDir) {
 
     if (category === 'unproductive') {
       state.unproductiveStreak += sec;
-    } else if (category === 'productive') {
+    } else {
       state.unproductiveStreak = 0;
     }
 
-    persistStats();
     return state;
+  }
+
+  // A delayed sample may arrive after snapshot() has already rolled the day.
+  // Load that archive before adding, so existing history is never replaced by a fragment.
+  function addInterval(app, category, startedAt, endedAt, activity) {
+    if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt <= startedAt) return;
+    if (category === 'ignored') return;
+    rollIfNeeded();
+    const days = new Map();
+    for (let at = startedAt; at < endedAt;) {
+      const date = new Date(at);
+      const key = todayKey(at);
+      const next = Math.min(endedAt, at + 3600000 -
+        (date.getMinutes() * 60000 + date.getSeconds() * 1000 + date.getMilliseconds()));
+      if (!days.has(key)) days.set(key, key === state.date ? state : loadHistoryDay(key) || emptyDay(key));
+      addToDay(days.get(key), app, category, (next - at) / 1000, date.getHours(), activity);
+      at = next;
+    }
+    for (const [key, day] of days) {
+      if (key === state.date) persistStats();
+      else archiveDay(day);
+    }
   }
 
   function removeSeconds(app, category, seconds) {
@@ -347,8 +426,69 @@ function createStore(dataDir) {
     return state;
   }
 
+  function correctAppToday(name, category) {
+    if (typeof name !== 'string' || !name.trim() || name.length > 500 || !['productive', 'unproductive', 'ignored', 'other'].includes(category)) throw new Error('Invalid app correction.');
+    rollIfNeeded();
+    const next = structuredClone(state);
+    const identity = name.toLowerCase();
+    const correctBucket = (bucket, totals) => {
+      let seconds = 0;
+      for (const [key, info] of Object.entries(bucket.byApp || {})) {
+        if (appEntryName(key).toLowerCase() !== identity) continue;
+        const value = Number(info.seconds) || 0;
+        seconds += value;
+        if (info.category !== 'ignored') totals[info.category] = Math.max(0, (totals[info.category] || 0) - value);
+        delete bucket.byApp[key];
+      }
+      if (seconds) {
+        bucket.byApp[appCategoryKey(name, category)] = { seconds, category };
+        if (category !== 'ignored') totals[category] = (totals[category] || 0) + seconds;
+      }
+    };
+    correctBucket(next, next.byCategory);
+    for (const hour of next.byHour) correctBucket(hour, hour);
+    next.appCorrections = { ...next.appCorrections, [identity]: category };
+    next.unproductiveStreak = 0;
+    writeJson(filePath, next);
+    state = next;
+    return snapshot();
+  }
+
+  function correctActivityToday(id, category) {
+    rollIfNeeded();
+    if (typeof id !== 'string' || !['productive', 'unproductive', 'ignored', 'other'].includes(category)) throw new Error('Invalid activity correction');
+    if (!Object.entries(state.byApp).some(([key, info]) => activityId(key, info) === id)) throw new Error('Activity no longer available');
+    const [name, originalCategory, reason] = JSON.parse(id);
+    const next = structuredClone(state);
+    for (const bucket of [next, ...next.byHour]) {
+      const totals = bucket === next ? next.byCategory : bucket;
+      let seconds = 0;
+      for (const [key, info] of Object.entries(bucket.byApp)) {
+        if (activityId(key, info) !== id) continue;
+        seconds += info.seconds;
+        if (info.category !== 'ignored') totals[info.category] = Math.max(0, (totals[info.category] || 0) - info.seconds);
+        delete bucket.byApp[key];
+      }
+      if (seconds) {
+        const key = activityKey(name, category, { category: originalCategory, reason });
+        bucket.byApp[key] = { seconds, category };
+        if (category !== 'ignored') totals[category] = (totals[category] || 0) + seconds;
+      }
+    }
+    next.activityCorrections = { ...next.activityCorrections, [id]: category };
+    next.unproductiveStreak = 0;
+    writeJson(filePath, next); state = next;
+    return snapshot();
+  }
+
   function markReminder() {
     state.lastReminderAt = Date.now();
+    persistStats();
+  }
+
+  function resetStreak() {
+    if (!state.unproductiveStreak) return;
+    state.unproductiveStreak = 0;
     persistStats();
   }
 
@@ -361,6 +501,7 @@ function createStore(dataDir) {
   }
 
   function loadHistoryDay(dateKey) {
+    if (!validDateKey(dateKey)) return null;
     const p = path.join(historyDir, `${dateKey}.json`);
     const raw = loadJson(p);
     return raw ? migrateDay(raw) : null;
@@ -368,9 +509,9 @@ function createStore(dataDir) {
 
 
   function pruneOldHistory() {
+    summaryCache.clear();
     try {
       const dates = listHistoryDates();
-      if (dates.length <= MAX_HISTORY_DAYS) return;
       const cutoff = new Date();
       cutoff.setHours(0, 0, 0, 0);
       cutoff.setDate(cutoff.getDate() - MAX_HISTORY_DAYS);
@@ -404,15 +545,19 @@ function createStore(dataDir) {
   }
 
   /** Last 7 calendar days including today, oldest → newest. */
-  function weekSummary() {
+  function weekSummary(count = 7) {
     const days = [];
     const now = new Date();
-    for (let i = 6; i >= 0; i--) {
+    for (let i = count - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       const key = `${y}-${m}-${day}`;
+      if (key !== state.date && summaryCache.has(key)) {
+        days.push(structuredClone(summaryCache.get(key)));
+        continue;
+      }
       let dayObj = null;
       if (key === state.date) {
         dayObj = state;
@@ -427,8 +572,7 @@ function createStore(dataDir) {
             category: (info && info.category) || 'other'
           })))
           .filter((e) => e.category !== 'ignored' && e.seconds > 0)
-          .sort((a, b) => b.seconds - a.seconds)
-          .slice(0, 3);
+          .sort((a, b) => b.seconds - a.seconds);
       }
       days.push({
         date: key,
@@ -438,8 +582,10 @@ function createStore(dataDir) {
               dayObj.byCategory || {}
             )
           : { productive: 0, unproductive: 0, other: 0 },
-        topApps
+        apps: topApps,
+        topApps: topApps.slice(0, 3)
       });
+      if (key !== state.date) summaryCache.set(key, structuredClone(days[days.length - 1]));
     }
     return days;
   }
@@ -449,7 +595,7 @@ function createStore(dataDir) {
   *   and subtract their stored totals. Other category totals remain authoritative so a browser
   *   tab switch cannot reclassify history.
    */
-  function snapshot(ignoreList) {
+  function snapshot(ignoreList, { includeWeek = false } = {}) {
     rollIfNeeded();
     const { appMatchesIgnore } = require('./classifier');
     const ignore = ignoreList || [];
@@ -483,13 +629,28 @@ function createStore(dataDir) {
       date: state.date,
       byCategory,
       topApps,
+      analyticsApps: Object.values(Object.entries(state.byApp).reduce((apps, [key, info]) => {
+        const name = appEntryName(key), id = name.toLowerCase();
+        if (!Object.hasOwn(apps, id)) apps[id] = { name, seconds: 0, category: info.category };
+        apps[id].seconds += info.seconds;
+        if (apps[id].category !== info.category) apps[id].category = 'mixed';
+        return apps;
+      }, Object.create(null))).sort((a, b) => b.seconds - a.seconds).slice(0, 10),
+      activityRows: (() => {
+        const rows = Object.entries(state.byApp).map(([key, info]) => ({ id: activityId(key, info), name: appEntryName(key), reason: activityParts(key)?.[2] || 'Keyword not recorded', ...info }));
+        const totals = new Map();
+        for (const row of rows) totals.set(row.name, (totals.get(row.name) || 0) + row.seconds);
+        const names = [...totals].sort((a,b) => b[1] - a[1]).slice(0,10).map(entry => entry[0]);
+        return rows.filter(row => names.includes(row.name)).sort((a,b) => names.indexOf(a.name) - names.indexOf(b.name) || b.seconds - a.seconds);
+      })(),
+      appCorrections: { ...state.appCorrections },
       byHour: (state.byHour || emptyByHour()).map((h) => {
         const src = h || {};
         const byApp =
           src.byApp && typeof src.byApp === 'object' ? { ...src.byApp } : {};
         return Object.assign(emptyHour(), src, { byApp });
       }),
-      week: weekSummary(),
+      ...(includeWeek ? { week: weekSummary() } : {}),
       unproductiveStreak: state.unproductiveStreak,
       lastReminderAt: state.lastReminderAt,
       mood,
@@ -530,6 +691,7 @@ function createStore(dataDir) {
   }
 
   function clearAllHistory() {
+    summaryCache.clear();
     try {
       if (fs.existsSync(historyDir)) {
         for (const f of fs.readdirSync(historyDir)) {
@@ -571,11 +733,21 @@ function createStore(dataDir) {
 
   return {
     addSeconds,
+    addInterval,
     removeSeconds,
     reclassifyStoredApps,
+    correctAppToday,
+    correctActivityToday,
+    getActivityCorrection: (name, activity) => { rollIfNeeded(); return (state.activityCorrections || {})[JSON.stringify([name, activity.category, activity.reason])]; },
+    getAppCorrection: name => { rollIfNeeded(); const corrections = state.appCorrections || {}; const key = String(name).toLowerCase(); return Object.hasOwn(corrections, key) ? corrections[key] : undefined; },
     markReminder,
+    resetStreak,
     shouldRemind,
     snapshot,
+    historySummary: (count = 7) => {
+      rollIfNeeded();
+      return weekSummary(Math.min(90, Math.max(1, Math.floor(Number(count) || 7))));
+    },
     updateSettings,
     getSettings,
     getState,
@@ -609,6 +781,7 @@ function loadJson(p) {
     }
   } catch (err) {
     console.error('[store] read failed', p, err.message);
+    throw err;
   }
   return null;
 }

@@ -1,0 +1,8 @@
+{
+  "format": "sydtrack-profile",
+  "schemaVersion": 1,
+  "name": "Creative",
+  "productive": ["figma", "canva", "miro", "blender", "premiere", "photoshop", "illustrator", "after effects", "davinci", "resolve", "notion", "obsidian"],
+  "unproductive": ["youtube", "reddit", "netflix", "hulu", "disney+", "twitch", "instagram", "tiktok", "facebook", "twitter", "x.com", "discord"],
+  "ignore": []
+}

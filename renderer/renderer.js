@@ -115,7 +115,9 @@ const api = window.sydtrack;
 let applying = false;
 /** Cached rules/ignore for one-click reclassify. */
 let cachedRules = { productive: [], unproductive: [] };
+let cachedBrowserApps = [];
 let cachedIgnore = [];
+let tagsQuickSaving = false;
 const settingsOverrides = Object.create(null);
 /** Last focused window for Home quick-classify (P/U). */
 let lastFocusedCache = null;
@@ -246,20 +248,69 @@ const reduceMotion =
 
 /** Session-only Analytics segment (day | week | month | apps). */
 let analyticsSegment = 'day';
+let historyRequest = 0;
+let historicalWeek = null;
+async function loadAnalyticsHistory(fetchHistory = api && api.getHistorySummary) {
+  if (!fetchHistory || !['week', 'month'].includes(analyticsSegment)) return;
+  const request = ++historyRequest;
+  const segment = analyticsSegment;
+  const target = segment === 'week' ? $('week-chart') : $('month-history');
+  if (target) target.textContent = 'Loading history…';
+  try {
+    const days = await fetchHistory(segment === 'week' ? 7 : 30);
+    if (request !== historyRequest || analyticsSegment !== segment) return;
+    if (segment === 'week') { historicalWeek = days; renderWeek({ week: days }); }
+    else if (target) target.innerHTML = monthMarkup(days);
+  } catch (_) { if (request === historyRequest && target) target.textContent = 'Could not load history. Reopen this tab to retry.'; }
+}
+
+function monthMarkup(days) {
+  const totals = { productive: 0, unproductive: 0, other: 0 };
+  const apps = new Map();
+  let activeDays = 0;
+  for (const day of days) {
+    let daily = 0;
+    for (const category of Object.keys(totals)) { const value = Math.max(0, Number(day.byCategory[category]) || 0); totals[category] += value; daily += value; }
+    if (daily > 0) activeDays++;
+    for (const app of day.apps || []) {
+      if (app.category === 'ignored') continue;
+      const key = app.name.toLowerCase();
+      const previous = apps.get(key) || { name: app.name, seconds: 0 };
+      previous.seconds += Math.max(0, Number(app.seconds) || 0); apps.set(key, previous);
+    }
+  }
+  const total = totals.productive + totals.unproductive + totals.other;
+  const classified = totals.productive + totals.unproductive;
+  const share = classified ? Math.round(totals.productive / classified * 100) + '%' : '—';
+  const p = total ? totals.productive / total * 360 : 0;
+  const u = total ? (totals.productive + totals.unproductive) / total * 360 : 0;
+  const gradient = total ? 'conic-gradient(var(--prod) 0deg ' + p + 'deg,var(--unprod) ' + p + 'deg ' + u + 'deg,var(--other) ' + u + 'deg 360deg)' : 'var(--line-strong)';
+  const top = [...apps.values()].sort((a, b) => b.seconds - a.seconds).slice(0, 5);
+  return '<article class="card month-pie-card"><div class="month-pie-wrap"><div class="pie-chart" role="img" aria-label="Last 30 days: ' + share + ' focus share" style="background:' + gradient + '"></div>' +
+    '<div class="pie-center"><div id="month-focus-share" class="pie-total">' + share + '</div><div class="muted tiny">focus share</div></div></div>' +
+    '<p class="muted tiny">Of productive + unproductive time</p><div class="month-legend">' +
+    [['productive', 'Productive'], ['unproductive', 'Unproductive'], ['other', 'Other']].map(([key, label]) => '<span><i class="month-dot ' + key + '"></i>' + label + ' <strong>' + esc(fmtFriendly(totals[key])) + '</strong></span>').join('') +
+    '</div></article><div class="month-summary"><article class="card"><h3>Last 30 days</h3><div class="month-stat"><span class="muted">Total tracked</span><strong>' + esc(fmtFriendly(total)) + '</strong></div>' +
+    '<div class="month-stat"><span class="muted">Days with activity</span><strong>' + activeDays + '</strong></div>' +
+    '<div class="month-stat"><span class="muted">Average per active day</span><strong>' + esc(fmtFriendly(activeDays ? total / activeDays : 0)) + '</strong></div></article>' +
+    '<article class="card"><h3>Top apps</h3>' + (top.length ? top.map(app => '<div class="month-stat"><span class="month-app" title="' + esc(app.name) + '">' + esc(app.name) + '</span><strong>' + esc(fmtFriendly(app.seconds)) + '</strong></div>').join('') : '<p class="muted">No activity recorded yet</p>') + '</article></div>';
+}
 
 const ANALYTICS_SUBTITLES = {
   day: 'Today’s hours',
   week: 'Last 7 days',
-  month: 'This month',
-  apps: 'Re-tag your top apps here.'
+  month: 'Last 30 days',
+  apps: 'Top 10 today · Corrections update today only.'
 };
 
 function setAnalyticsSegment(segment) {
+  hideChartTip('day-tip');
+  hideChartTip('week-tip');
   if (segment !== 'day' && segment !== 'week' && segment !== 'month' && segment !== 'apps') {
     segment = 'day';
   }
   analyticsSegment = segment;
-  document.querySelectorAll('.segment-btn').forEach((b) => {
+  document.querySelectorAll('.segment-btn[data-segment]').forEach((b) => {
     const on = b.getAttribute('data-segment') === segment;
     b.classList.toggle('active', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -270,10 +321,14 @@ function setAnalyticsSegment(segment) {
   });
   const sub = $('analytics-subtitle');
   if (sub) sub.textContent = ANALYTICS_SUBTITLES[segment] || ANALYTICS_SUBTITLES.day;
+  historyRequest++;
+  loadAnalyticsHistory();
 }
 
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
+    hideChartTip('day-tip');
+    hideChartTip('week-tip');
     document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     const tab = btn.getAttribute('data-tab');
@@ -289,11 +344,11 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     $('view-settings').classList.toggle('hidden', tab !== 'settings');
     if (tab === 'analytics') setAnalyticsSegment(analyticsSegment);
     if (tab === 'sessions') refreshSessionLog();
-    if (tab === 'tags' || tab === 'focus-tags') loadRulesAndIgnore();
+    if ((tab === 'tags' || tab === 'focus-tags') && !window.sydtrackProfilesUI) loadRulesAndIgnore();
   });
 });
 
-document.querySelectorAll('.segment-btn').forEach((btn) => {
+document.querySelectorAll('.segment-btn[data-segment]').forEach((btn) => {
   btn.addEventListener('click', () => {
     setAnalyticsSegment(btn.getAttribute('data-segment') || 'day');
   });
@@ -345,8 +400,7 @@ function updateSourcePill(now) {
 
 
 function isBrowserApp(app) {
-  const a = String(app || '').toLowerCase();
-  return /chrome|msedge|\bedge\b|firefox|brave|opera|chromium/.test(a);
+  return window.sydtrackBrowserRules.isBrowserName(app, cachedBrowserApps);
 }
 
 /**
@@ -463,6 +517,8 @@ function extractBrowserKeyword(title) {
 function keywordForQuickClassify(entry) {
   if (!entry || !entry.app) return null;
   if (isBrowserApp(entry.app)) {
+    const host = window.sydtrackBrowserRules.hostname(entry.url || '');
+    if (host) return `site:${host}`;
     return extractBrowserKeyword(entry.title || '');
   }
   return String(entry.app)
@@ -495,6 +551,7 @@ function defaultCategoryFromRules(entry, rules, ignore) {
       if (pk === k || pk.includes(k) || k.includes(pk)) return 'ignored';
     }
   }
+  if (isBrowserApp(entry.app)) return window.sydtrackBrowserRules.classifyBrowser(entry, r);
   const kw = keywordForQuickClassify(entry);
   if (kw) {
     const key = kw.toLowerCase();
@@ -560,6 +617,7 @@ function renderLastFocused(lf, now) {
   lastFocusedCache = {
     app: use.app,
     title: use.title || '',
+    url: use.url || '',
     category: use.category || 'other',
     browser: use.browser === true || isBrowserApp(use.app)
   };
@@ -809,6 +867,8 @@ function renderHomeWeekBars(stats) {
   if (!wrap) return;
   const week = (stats && stats.week) || [];
   if (!week.length) {
+    hideChartTip('week-tip');
+    weekHoverDays = [];
     wrap.hidden = true;
     return;
   }
@@ -1007,7 +1067,6 @@ function renderWeek(stats) {
     other: h.other,
     topApps: Array.isArray(h.topApps) ? h.topApps.slice(0, 3) : []
   }));
-  hideChartTip('week-tip');
   chart.innerHTML = days
     .map((h, i) => {
       const sum = h.productive + h.unproductive + h.other;
@@ -1046,6 +1105,7 @@ function renderWeek(stats) {
     })
     .join('');
 
+  refreshChartTip('week-tip', showWeekChartTip);
   if (total <= 0) {
     setMetrics('—', 'No productive time yet', '0 min', 'All categories · last 7 days', '—', 'Of productive + unproductive');
     return;
@@ -1249,6 +1309,7 @@ function topAppsFromByApp(byApp, limit) {
 }
 
 function appEntryNameFromKey(key) {
+  try { if (String(key).startsWith('@activity:')) return JSON.parse(key.slice(10))[0]; } catch (_) {}
   const text = String(key);
   const marker = text.lastIndexOf('::');
   if (marker < 0) return text;
@@ -1276,10 +1337,21 @@ function normalizeByHour(raw) {
 
 let dayHoverHours = [];
 let weekHoverDays = [];
+const chartHoverPointers = Object.create(null);
 
 function hideChartTip(id) {
+  delete chartHoverPointers[id];
   const tip = $(id);
   if (tip) tip.classList.add('hidden');
+}
+
+function refreshChartTip(id, show) {
+  const pointer = chartHoverPointers[id];
+  if (!pointer) return;
+  // Bars are replaced on every tick; resolve the new element under the same pointer.
+  const target = document.elementFromPoint(pointer.clientX, pointer.clientY);
+  if (!target) { hideChartTip(id); return; }
+  show({ ...pointer, target });
 }
 
 function placeChartTip(tip, wrap, clientX, clientY) {
@@ -1325,10 +1397,11 @@ function showDayChartTip(ev) {
   const tip = $('day-tip');
   const wrap = chart && chart.closest('.chart-tip-wrap');
   const col = ev.target.closest && ev.target.closest('.day-col');
-  if (!chart || !tip || !wrap || !col || col.classList.contains('empty')) {
+  if (!chart || !tip || !wrap || !col || !chart.contains(col) || col.classList.contains('empty')) {
     hideChartTip('day-tip');
     return;
   }
+  chartHoverPointers['day-tip'] = { clientX: ev.clientX, clientY: ev.clientY };
   const idx = Number(col.getAttribute('data-hour'));
   const h = dayHoverHours[idx];
   if (!h) {
@@ -1359,10 +1432,11 @@ function showWeekChartTip(ev) {
   const tip = $('week-tip');
   const wrap = chart && chart.closest('.chart-tip-wrap');
   const col = ev.target.closest && ev.target.closest('.day-col');
-  if (!chart || !tip || !wrap || !col || col.classList.contains('empty')) {
+  if (!chart || !tip || !wrap || !col || !chart.contains(col) || col.classList.contains('empty')) {
     hideChartTip('week-tip');
     return;
   }
+  chartHoverPointers['week-tip'] = { clientX: ev.clientX, clientY: ev.clientY };
   const idx = Number(col.getAttribute('data-day'));
   const d = weekHoverDays[idx];
   if (!d) {
@@ -1419,7 +1493,6 @@ function renderDay(stats) {
   }
 
   dayHoverHours = hours;
-  hideChartTip('day-tip');
   chart.innerHTML = hours
     .map((h, i) => {
       const sum = h.productive + h.unproductive + h.other;
@@ -1458,6 +1531,7 @@ function renderDay(stats) {
     })
     .join('');
 
+  refreshChartTip('day-tip', showDayChartTip);
   const peakVal = $('day-peak-value');
   const peakSub = $('day-peak-sub');
   if (peakVal) {
@@ -1677,7 +1751,11 @@ function renderStats(stats) {
       ? Object.assign({}, stats, { byCategory: liveDisplayCategories })
       : stats
   );
-  renderWeek(stats);
+  if (stats.week) renderWeek(stats);
+  else if (historicalWeek) {
+    historicalWeek = historicalWeek.map(day => day.date === stats.date ? { ...day, byCategory: stats.byCategory, topApps: stats.topApps } : day);
+    renderWeek({ week: historicalWeek });
+  }
   renderDay(stats);
   renderRoundup(stats);
   $('streak').textContent = fmt(stats.unproductiveStreak || 0);
@@ -1692,95 +1770,35 @@ function renderStats(stats) {
 function renderAppList(stats) {
   const list = $('app-list');
   if (!list) return;
-  const apps = (stats && stats.topApps) || [];
-  if (!apps.length) {
-    list.innerHTML = '<li class="empty">No time logged yet</li>';
-    return;
-  }
-  list.innerHTML = apps
-    .map((a) => {
-      const name = esc(a.name);
-      const raw = encodeURIComponent(a.name);
-      const chip = chipDisplay(a.category, a.name);
-      return (
-        '<li class="app-row">' +
-        '<span class="app-name app-trunc" data-full="' +
-        name +
-        '" title="' +
-        name +
-        '">' +
-        name +
-        '</span>' +
-        '<span class="' +
-        chip.className +
-        '">' +
-        chip.label +
-        '</span>' +
-        '<span class="secs">' +
-        fmt(a.seconds) +
-        '</span>' +
-        '<span class="reclass" data-app="' +
-        raw +
-        '">' +
-        '<button type="button" class="btn-mini prod" data-action="productive" title="Mark productive">P</button>' +
-        '<button type="button" class="btn-mini unprod" data-action="unproductive" title="Mark unproductive">U</button>' +
-        '<button type="button" class="btn-mini ignore" data-action="ignore" title="Ignore">ign</button>' +
-        '</span>' +
-        '</li>'
-      );
-    })
-    .join('');
+  const apps = (stats && (stats.activityRows || stats.topApps)) || [];
+  if (!apps.length) { list.innerHTML = '<li class="empty">No time logged yet</li>'; return; }
+  list.innerHTML = apps.map(a => {
+    const category = a.category;
+    const chip = category === 'mixed' ? { className: 'chip other', label: 'mixed' } : chipDisplay(category, a.name);
+    return '<li class="app-row"><span class="app-name app-trunc" title="' + esc(a.name) + '">' + esc(a.name) + '<small class="app-match-reason">' + esc(a.reason || 'Keyword not recorded') + '</small></span>' +
+      '<span class="' + chip.className + '">' + chip.label + '</span><span class="secs">' + fmt(a.seconds) + '</span>' +
+      '<span class="reclass" data-app="' + encodeURIComponent(a.id || '') + '">' +
+      [['productive', 'prod', 'P'], ['unproductive', 'unprod', 'U'], ['ignored', 'ignore', 'ign']].map(([value, cls, label]) =>
+        '<button type="button" class="btn-mini ' + cls + (category === value ? ' selected' : '') + '" aria-pressed="' + (category === value) +
+        '" data-action="' + value + '" title="' + (value === 'ignored' && category === 'ignored' ? 'Unignore for today' : 'Mark this activity ' + value + ' for today') + '">' + label + '</button>').join('') + '</span></li>';
+  }).join('');
 }
 
-$('app-list').addEventListener('click', async (ev) => {
+$('app-list').addEventListener('click', async ev => {
   const btn = ev.target.closest('button[data-action]');
-  if (!btn || !api) return;
+  if (!btn || !api || !api.correctActivityToday) return;
   const wrap = btn.closest('.reclass');
-  if (!wrap) return;
-  const appName = decodeURIComponent(wrap.getAttribute('data-app') || '');
-  if (!appName) return;
-  const action = btn.getAttribute('data-action');
-  const label = appName.trim();
-  const key = label.toLowerCase();
+  const name = decodeURIComponent(wrap.getAttribute('data-app'));
+  let category = btn.dataset.action;
+  if (category === 'ignored' && btn.getAttribute('aria-pressed') === 'true') category = 'other';
   btn.disabled = true;
   try {
-    if (action === 'ignore') {
-      const prev = cachedIgnore.slice();
-      const already = listHasKey(prev, key);
-      const nextIgnore = already
-        ? prev.filter((x) => String(x).toLowerCase() !== key)
-        : prev.concat([label]);
-      const payload = await api.setIgnore(nextIgnore);
-      cachedIgnore = (payload && payload.ignore) || nextIgnore;
-      fillIgnoreEditor({ ignore: cachedIgnore, path: payload && payload.path, isCustom: true });
-      if (already) refreshLastFocusedAfterToggle(key);
-    } else if (action === 'productive' || action === 'unproductive') {
-      const prod = (cachedRules.productive || []).slice();
-      const unprod = (cachedRules.unproductive || []).slice();
-      const strip = (arr) => arr.filter((k) => String(k).toLowerCase() !== key);
-      const already =
-        (action === 'productive' && listHasKey(prod, key)) ||
-        (action === 'unproductive' && listHasKey(unprod, key));
-      let nextProd = strip(prod);
-      let nextUnprod = strip(unprod);
-      // Toggle off: strip from both lists; do not re-add
-      if (!already) {
-        if (action === 'productive') nextProd.push(label);
-        else nextUnprod.push(label);
-      }
-      const next = await api.setRules({ productive: nextProd, unproductive: nextUnprod });
-      cachedRules = {
-        productive: (next && next.productive) || nextProd,
-        unproductive: (next && next.unproductive) || nextUnprod
-      };
-      fillRulesEditors(next);
-      if (already) refreshLastFocusedAfterToggle(key);
-    }
-  } catch (err) {
-    console.warn('reclassify failed', err);
-  } finally {
-    btn.disabled = false;
-  }
+    const stats = await api.correctActivityToday(name, category);
+    historicalWeek = null;
+    historyRequest++;
+    renderStats(stats);
+  } catch (err) { console.warn('App correction failed', err); }
+  finally { btn.disabled = false; }
 });
 
 async function pushSettings(partial) {
@@ -1975,6 +1993,7 @@ function linesToList(text) {
 
 function fillRulesEditors(rules) {
   if (!rules) return;
+  if (Array.isArray(rules.browserApps)) cachedBrowserApps = rules.browserApps.slice();
   cachedRules = {
     productive: rules.productive || [],
     unproductive: rules.unproductive || []
@@ -1989,6 +2008,7 @@ function fillRulesEditors(rules) {
   if ($('rules-unprod-custom-label')) {
     $('rules-unprod-custom-label').textContent = rules.isCustom ? '(custom)' : '(defaults)';
   }
+  updateTagsQuickStatus();
 }
 
 function fillIgnoreEditor(payload) {
@@ -1999,10 +2019,11 @@ function fillIgnoreEditor(payload) {
   if (payload && payload.path && $('ignore-path')) $('ignore-path').textContent = payload.path;
   const label = $('ignore-custom-label');
   if (label) label.textContent = payload && payload.isCustom ? '(custom)' : '(defaults)';
+  updateTagsQuickStatus();
 }
 
 async function loadRulesAndIgnore() {
-  if (!api) return;
+  if (!api || tagsQuickSaving) return;
   try {
     const rules = await api.getRules();
     fillRulesEditors(rules);
@@ -2018,7 +2039,8 @@ async function loadRulesAndIgnore() {
 }
 
 async function saveRulesFromEditors(statusId) {
-  if (!api || !api.setRules) return;
+  if (!api || !api.setRules || tagsQuickSaving) return;
+    tagsQuickSaving = true;
   const status = $(statusId);
   if (status) status.textContent = 'Saving…';
   try {
@@ -2032,11 +2054,12 @@ async function saveRulesFromEditors(statusId) {
     if (other) other.textContent = 'Saved — live now';
   } catch (err) {
     if (status) status.textContent = 'Save failed';
-  }
+  } finally { tagsQuickSaving = false; }
 }
 
 async function resetRulesFromEditors(statusId) {
-  if (!api || !api.resetRules) return;
+  if (!api || !api.resetRules || tagsQuickSaving) return;
+    tagsQuickSaving = true;
   const status = $(statusId);
   if (status) status.textContent = 'Resetting…';
   try {
@@ -2047,7 +2070,7 @@ async function resetRulesFromEditors(statusId) {
     if (other) other.textContent = 'Defaults restored';
   } catch (err) {
     if (status) status.textContent = 'Reset failed';
-  }
+  } finally { tagsQuickSaving = false; }
 }
 
 if ($('rules-save')) {
@@ -2068,7 +2091,8 @@ if ($('rules-unprod-reset')) {
 
 if ($('ignore-save')) {
   $('ignore-save').addEventListener('click', async () => {
-    if (!api || !api.setIgnore) return;
+    if (!api || !api.setIgnore || tagsQuickSaving) return;
+    tagsQuickSaving = true;
     $('ignore-status').textContent = 'Saving…';
     try {
       const next = await api.setIgnore(linesToList($('ignore-edit').value));
@@ -2076,13 +2100,14 @@ if ($('ignore-save')) {
       $('ignore-status').textContent = 'Saved — live now';
     } catch (err) {
       $('ignore-status').textContent = 'Save failed';
-    }
+    } finally { tagsQuickSaving = false; }
   });
 }
 
 if ($('ignore-reset')) {
   $('ignore-reset').addEventListener('click', async () => {
-    if (!api || !api.resetIgnore) return;
+    if (!api || !api.resetIgnore || tagsQuickSaving) return;
+    tagsQuickSaving = true;
     $('ignore-status').textContent = 'Resetting…';
     try {
       const next = await api.resetIgnore();
@@ -2090,41 +2115,26 @@ if ($('ignore-reset')) {
       $('ignore-status').textContent = 'Defaults restored';
     } catch (err) {
       $('ignore-status').textContent = 'Reset failed';
-    }
+    } finally { tagsQuickSaving = false; }
   });
 }
 
 
 /* —— Focus Tags quick add / search —— */
-function mergeKeywordLists(a, b) {
-  const out = [];
-  const seen = new Set();
-  for (const x of [...(a || []), ...(b || [])]) {
-    const t = String(x || '').trim();
-    if (!t) continue;
-    const k = t.toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(t);
-  }
-  return out;
-}
-
-function currentTagListsMerged() {
-  const prodTa = linesToList(($('rules-prod-edit') && $('rules-prod-edit').value) || '');
-  const unprodTa = linesToList(($('rules-unprod-edit') && $('rules-unprod-edit').value) || '');
-  const ignTa = linesToList(($('ignore-edit') && $('ignore-edit').value) || '');
+function currentTagLists() {
+  // The visible draft is authoritative, including an intentionally empty editor.
+  const read = (id, fallback) => $(id) ? linesToList($(id).value) : fallback;
   return {
-    productive: mergeKeywordLists(prodTa, cachedRules.productive),
-    unproductive: mergeKeywordLists(unprodTa, cachedRules.unproductive),
-    ignore: mergeKeywordLists(ignTa, cachedIgnore)
+    productive: read('rules-prod-edit', cachedRules.productive),
+    unproductive: read('rules-unprod-edit', cachedRules.unproductive),
+    ignore: read('ignore-edit', cachedIgnore)
   };
 }
 
 function listsContainingKeyword(keyword) {
   const key = String(keyword || '').trim().toLowerCase();
   if (!key) return [];
-  const lists = currentTagListsMerged();
+  const lists = currentTagLists();
   const found = [];
   if (lists.productive.some((x) => x.toLowerCase() === key)) found.push('Productive');
   if (lists.unproductive.some((x) => x.toLowerCase() === key)) found.push('Unproductive');
@@ -2155,12 +2165,17 @@ function stripKeywordCI(arr, keyword) {
 }
 
 async function tagsQuickAdd(target) {
+  if (tagsQuickSaving) return;
   const status = $('tags-quick-status');
   const input = $('tags-quick-input');
   if (!input) return;
   const kw = String(input.value || '').trim();
   if (!kw) {
     if (status) status.textContent = 'Enter a keyword first.';
+    return;
+  }
+  if (/^site:/i.test(kw) && (target === 'ignore' || !window.sydtrackBrowserRules.siteDomain(kw))) {
+    if (status) status.textContent = 'Use site:example.com in Productive or Unproductive. Ignore applies to whole apps.';
     return;
   }
   if (!api) {
@@ -2178,15 +2193,15 @@ async function tagsQuickAdd(target) {
   const inUnprod = unprod.some((x) => x.toLowerCase() === key);
   const inIgnore = ignore.some((x) => x.toLowerCase() === key);
 
-  if (target === 'productive' && inProd) {
+  if (target === 'productive' && inProd && !inUnprod && !inIgnore) {
     if (status) status.textContent = 'Already in Productive.';
     return;
   }
-  if (target === 'unproductive' && inUnprod) {
+  if (target === 'unproductive' && inUnprod && !inProd && !inIgnore) {
     if (status) status.textContent = 'Already in Unproductive.';
     return;
   }
-  if (target === 'ignore' && inIgnore) {
+  if (target === 'ignore' && inIgnore && !inProd && !inUnprod) {
     if (status) status.textContent = 'Already in Ignore.';
     return;
   }
@@ -2204,6 +2219,10 @@ async function tagsQuickAdd(target) {
   else ignore.push(kw);
 
   if (status) status.textContent = 'Saving…';
+  tagsQuickSaving = true;
+  const controls = document.querySelectorAll('#view-tags button, #view-tags textarea');
+  const disabledBefore = Array.from(controls, (el) => el.disabled);
+  controls.forEach((el) => { el.disabled = true; });
   try {
     const rulesChanged =
       target === 'productive' ||
@@ -2239,6 +2258,11 @@ async function tagsQuickAdd(target) {
   } catch (err) {
     if (status) status.textContent = 'Save failed.';
     console.warn('tags quick-add failed', err);
+  } finally {
+    tagsQuickSaving = false;
+    controls.forEach((el, i) => { el.disabled = disabledBefore[i]; });
+    // A slow save must not replace the search result for a newer query.
+    if (String(input.value || '').trim() !== kw) updateTagsQuickStatus();
   }
 }
 
@@ -2246,6 +2270,9 @@ async function tagsQuickAdd(target) {
   const input = $('tags-quick-input');
   if (!input) return;
   input.addEventListener('input', updateTagsQuickStatus);
+  for (const id of ['rules-prod-edit', 'rules-unprod-edit', 'ignore-edit']) {
+    if ($(id)) $(id).addEventListener('input', updateTagsQuickStatus);
+  }
   input.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') {
       ev.preventDefault();
@@ -2286,15 +2313,20 @@ if ($('data-export')) {
 if ($('data-import')) {
   $('data-import').addEventListener('click', async () => {
     if (!api || !api.importData) return;
+    if (window.sydtrackProfilesUI && !window.sydtrackProfilesUI.mayDiscard()) return;
     $('data-status').textContent = 'Importing…';
     try {
       const res = await api.importData({ mode: 'merge' });
       if (res && res.canceled) $('data-status').textContent = 'Import canceled';
       else if (res && res.ok) {
-        $('data-status').textContent = 'Imported ' + (res.daysImported || 0) + ' day(s)';
+        $('data-status').textContent = 'Imported ' + (res.daysImported || 0) + ' day(s), ' + (res.sessionsImported || 0) + ' session(s) added or updated';
+        historicalWeek = null;
+        historyRequest++;
         const state = await api.getState();
         if (state) renderStats(state.stats);
         await loadRulesAndIgnore();
+        if (window.sydtrackProfilesUI) await window.sydtrackProfilesUI.reload(true, true);
+        refreshSessionLog();
       } else $('data-status').textContent = (res && res.error) || 'Import failed';
     } catch (err) {
       $('data-status').textContent = 'Import failed';
@@ -2302,43 +2334,6 @@ if ($('data-import')) {
   });
 }
 
-
-if ($('profile-export')) {
-  $('profile-export').addEventListener('click', async () => {
-    if (!api || !api.exportProfilePack) return;
-    $('profile-status').textContent = 'Exporting profile…';
-    try {
-      const res = await api.exportProfilePack({});
-      if (res && res.canceled) $('profile-status').textContent = 'Export canceled';
-      else if (res && res.ok) $('profile-status').textContent = 'Profile pack exported';
-      else $('profile-status').textContent = (res && res.error) || 'Export failed';
-    } catch (err) {
-      $('profile-status').textContent = 'Export failed';
-    }
-  });
-}
-
-if ($('profile-import')) {
-  $('profile-import').addEventListener('click', async () => {
-    if (!api || !api.importProfilePack) return;
-    $('profile-status').textContent = 'Importing profile…';
-    try {
-      const res = await api.importProfilePack();
-      if (res && res.canceled) $('profile-status').textContent = 'Import canceled';
-      else if (res && res.ok) {
-        const bits = [];
-        if (res.name) bits.push(res.name);
-        bits.push((res.productive || 0) + ' productive');
-        bits.push((res.unproductive || 0) + ' unproductive');
-        bits.push((res.ignore || 0) + ' ignore');
-        $('profile-status').textContent = 'Imported: ' + bits.join(', ');
-        await loadRulesAndIgnore();
-      } else $('profile-status').textContent = (res && res.error) || 'Import failed';
-    } catch (err) {
-      $('profile-status').textContent = 'Import failed';
-    }
-  });
-}
 
 if ($('data-clear-today')) {
   $('data-clear-today').addEventListener('click', async () => {

@@ -1,0 +1,8 @@
+{
+  "format": "sydtrack-profile",
+  "schemaVersion": 1,
+  "name": "Study",
+  "productive": ["anki", "zotero", "notion", "obsidian", "blackboard", "gradescope", "canvas", "instructure", "docs.google", "google docs", "google sheets", "sheets.google", "overleaf", "chatgpt", "chat.openai", "claude.ai"],
+  "unproductive": ["youtube", "reddit", "netflix", "hulu", "disney+", "twitch", "instagram", "tiktok", "facebook", "twitter", "x.com", "discord"],
+  "ignore": []
+}

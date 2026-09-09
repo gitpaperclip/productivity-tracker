@@ -1,7 +1,7 @@
 'use strict';
 
 const { createDemoBackend } = require('./demo-windows');
-const { classify, appLabel, isIgnored, isBrowserProcess } = require('./classifier');
+const { classify, classifyWithReason, appLabel, isIgnored, isBrowserProcess } = require('./classifier');
 
 function createActiveWinBackend() {
   let impl = null;
@@ -86,15 +86,17 @@ function createRealBackend() {
  * Mutable so IPC can hot-reload without restarting tracker.
  * Also accepts legacy `rules` / `ignore` plain values for smoke/tests.
  */
-function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessionManager, onTick, onReminder }) {
+function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessionManager, onTick, onReminder, backend, now: clock = Date.now }) {
   const rHolder = rulesHolder || { rules: rules };
   const iHolder = ignoreHolder || { ignore: ignore || [] };
-  const real = createRealBackend();
+  const real = backend || createRealBackend();
   const demo = createDemoBackend();
   let timer = null;
   let pollInFlight = false;
-  let idleCorrectionApplied = 0;
-  let lastTick = Date.now();
+  let generation = 0;
+  let systemInactive = false;
+  let lastTick = clock();
+  let lastHeartbeat = lastTick;
   let current = {
     window: null,
     app: '—',
@@ -106,12 +108,35 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   /** Last non-ignored, non-SydTrack window — survives while user looks at SydTrack. */
   let lastFocused = null;
 
+  function resetStreakSafely() {
+    try { if (store.resetStreak) store.resetStreak(); }
+    catch (err) { console.error('[tracker] could not persist streak reset:', err.message); }
+  }
+
+  function checkContinuity() {
+    const at = clock();
+    const gap = at - lastHeartbeat;
+    const tolerance = Math.max(5000, (Number(store.getSettings().pollMs) || 1500) * 3);
+    lastHeartbeat = at;
+    if (gap < 0 || gap > tolerance) {
+      generation += 1;
+      lastTick = at;
+      current.since = at;
+      resetStreakSafely();
+    }
+  }
+
   async function pollOnce() {
-    const now = Date.now();
-    const elapsed = Math.min(5, Math.max(0, (now - lastTick) / 1000));
+    if (systemInactive) return;
+    const pollGeneration = generation;
+    const now = clock();
+    const intervalStart = lastTick;
+    let elapsed = Math.max(0, (now - intervalStart) / 1000);
     lastTick = now;
 
-    const settings = store.getSettings();
+    let settings = store.getSettings();
+    const startedPaused = !!settings.trackingPaused;
+    const startedDemo = !!settings.demoMode;
     let win = null;
     let source = 'idle';
     let trackingError = null;
@@ -130,16 +155,21 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       source = win ? 'real' : 'idle';
     }
 
-    const ignored = win ? isIgnored(win, iHolder.ignore || []) : false;
+    checkContinuity();
+    if (pollGeneration !== generation || systemInactive) return;
+    settings = store.getSettings();
+    if (!!settings.demoMode !== startedDemo) return;
+    if (startedPaused) elapsed = 0;
+    const activity = win ? classifyWithReason(win, rHolder.rules) : null;
+    const rowCorrection = win && store.getActivityCorrection ? store.getActivityCorrection(appLabel(win), activity) : null;
+    const correction = rowCorrection || (win && store.getAppCorrection ? store.getAppCorrection(appLabel(win)) : null);
+    const selfIgnored = win && isIgnored(win, [], {});
+    const ignored = selfIgnored || (correction ? correction === 'ignored' : win ? isIgnored(win, iHolder.ignore || [], rHolder.rules && rHolder.rules.identities) : false);
     const idleTimeoutSec = Math.max(0, Number(settings.idleTimeoutSec) || 0);
     const idle = !settings.demoMode && idleTimeoutSec > 0 && idleSec >= idleTimeoutSec;
-    const idleCorrection = idle ? Math.max(0, idleSec - idleTimeoutSec) : 0;
-    if (idle && win && !ignored && !settings.trackingPaused && idleCorrection > idleCorrectionApplied) {
-      store.removeSeconds(appLabel(win), classify(win, rHolder.rules), idleCorrection - idleCorrectionApplied);
-    }
-    idleCorrectionApplied = idle ? idleCorrection : 0;
+    // Pause at the timeout. Never subtract accumulated idle time from earned history.
     // Show in Now viewing; do not log time or affect streaks when ignored
-    const category = !win ? 'other' : ignored ? 'ignored' : classify(win, rHolder.rules);
+    const category = !win ? 'other' : ignored ? 'ignored' : correction || classify(win, rHolder.rules);
     const app = win
       ? appLabel(win)
       : trackingError
@@ -154,7 +184,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
           : settings.demoMode
             ? ''
             : 'Switch apps to start tracking');
-    const browser = !!(win && isBrowserProcess(win));
+    const browser = !!(win && isBrowserProcess(win, rHolder.rules && rHolder.rules.identities));
 
     const same =
       current.app === app &&
@@ -179,7 +209,10 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
 
     // NEVER count ignored toward totals or streaks; never log while paused
     if (win && !ignored && !paused && !idle) {
-      store.addSeconds(app, category, elapsed);
+      if (store.addInterval && elapsed > 0) store.addInterval(app, category, intervalStart, now, activity);
+      else store.addSeconds(app, category, elapsed, activity);
+    } else if (store.resetStreak) {
+      store.resetStreak();
     }
 
     // Focus session: accumulate byApp + distraction edges while active
@@ -198,6 +231,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       lastFocused = {
         app,
         title,
+        url: win.url || '',
         category,
         browser,
         source,
@@ -210,13 +244,14 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
       !ignored &&
       !paused &&
       !idle &&
+      settings.notificationsEnabled !== false &&
       store.shouldRemind() &&
       category === 'unproductive'
     ) {
       store.markReminder();
       if (onReminder) {
         onReminder({
-          streak: store.snapshot(iHolder.ignore || []).unproductiveStreak,
+          streak: store.snapshot([], { includeWeek: false }).unproductiveStreak,
           threshold: settings.thresholdSec,
           app,
           title
@@ -244,7 +279,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
           trackingError
         },
         lastFocused,
-        stats: store.snapshot(iHolder.ignore || []),
+        stats: store.snapshot([], { includeWeek: false }),
         session: activeSession,
         sessionCompleted: (sessionInfo && sessionInfo.completed) || null
       });
@@ -252,6 +287,8 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
   }
 
   async function poll() {
+    // Keep observing timer continuity even while a slow backend request is pending.
+    checkContinuity();
     if (pollInFlight) return;
     pollInFlight = true;
     try {
@@ -263,14 +300,18 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
 
   function start() {
     if (timer) return; // idempotent
-    lastTick = Date.now();
-    poll();
+    resetStreakSafely();
+    lastTick = clock();
+    lastHeartbeat = lastTick;
+    const run = () => poll().catch((err) => console.error('[tracker] poll failed:', err.message));
+    run();
     const ms = store.getSettings().pollMs || 1500;
-    timer = setInterval(poll, ms);
+    timer = setInterval(run, ms);
     if (timer.unref) timer.unref();
   }
 
   function stop() {
+    generation += 1;
     if (timer) {
       clearInterval(timer);
       timer = null;
@@ -281,7 +322,26 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
     return lastFocused;
   }
 
-  return { start, stop, poll, getLastFocused };
+  function setSystemInactive(inactive) {
+    if (systemInactive === !!inactive) return;
+    systemInactive = !!inactive;
+    generation += 1;
+    lastTick = clock();
+    lastHeartbeat = lastTick;
+    current.since = lastTick;
+    resetStreakSafely();
+  }
+
+  function invalidateClassification() {
+    generation++;
+    lastTick = clock();
+    lastHeartbeat = lastTick;
+    current.since = lastTick;
+    lastFocused = null;
+    resetStreakSafely();
+  }
+
+  return { start, stop, poll, getLastFocused, setSystemInactive, invalidateClassification };
 }
 
 module.exports = { createTracker, createRealBackend };
