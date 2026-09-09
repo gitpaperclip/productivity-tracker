@@ -84,7 +84,7 @@
               <span id="focusboost-label" class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">boost</span></span>
             </button>
             <button type="button" id="focus-profile-btn" class="focusboost-btn profile-trigger" data-boost="off" aria-expanded="false" aria-controls="focus-profile-menu">
-              <span class="profile-caption">Profile</span><span id="focus-profile-label">Default</span><span aria-hidden="true">▾</span>
+              <span class="fb-wordmark"><span class="fb-focus">focus</span><span class="fb-boost">profile</span></span><span id="focus-profile-label">Default</span><span aria-hidden="true">▾</span>
             </button>
             <div id="focus-profile-menu" class="profile-menu hidden" role="group" aria-label="Choose Focus profile"></div>
             <span id="home-profile-status" class="muted tiny" role="status"></span>
@@ -429,26 +429,6 @@
         <header class="page-head">
           <div><h1>Settings</h1><p class="muted">Tracking, profiles, reminders, and data</p></div>
         </header>
-        <article class="card profile-settings" id="profile-settings">
-          <h2>Focus profiles</h2>
-          <p class="hint">Five slots. Each profile has its own Focus Tags. Switching or editing affects future tracking; recorded totals stay unchanged.</p>
-          <label class="field"><span>Profile to edit</span><select id="profile-editor-select" aria-label="Profile to edit"></select></label>
-          <label class="field"><span>Name</span><input id="profile-name" type="text" maxlength="40" placeholder="Name this profile" /></label>
-          <div class="profile-tag-fields">
-            <label class="field"><span>Productive</span><textarea id="profile-productive" class="rules-textarea" rows="5" placeholder="One keyword per line"></textarea></label>
-            <label class="field"><span>Unproductive</span><textarea id="profile-unproductive" class="rules-textarea" rows="5" placeholder="One keyword per line"></textarea></label>
-            <label class="field"><span>Ignore</span><textarea id="profile-ignore" class="rules-textarea" rows="5" placeholder="Whole apps only"></textarea></label>
-          </div>
-          <p class="hint">Browser tags match window titles. Process identities remain global. Ignore excludes entire apps. Focus Tags edits the currently active profile.</p>
-          <div class="profile-edit-actions">
-            <button id="profile-save-named" class="btn primary" type="button">Save profile</button>
-            <button id="profile-use-named" class="btn" type="button">Use profile</button>
-            <button id="profile-delete-named" class="btn" type="button">Delete</button>
-            <button id="profile-import-named" class="btn" type="button">Add from file…</button>
-            <button id="profile-export-named" class="btn" type="button">Export profile…</button>
-          </div>
-          <p id="profiles-status" class="muted tiny" role="status"></p>
-        </article>
         <article class="card">
           <h3>Tracker</h3>
           <!-- Toggles first: Pause → session history → focusboost schedule (last) -->
@@ -565,6 +545,26 @@
               <button type="button" id="data-clear-all" class="btn danger">Clear all history</button>
             </div>
           </div>
+        </article>
+
+        <article class="card profile-settings" id="profile-settings">
+          <h2>Focus profiles</h2>
+          <p class="hint">Five slots. Each profile has its own Focus Tags. Switching or editing affects future tracking; recorded totals stay unchanged.</p>
+          <label class="field"><span>Profile to edit</span><select id="profile-editor-select" aria-label="Profile to edit"></select></label>
+          <label class="field"><span>Name</span><input id="profile-name" type="text" maxlength="40" placeholder="Name this profile" /></label>
+          <div class="profile-tag-fields">
+            <label class="field"><span>Productive</span><textarea id="profile-productive" class="rules-textarea" rows="5" placeholder="One keyword per line"></textarea></label>
+            <label class="field"><span>Unproductive</span><textarea id="profile-unproductive" class="rules-textarea" rows="5" placeholder="One keyword per line"></textarea></label>
+            <label class="field"><span>Ignore</span><textarea id="profile-ignore" class="rules-textarea" rows="5" placeholder="Whole apps only"></textarea></label>
+          </div>
+          <div class="profile-edit-actions">
+            <button id="profile-save-named" class="btn primary" type="button">Save profile</button>
+            <button id="profile-use-named" class="btn" type="button">Use profile</button>
+            <button id="profile-delete-named" class="btn" type="button">Delete</button>
+            <button id="profile-import-named" class="btn" type="button">Add from file…</button>
+            <button id="profile-export-named" class="btn" type="button">Export profile…</button>
+          </div>
+          <p id="profiles-status" class="muted tiny" role="status"></p>
         </article>
       </section>
     </main>
