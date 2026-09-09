@@ -173,6 +173,25 @@ function createWindow() {
     winOpts.icon = path.join(__dirname, '..', 'renderer', 'assets', 'logo-wordmark.png');
   }
   mainWindow = new BrowserWindow(winOpts);
+  if (process.platform === 'win32') {
+    // Windows uses these shell properties for the taskbar menu, independently
+    // of the document title. Portable builds must relaunch their outer EXE.
+    const executable = app.isPackaged
+      ? process.env.PORTABLE_EXECUTABLE_FILE || process.execPath
+      : process.execPath;
+    const relaunchCommand = app.isPackaged
+      ? `"${executable}"`
+      : `"${executable}" "${app.getAppPath()}" --no-sandbox --disable-gpu`;
+    mainWindow.setAppDetails({
+      appId: 'com.gitpaperclip.sydtrack',
+      appIconPath: app.isPackaged
+        ? path.join(process.resourcesPath, 'sydtrack.ico')
+        : path.join(__dirname, '..', 'renderer', 'assets', 'sydtrack.ico'),
+      appIconIndex: 0,
+      relaunchDisplayName: 'sydtrack',
+      relaunchCommand
+    });
+  }
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     if (errorLog) errorLog.write('renderer-exit', `${details.reason} (${details.exitCode})`);
   });
@@ -388,7 +407,10 @@ function createTray() {
 }
 
 const ownsInstance = app.requestSingleInstanceLock();
-if (!ownsInstance) app.quit();
+if (!ownsInstance) {
+  console.log('[sydtrack] Another copy is already running. Quit it from the tray before starting this build.');
+  app.quit();
+}
 app.on('second-instance', () => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();

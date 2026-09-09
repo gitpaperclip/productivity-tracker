@@ -164,7 +164,7 @@ function createAppTray(deps) {
     const alertsOn = s.notificationsEnabled !== false;
     return Menu.buildFromTemplate([
       {
-        label: 'Open SydTrack',
+        label: 'open sydtrack',
         click: () => showWindow()
       },
       { type: 'separator' },

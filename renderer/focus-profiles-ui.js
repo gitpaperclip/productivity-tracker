@@ -76,6 +76,7 @@
   }
   function openName(mode) {
     nameMode = mode;
+    $('profile-name-heading').textContent = mode === 'new' ? 'Create new profile' : 'Edit profile name';
     $('profile-name-form').classList.remove('hidden');
     $('profile-name').value = mode === 'new' ? '' : displayName(state.profiles.find(p => p.id === state.activeId));
     $('profile-save-named').textContent = mode === 'new' ? 'Create profile' : 'Save name';

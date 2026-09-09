@@ -101,6 +101,9 @@ app.whenReady().then(async () => {
   await new Promise(resolve => setTimeout(resolve, 300));
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-profiles-settings.png'), (await win.webContents.capturePage()).toPNG());
   console.log('Profile UI checks passed: create, activate, failed save, draft cancellation, five slots, keyboard dismissal.');
+  await win.webContents.executeJavaScript(`document.getElementById('profile-rename-named').click(); document.getElementById('profile-name-form').scrollIntoView({ block: 'end' });`);
+  await new Promise(resolve => setTimeout(resolve, 300));
+  fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-profile-name-editor.png'), (await win.webContents.capturePage()).toPNG());
   app.exit(0);
 }).catch(err => { console.error(err); app.exit(1); });
 setTimeout(() => { console.error('Profile UI checks timed out'); app.exit(1); }, 45000).unref();
