@@ -157,7 +157,7 @@ function createTracker({ store, rulesHolder, rules, ignoreHolder, ignore, sessio
           : settings.demoMode
             ? ''
             : 'Switch apps to start tracking');
-    const browser = !!(win && isBrowserProcess(win));
+    const browser = !!(win && isBrowserProcess(win, rHolder.rules && rHolder.rules.identities));
 
     const same =
       current.app === app &&

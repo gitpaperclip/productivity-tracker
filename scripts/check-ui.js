@@ -21,6 +21,39 @@ app.whenReady().then(async () => {
     webPreferences: { contextIsolation: true, nodeIntegration: false } });
   await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   const results = [];
+  const layoutChecks = [];
+  await win.webContents.executeJavaScript(`(() => {
+    const style = document.createElement('style');
+    style.textContent = '* { transition: none !important; animation: none !important; }';
+    document.head.append(style);
+  })()`);
+  for (const width of [800, 1040, 1600]) {
+    win.setSize(width, 760);
+    for (const collapsed of [false, true]) {
+      layoutChecks.push(await win.webContents.executeJavaScript(`(async () => {
+        document.body.classList.toggle('nav-collapsed', ${collapsed});
+        document.querySelectorAll('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-sessions'));
+        document.querySelector('[data-session-mode="custom"]').click();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const rect = selector => document.querySelector(selector).getBoundingClientRect();
+        const center = selector => { const r = rect(selector); return r.x + r.width / 2; };
+        const mobile = innerWidth <= 900;
+        const rail = rect('.rail');
+        const sidebarAligned = mobile || !${collapsed} || ['.logo-mark', '#nav-toggle', '.nav-btn', '#notif-btn', '#pause-btn', '#source-pill'].every(s => Math.abs(center(s) - center('.rail')) <= 1);
+        const mobileRail = !mobile || (rail.width >= rect('.shell').width - 1 && rect('#nav-toggle').width === 0);
+        const customAligned = Math.abs(center('#session-custom-min') - center('#session-start-btn')) <= 1;
+        const card = rect('#session-timer-card');
+        const controlsInside = ['#session-custom-min', '#session-start-btn', '.session-mode-control'].every(s => { const r = rect(s); return r.left >= card.left && r.right <= card.right; });
+        return { width: innerWidth, collapsed: ${collapsed}, sidebarAligned, mobileRail, customAligned, controlsInside };
+      })()`));
+      if (width === 1040 && collapsed) {
+        await win.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+        fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-sessions-layout.png'), (await win.webContents.capturePage()).toPNG());
+      }
+    }
+  }
+  console.log('Layout checks:', JSON.stringify(layoutChecks));
+  await win.webContents.executeJavaScript("document.body.classList.remove('nav-collapsed')");
   for (const width of [800, 1040, 1600]) {
     win.setSize(width, 760);
     await win.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
@@ -54,7 +87,12 @@ app.whenReady().then(async () => {
     const siteKey = keywordForQuickClassify({ app: 'chrome', title: 'Unhelpful title', url: 'https://example.com' }) === 'site:example.com';
     const siteCategory = defaultCategoryFromRules({ app: 'chrome', url: 'https://learn.youtube.com', title: 'youtube' }, { productive: ['site:learn.youtube.com'], unproductive: ['youtube'] }, []) === 'productive';
     if (!siteKey || !siteCategory) throw new Error('Website quick tagging or classification failed');
-    return { loaded, removed, siteKey, siteCategory };
+    fillRulesEditors({ productive: ['github'], unproductive: ['youtube'], browserApps: ['researchtool'] });
+    const genericBrowsers = ['Browser.exe', 'Research Browser', 'Firefox', 'LibreWolf', 'researchtool'].every(app =>
+      isBrowserApp(app) && defaultCategoryFromRules({ app, title: 'YouTube video' }, cachedRules, []) === 'unproductive');
+    const nativeEditor = !isBrowserApp('chrome-helper.exe') && !isBrowserApp('Code');
+    if (!genericBrowsers || !nativeEditor) throw new Error('Browser identity/classification mismatch in renderer');
+    return { loaded, removed, siteKey, siteCategory, genericBrowsers, nativeEditor };
   })()`);
   console.log('Tag input checks:', JSON.stringify(tagChecks));
   const segmentChecks = await win.webContents.executeJavaScript(`(() => {
@@ -104,7 +142,7 @@ app.whenReady().then(async () => {
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-home.png'), screenshot.toPNG());
   fs.writeFileSync(path.join(os.tmpdir(), 'sydtrack-ui-results.json'), JSON.stringify(results.flat(), null, 2));
   const failed = results.flat().some((r) => r.overflow || !r.timeInside) || !tagChecks.loaded || !tagChecks.removed || hoverChecks.some(r => !r.stayedVisible || !r.leftHidden) || !segmentChecks.analyticsPreserved || !segmentChecks.sessionPreserved;
-  app.exit(failed ? 1 : 0);
+  app.exit(failed || layoutChecks.some(r => !r.sidebarAligned || !r.mobileRail || !r.customAligned || !r.controlsInside) ? 1 : 0);
 }).catch((error) => { console.error(error); app.exit(1); });
 
 setTimeout(() => { console.error('UI checks timed out'); app.exit(1); }, 20000).unref();

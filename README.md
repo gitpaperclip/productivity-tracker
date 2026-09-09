@@ -9,9 +9,9 @@ SydTrack is a local-first Windows productivity tracker that watches your active 
 ## Features
 
 - **Local active-window tracking:** records foreground applications on Windows.
-- **Productive by default for browsers:** Chrome, Edge, Firefox, Brave, Opera, and Chromium are productive when no keyword matches.
+- **Browser-independent title tracking:** recognized browsers, apps named Browser, and configured browser identities are productive when no title keyword matches. No browser extension is needed.
 - **Keyword overrides:** unproductive keywords such as YouTube take priority over the browser default.
-- **Website tags:** use `site:example.com` in Focus Tags to classify a website and its subdomains. Home quick-tagging uses the website when its address is available.
+- **Portable website rules:** existing `site:example.com` tags are retained, but require a captured address. Normal Windows tracking currently uses title keywords; automatic address capture remains experimental and disabled.
 - **Separate app categories:** the same app can appear in both productive and unproductive analytics with separate time totals.
 - **Home:** mood, time pie, last-focused app, FocusBoost, and quick productive/unproductive/ignore actions.
 - **Analytics:** day, week, month, hourly, and app views.
@@ -22,6 +22,7 @@ SydTrack is a local-first Windows productivity tracker that watches your active 
 - **FocusBoost:** shorter reminders for unproductive streaks, with optional schedules.
 - **Portable data:** local `.sydtrack` backups and `.sydtrack-profile` focus-tag packs.
 - **Tray operation:** keeps tracking quietly while the main window is hidden.
+- **Consistent layout:** collapsed sidebar controls share a center line; narrow windows retain horizontal navigation, and custom-session minutes align with the Start button.
 
 ## Privacy
 
@@ -76,7 +77,11 @@ Classification checks process names, window titles, URLs, and configured keyword
 
 Add website tags to the existing Productive or Unproductive lists (one per line). Use a domain without a path or wildcard, such as `site:youtube.com`. Ignore still applies to whole applications. Website tags travel with existing backups and profile packs; no data migration is needed. Older app versions preserve these strings but do not interpret them as website rules.
 
-Windows address capture is a best-effort UI Automation probe of recognized browser address-bar controls. It does not inspect page documents or use browser extensions. The probe retains only the hostname, drops paths and queries, and falls back to title keywords if unavailable, timed out, or the window/title changed. Editing the address bar also uses title fallback. Browser versions and localized controls may differ; live Chrome/Edge/Firefox verification is still pending for this implementation. A separate probe adds capture latency and is limited to three seconds. Existing analytics remain app/category totals, not a browsing-history view.
+Normal Windows tracking reads the foreground application and window title. For browsers, add title keywords such as `youtube` or `github` in Focus Tags. It makes no address-bar query and does not read typed but unsubmitted addresses. This works independently of browser engine, provided the browser exposes a meaningful foreground title. Pages with vague or missing titles cannot be classified reliably from their website; they use the existing productive browser default unless a keyword matches.
+
+Recognition includes Chrome, Firefox and other named browsers, an executable named `Browser.exe`, and application names ending in a separate `Browser` word. Add an unfamiliar executable name to `browserApps` in your app-data `app-identities.json`, then restart. Existing identity files without this optional array continue to work. Main tracking and the UI share the same recognition rules. A document title mentioning "browser" does not turn its native application into a browser.
+
+The address-bar prototype remains disabled in production: live Chrome testing exposed unsubmitted-address capture and an unreliable focus guard. It can only be enabled explicitly by a developer through the backend factory for testing. Existing `site:` rules and profile packs remain readable, but these rules do not match ordinary title-only Windows samples. Do not rely on them instead of title keywords yet. No stored history is rewritten when this capture behavior changes.
 
 `app-identities.json` contains the configurable process/app identities. On first run SydTrack copies it to its app-data folder, where it can be customized without editing the installed app (restart after editing). Identities match exact process names or executable basenames, with or without `.exe`. Browser identities never override content classification. Invalid JSON falls back to bundled identities while preserving the custom file.
 
@@ -101,6 +106,6 @@ Imported settings apply the same behavior as Settings controls. In particular, i
 
 ## Project Status
 
-SydTrack is an actively developed Windows desktop application. Browser tracking uses foreground titles and best-effort website detection. It remains focused on simple productivity totals and reminders, without a browsing-history dashboard or background-tab monitoring.
+SydTrack is an actively developed Windows desktop application. Default browser tracking uses foreground titles; automatic website detection is deferred pending reliable browser-independent validation. It remains focused on simple productivity totals and reminders, without a browsing-history dashboard or background-tab monitoring.
 
 License: GPL v3

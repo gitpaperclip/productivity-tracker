@@ -226,6 +226,7 @@ body {
   background: rgba(251,113,133,0.08);
 }
 .notif-label { letter-spacing: 0.04em; margin-left: auto; text-align: right; }
+@media (min-width: 901px) {
 body.nav-collapsed .notif-label { display: none; }
 body.nav-collapsed .notif-toggle {
   justify-content: center;
@@ -241,6 +242,7 @@ body.nav-collapsed .notif-toggle {
 body.nav-collapsed .notif-toggle .notif-ico {
   width: 14px;
   height: 14px;
+}
 }
 .status-pill {
   display: inline-flex; align-items: center; justify-content: center;
@@ -299,6 +301,7 @@ body.nav-collapsed .notif-toggle .notif-ico {
 .pause-power-ico {
   display: block;
 }
+@media (min-width: 901px) {
 body.nav-collapsed .rail-foot {
   padding: 8px 8px 16px;
   gap: 10px;
@@ -314,6 +317,7 @@ body.nav-collapsed .rail-status-row {
 body.nav-collapsed .pause-power {
   width: 26px;
   height: 26px;
+}
 }
 
 .main {
@@ -1086,33 +1090,6 @@ h4.unprod { color: var(--unprod); }
     overflow-y: visible;
   }
   .nav-toggle { display: none; }
-  /* Collapse class must not shrink the horizontal rail */
-  body.nav-collapsed .shell { grid-template-columns: 1fr; }
-  body.nav-collapsed .logo > div,
-  body.nav-collapsed .nav-label {
-    max-width: 160px;
-    opacity: 1;
-  }
-  body.nav-collapsed .nav-btn {
-    justify-content: flex-start;
-    padding-left: 12px;
-    padding-right: 12px;
-    gap: 10px;
-  }
-  body.nav-collapsed .nav-btn .nav-ico { font-size: inherit; opacity: 0.7; }
-  body.nav-collapsed .rail-foot .tiny {
-    display: block;
-    max-height: 40px;
-    opacity: 1;
-  }
-  body.nav-collapsed .status-pill {
-    font-size: 12px;
-    width: auto;
-    height: auto;
-    padding: 7px 10px;
-    margin: 0;
-    border-radius: 999px;
-  }
 }
 
 .switch-row, .field {
@@ -1381,7 +1358,7 @@ code { font-family: var(--mono); color: #c7d2fe; font-size: 12px; }
   font-size: 14px;
   line-height: 1;
   align-self: flex-start;
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   transition: color 160ms ease, border-color 160ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1395,6 +1372,17 @@ code { font-family: var(--mono); color: #c7d2fe; font-size: 12px; }
   border-width: 5px 7px 5px 0;
   border-color: transparent currentColor transparent transparent;
   margin-right: 1px;
+}
+@media (min-width: 901px) {
+.nav-toggle { display: inline-flex; }
+body.nav-collapsed .logo {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+body.nav-collapsed .nav-toggle {
+  align-self: center;
+  margin-inline: 0;
 }
 body.nav-collapsed .rail {
   width: 72px;
@@ -1479,6 +1467,7 @@ body.nav-collapsed .status-pill.fallback-demo {
   border-color: rgba(255, 255, 255, 0.22);
 }
 body.nav-collapsed .nav-toggle { transform: scaleX(-1); }
+}
 
 /* —— FocusBoost compact (Home top-right) —— */
 .focusboost-btn {
@@ -2518,7 +2507,8 @@ body[data-boost="on"]::after {
 .session-timer-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: center;
+  min-width: 4.5rem;
   align-items: center;
   gap: 0.75rem;
   margin: 0;

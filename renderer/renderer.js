@@ -115,6 +115,7 @@ const api = window.sydtrack;
 let applying = false;
 /** Cached rules/ignore for one-click reclassify. */
 let cachedRules = { productive: [], unproductive: [] };
+let cachedBrowserApps = [];
 let cachedIgnore = [];
 let tagsQuickSaving = false;
 const settingsOverrides = Object.create(null);
@@ -350,8 +351,7 @@ function updateSourcePill(now) {
 
 
 function isBrowserApp(app) {
-  const a = String(app || '').toLowerCase();
-  return /chrome|msedge|\bedge\b|firefox|brave|opera|chromium/.test(a);
+  return window.sydtrackBrowserRules.isBrowserName(app, cachedBrowserApps);
 }
 
 /**
@@ -1999,6 +1999,7 @@ function linesToList(text) {
 
 function fillRulesEditors(rules) {
   if (!rules) return;
+  if (Array.isArray(rules.browserApps)) cachedBrowserApps = rules.browserApps.slice();
   cachedRules = {
     productive: rules.productive || [],
     unproductive: rules.unproductive || []

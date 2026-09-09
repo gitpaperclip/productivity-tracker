@@ -2,22 +2,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const { classifyBrowser } = require('./browser-rules');
+const { classifyBrowser, browserNames, isBrowserName } = require('./browser-rules');
 
 const DEFAULT_RULES_PATH = path.join(__dirname, 'rules.json');
 const DEFAULT_IGNORE_PATH = path.join(__dirname, 'ignore.json');
 const DEFAULT_APP_IDENTITIES_PATH = path.join(__dirname, 'app-identities.json');
 
-/** Known browser process-name fragments — bare browsers default to productive. */
-const BROWSER_PROCESSES = [
-  'chrome',
-  'msedge',
-  'edge',
-  'firefox',
-  'brave',
-  'opera',
-  'chromium'
-];
+/** Shared app identities, independent of browser engine or address-bar layout. */
+const BROWSER_PROCESSES = browserNames;
 
 /**
  * Normalize keyword arrays: trimmed, lowercase, unique, non-empty.
@@ -50,7 +42,8 @@ function normalizeIgnore(parsed) {
 function normalizeAppIdentities(parsed) {
   return {
     productiveApps: normalizeKeywords(parsed && parsed.productiveApps),
-    ignoredApps: normalizeKeywords(parsed && parsed.ignoredApps)
+    ignoredApps: normalizeKeywords(parsed && parsed.ignoredApps),
+    browserApps: normalizeKeywords(parsed && parsed.browserApps)
   };
 }
 
@@ -133,8 +126,9 @@ function processNameParts(win) {
   return { owner, base, baseNoExt, label };
 }
 
-function isBrowserProcess(win) {
-  return matchesProcess(win, [...BROWSER_PROCESSES, 'google chrome', 'microsoft edge', 'mozilla firefox', 'brave browser', 'opera browser']);
+function isBrowserProcess(win, identities) {
+  const { owner, base } = processNameParts(win);
+  return isBrowserName(owner, identities && identities.browserApps) || isBrowserName(base, identities && identities.browserApps);
 }
 
 function matchesProcess(win, identities) {
@@ -194,7 +188,7 @@ function isIgnored(win, ignoreList, identities) {
  */
 function classify(win, rules) {
   rules = rules || { productive: [], unproductive: [] };
-  const browser = isBrowserProcess(win);
+  const browser = isBrowserProcess(win, rules.identities);
   if (browser) return classifyBrowser(win, rules);
   // Explicit app tags remain editable; project/title words cannot override an identity.
   if (matchesProcess(win, rules.unproductive)) return 'unproductive';

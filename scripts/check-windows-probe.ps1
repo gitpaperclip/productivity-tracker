@@ -18,3 +18,7 @@ $addressSource = Get-Content (Join-Path $PSScriptRoot 'get-browser-address.ps1')
 $addressMatch = [regex]::Match($addressSource, "(?s)Add-Type @'\r?\n(.*?)\r?\n'@")
 if (-not $addressMatch.Success) { throw 'Browser native helper not found' }
 Add-Type $addressMatch.Groups[1].Value
+if ([SydTrackBrowserWindow]::ValidContentFocus([IntPtr]1, [IntPtr]1, [IntPtr]1)) { throw 'Browser chrome focus must use title fallback' }
+if ([SydTrackBrowserWindow]::ValidContentFocus([IntPtr]1, [IntPtr]1, [IntPtr]0)) { throw 'Unknown focus must use title fallback' }
+if ([SydTrackBrowserWindow]::ValidContentFocus([IntPtr]1, [IntPtr]2, [IntPtr]3)) { throw 'Changed foreground must use title fallback' }
+if (-not [SydTrackBrowserWindow]::ValidContentFocus([IntPtr]1, [IntPtr]1, [IntPtr]3)) { throw 'Content focus should allow the address probe' }

@@ -128,6 +128,7 @@ function loadAppIgnore() {
 
 function rulesPayload() {
   return {
+    browserApps: (identitiesHolder.identities && identitiesHolder.identities.browserApps) || [],
     productive: (rulesHolder.rules && rulesHolder.rules.productive) || [],
     unproductive: (rulesHolder.rules && rulesHolder.rules.unproductive) || [],
     path: rulesFilePath,

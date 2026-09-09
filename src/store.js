@@ -62,7 +62,7 @@ function categoryForStoredApp(name, current, rules) {
   const { isBrowserProcess, classify } = require('./classifier');
   const win = { owner: { name } };
   // Original browser titles/URLs are unavailable in history. Preserve their categories.
-  if (isBrowserProcess(win)) return current;
+  if (isBrowserProcess(win, rules && rules.identities)) return current;
   const classified = classify(win, rules);
   if (classified !== 'other') return classified;
   const unproductive = (rules && rules.unproductive) || [];

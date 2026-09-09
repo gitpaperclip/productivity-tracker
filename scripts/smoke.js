@@ -655,6 +655,22 @@ const { buildProfilePack, parseProfilePack } = require('../src/profile-pack');
 assert(parseProfilePack(JSON.stringify(buildProfilePack(siteRules))).productive[0] === 'site:learn.youtube.com', '#7 website tags survive existing profile packs');
 
 async function browserProbeChecks() {
+  const { createWindowsBackend } = require('../src/windows-backend');
+  let captureCalls = 0;
+  const titleBackend = createWindowsBackend({ run(exe, args, options, callback) {
+    captureCalls++;
+    callback(null, JSON.stringify({ window: { owner: { name: 'Browser' }, title: 'YouTube lecture', id: '123' }, idleSec: 12 }));
+  } });
+  const titleCapture = await titleBackend.getActiveWindow();
+  assert(captureCalls === 1 && titleCapture.window.url === '' && titleCapture.idleSec === 12, '#7 default capture uses one foreground probe and never reads unsubmitted addresses');
+  const customRules = { ...rules, identities: { productiveApps: ['researchtool'], browserApps: ['researchtool'] } };
+  for (const app of ['Browser.exe', 'Research Browser', 'Firefox', 'LibreWolf', 'Waterfox', 'Chrome', 'researchtool']) {
+    const win = { owner: { name: app }, title: 'YouTube lecture' };
+    assert(isBrowserProcess(win, customRules.identities) && classify(win, customRules) === 'unproductive', '#7 title classification independent of browser engine: ' + app);
+    assert(classify({ ...win, title: 'GitHub documentation' }, customRules) === 'productive', '#7 productive title classification: ' + app);
+  }
+  assert(!isBrowserProcess({ owner: { name: 'Code' }, title: 'Browser — YouTube project' }), '#7 document titles do not turn native editors into browsers');
+  assert(!browserRules.isBrowserName('chrome-helper.exe') && !browserRules.isBrowserName('browser_broker.exe'), '#7 browser helper processes are not matched by loose substrings');
   const { createTracker } = require('../src/tracker');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-sites-'));
   const siteStore = createStore(dir);
@@ -666,6 +682,11 @@ async function browserProbeChecks() {
   url = 'https://youtube.com'; clock += 1000; await tracker.poll();
   assert(siteStore.snapshot().byCategory.productive === 1 && siteStore.snapshot().byCategory.unproductive === 1, '#7 switching websites preserves separate category time');
   assert(tracker.getLastFocused().url === url, '#7 current website reaches Home quick tagging');
+  const customStore = createStore(fs.mkdtempSync(path.join(os.tmpdir(), 'sydtrack-custom-browser-')));
+  customStore.addSeconds('researchtool', 'productive', 7);
+  customStore.addSeconds('researchtool', 'unproductive', 3);
+  customStore.reclassifyStoredApps(customRules);
+  assert(customStore.snapshot().byCategory.productive === 7 && customStore.snapshot().byCategory.unproductive === 3, '#7 configured browsers preserve mixed historical categories');
   const rulesPath = path.join(dir, 'rules.json');
   saveRules(rulesPath, siteRules);
   assert(loadRulesFrom(rulesPath).productive[0] === 'site:learn.youtube.com', '#7 website tags survive settings roundtrip');
@@ -688,7 +709,7 @@ async function browserProbeChecks() {
   assert(await readBrowserAddress({ ...win, owner: { name: 'Code' } }, () => { throw new Error('unexpected probe'); }) === '', '#7 native apps never run address capture');
   if (process.platform === 'win32') {
     require('child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'check-windows-probe.ps1')], { windowsHide: true, timeout: 15000 });
-    assert(true, '#7 Windows probe compiles and idle ticks handle 32-bit rollover');
+    assert(true, '#7 Windows probe compiles, idle ticks handle rollover, and browser chrome/unknown focus rejects address capture');
   }
 }
 

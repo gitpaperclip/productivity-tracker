@@ -2,6 +2,21 @@
 
 // Shared by the classifier and renderer; no Electron or filesystem access.
 (function (root) {
+  const browserNames = Object.freeze([
+    'chrome', 'google chrome', 'msedge', 'edge', 'microsoft edge',
+    'firefox', 'mozilla firefox', 'brave', 'brave browser', 'opera', 'opera browser',
+    'chromium', 'vivaldi', 'waterfox', 'librewolf', 'floorp', 'zen', 'palemoon',
+    'pale moon', 'mullvadbrowser', 'mullvad browser', 'tor browser', 'arc', 'safari',
+    'duckduckgo', 'browser'
+  ]);
+  function normalizeAppName(value) {
+    return String(value || '').split(/[/\\]/).pop().trim().toLowerCase().replace(/\.exe$/, '');
+  }
+  function isBrowserName(value, extraNames) {
+    const name = normalizeAppName(value);
+    return !!name && (browserNames.includes(name) || /(?:^|[\s-])browser$/.test(name) ||
+      (Array.isArray(extraNames) && extraNames.some((item) => normalizeAppName(item) === name)));
+  }
   function hostname(value) {
     if (typeof value !== 'string' || !value.trim() || /\s/.test(value)) return '';
     try {
@@ -61,7 +76,7 @@
     }
   }
 
-  const api = { hostname, siteDomain, classifySite, classifyBrowser, validateSiteTags };
+  const api = { hostname, siteDomain, classifySite, classifyBrowser, validateSiteTags, browserNames, isBrowserName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.sydtrackBrowserRules = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

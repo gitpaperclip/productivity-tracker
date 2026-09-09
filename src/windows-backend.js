@@ -28,10 +28,12 @@ function readBrowserAddress(win, run = execFile) {
   });
 }
 
-function createWindowsBackend() {
+// Address capture is experimental: known editing/focus gaps must not affect
+// ordinary tracking. Production callers use foreground titles only.
+function createWindowsBackend({ experimentalAddressCapture = false, run = execFile } = {}) {
   function getActiveWindow() {
     return new Promise((resolve) => {
-      execFile(
+      run(
         'powershell.exe',
         ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', PS1],
         { windowsHide: true, timeout: TIMEOUT_MS, encoding: 'utf8', maxBuffer: 1024 * 1024 },
@@ -57,7 +59,7 @@ function createWindowsBackend() {
           if (brace >= 0) jsonText = text.slice(brace);
           try {
             const parsed = JSON.parse(jsonText);
-            if (parsed.window) parsed.window.url = await readBrowserAddress(parsed.window);
+            if (parsed.window) parsed.window.url = experimentalAddressCapture ? await readBrowserAddress(parsed.window, run) : '';
             resolve({ window: parsed.window || null, idleSec: Number(parsed.idleSec) || 0, error: parsed.error || null });
           } catch (parseErr) {
             resolve({
