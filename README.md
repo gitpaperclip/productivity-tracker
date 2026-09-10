@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./renderer/assets/logo-mark.png" width="200" alt="Logo">
   <br><br>
-<video src="https://github.com/user-attachments/assets/ff96b86b-1c90-4d81-b8c4-27b4ca297569" width="100%" autoplay loop muted playsinline style="pointer-events: none;"></video>
+<video src="https://github.com/user-attachments/assets/71ab84a4-04a8-404e-9be7-914084e00791" width="100%" autoplay loop muted playsinline style="pointer-events: none;"></video>
 
 SydTrack is a local-first Windows productivity tracker that watches your active window, classifies time as productive, unproductive, or other, and helps you understand where your day went.
 
